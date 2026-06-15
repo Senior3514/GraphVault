@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppFrame } from '../components/AppFrame';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: 'GraphVault — open and write. No folders, no file access.',
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <AppFrame>{children}</AppFrame>
+        <Analytics />
       </body>
     </html>
   );
