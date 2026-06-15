@@ -12,6 +12,20 @@ body {
   @apply bg-neutral-950 text-neutral-100 antialiased;
   font-feature-settings: 'cv11', 'ss01';
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Refined interactive defaults — smooth hover/focus transitions everywhere. */
+a,
+button,
+[role='button'] {
+  @apply transition-colors duration-150;
+}
+
+/* Inter-style numeric tabular figures for counters and stats. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Quieter, dark scrollbars so panels feel cohesive rather than OS-default. */
@@ -32,7 +46,7 @@ body {
 
 /* Crisp focus rings for keyboard users; pointer focus stays quiet. */
 :focus-visible {
-  @apply outline-none ring-2 ring-sky-500/60 ring-offset-0;
+  @apply outline-none ring-2 ring-sky-500/60 ring-offset-1 ring-offset-neutral-950;
 }
 
 /* Lightweight motion primitives used by the palette / popups. Gated to
@@ -50,6 +64,39 @@ body {
   from {
     opacity: 0;
     transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Landing page motion primitives */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes onboardingIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
   }
   to {
     opacity: 1;
@@ -143,4 +190,30 @@ body {
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* ============================================================================
+   Empty state helper — centred muted placeholder used across vault/graph views
+   ============================================================================ */
+.empty-state {
+  @apply flex flex-col items-center justify-center gap-3 py-16 text-center;
+}
+.empty-state-icon {
+  @apply flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-500;
+}
+.empty-state-title {
+  @apply text-sm font-medium text-neutral-400;
+}
+.empty-state-desc {
+  @apply max-w-xs text-xs leading-relaxed text-neutral-600;
+}
+
+/* ============================================================================
+   Micro-interaction: subtle scale + shadow lift on interactive card hover
+   ============================================================================ */
+.card-hover {
+  @apply transition-all duration-200;
+}
+.card-hover:hover {
+  @apply -translate-y-0.5 shadow-lg shadow-black/30;
 }

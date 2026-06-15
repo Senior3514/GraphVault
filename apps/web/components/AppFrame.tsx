@@ -17,6 +17,7 @@ import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { CommandPalette } from './CommandPalette';
+import { OnboardingHint } from './onboarding/OnboardingHint';
 import { Sidebar } from './Sidebar';
 import { VaultProvider } from '../lib/vault/VaultProvider';
 
@@ -76,10 +77,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
   }, [toggleCollapsed]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-neutral-950">
+    <div className="relative flex h-screen w-screen overflow-hidden bg-neutral-950">
       <Sidebar collapsed={hydrated && collapsed} onToggle={toggleCollapsed} />
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       <CommandPalette />
+      {/* Onboarding hint: shown only on first use, persisted-dismissed in localStorage */}
+      <OnboardingHint />
     </div>
   );
 }
