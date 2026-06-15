@@ -11,6 +11,10 @@
  *
  * New section (M22 / connectors):
  *  - Connectors: privacy-graded opt-in import connectors (phase 1: local only).
+ *
+ * New section (M20 / importers):
+ *  - Import from another app: one-click importers for Obsidian, Notion,
+ *    Logseq/Roam, and a generic fallback. All client-side, collision-safe.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -45,6 +49,7 @@ import {
   ConnectorError,
 } from '../../lib/connectors/types';
 import type { LocalImportConnector } from '../../lib/connectors/types';
+import { ALL_IMPORTERS, ImporterError, type Importer } from '../../lib/importers';
 
 /** Trigger a browser download of `data` under `filename`. */
 function downloadBlob(data: BlobPart, filename: string, type: string) {
@@ -415,6 +420,11 @@ export default function SettingsPage() {
       {/* Connectors (M22)                                                    */}
       {/* ------------------------------------------------------------------ */}
       <ConnectorsSection vault={vault} />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* App importers (M20)                                                 */}
+      {/* ------------------------------------------------------------------ */}
+      <AppImporterSection vault={vault} />
 
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5 text-xs text-neutral-500">
         <h2 className="text-sm font-semibold text-neutral-200">Privacy</h2>
@@ -1678,6 +1688,192 @@ function ConnectorsSection({ vault }: { vault: ReturnType<typeof useVaultContext
         More connectors (email, calendar, bookmarks) are planned for phase 2. They will route
         through your self-hosted server so credentials never touch the browser.
       </p>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// App importer section (M20 — one-click importers)
+// ---------------------------------------------------------------------------
+
+/**
+ * Settings section: "Import from another app".
+ *
+ * Lets the user pick a source app (Obsidian, Notion, Logseq/Roam, or the
+ * generic GraphVault backup importer), then drop or upload their export file.
+ * After conversion the summary (added / conflict copies / unchanged) is shown.
+ *
+ * All processing is client-side. Every import goes through the same
+ * collision-safe `vault.importNotes` path as the existing Import section.
+ */
+function AppImporterSection({ vault }: { vault: ReturnType<typeof useVaultContext> }) {
+  const [selectedId, setSelectedId] = useState<string>(ALL_IMPORTERS[0].id);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const selectedImporter: Importer =
+    ALL_IMPORTERS.find((imp) => imp.id === selectedId) ?? ALL_IMPORTERS[0];
+
+  const handleConvert = async (file: File) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const entries = await selectedImporter.convert(bytes, file.name);
+      if (entries.length === 0) {
+        setMsg({ kind: 'err', text: 'No importable notes found in the file.' });
+        return;
+      }
+      const summary = vault.importNotes(entries);
+      const parts: string[] = [`${summary.added} added`];
+      if (summary.renamed.length)
+        parts.push(`${summary.renamed.length} kept as copies (no overwrite)`);
+      if (summary.unchanged) parts.push(`${summary.unchanged} unchanged`);
+      setMsg({
+        kind: 'ok',
+        text: `Imported from "${file.name}": ${parts.join(', ')}.`,
+      });
+    } catch (err) {
+      const msg =
+        err instanceof ImporterError || err instanceof Error ? err.message : 'Import failed.';
+      setMsg({ kind: 'err', text: msg });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) void handleConvert(file);
+  };
+
+  const acceptAttr = selectedImporter.acceptedExtensions.join(',');
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <h2 className="text-sm font-semibold text-neutral-200">Import from another app</h2>
+      <p className="mt-1 text-xs text-neutral-500">
+        Switch to GraphVault in seconds. Pick your source app, then drop or upload your export.
+        Everything runs in your browser — no data leaves your device.
+      </p>
+
+      {/* Source app picker */}
+      <fieldset className="mt-4">
+        <legend className="mb-2 text-xs font-medium text-neutral-400">Source app</legend>
+        <div className="space-y-1">
+          {ALL_IMPORTERS.map((imp) => (
+            <label
+              key={imp.id}
+              className={[
+                'flex cursor-pointer items-start gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+                selectedId === imp.id
+                  ? 'bg-neutral-800 text-neutral-100'
+                  : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200',
+              ].join(' ')}
+            >
+              <input
+                type="radio"
+                name="importer-source"
+                value={imp.id}
+                checked={selectedId === imp.id}
+                onChange={() => {
+                  setSelectedId(imp.id);
+                  setMsg(null);
+                }}
+                className="mt-0.5 accent-sky-500"
+              />
+              <span>
+                <span className="font-medium">{imp.name}</span>
+                <span className="ml-1 text-xs text-neutral-500"> — {imp.description}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* Accepted file types note */}
+      <p className="mt-3 text-xs text-neutral-600">
+        Accepted:{' '}
+        {selectedImporter.acceptedExtensions.map((ext, i) => (
+          <span key={ext}>
+            {i > 0 && ', '}
+            <code className="text-neutral-500">{ext}</code>
+          </span>
+        ))}
+      </p>
+
+      {/* Drop zone */}
+      <div className="mt-3">
+        <div
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          aria-label={`Drop ${selectedImporter.name} export here`}
+          className={[
+            'flex min-h-[6rem] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors',
+            dragOver
+              ? 'border-neutral-400 bg-neutral-800/60'
+              : busy
+                ? 'border-neutral-700 bg-neutral-900/20 opacity-60'
+                : 'border-neutral-700 bg-neutral-900/20 hover:border-neutral-600',
+          ].join(' ')}
+        >
+          <p className="select-none text-xs text-neutral-500">
+            {dragOver
+              ? 'Drop to import'
+              : busy
+                ? 'Importing…'
+                : `Drop your ${selectedImporter.name} export here`}
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => fileRef.current?.click()}
+            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+          >
+            {busy ? 'Importing…' : 'Choose file…'}
+          </button>
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept={acceptAttr}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleConvert(file);
+            e.target.value = '';
+          }}
+        />
+      </div>
+
+      <p className="mt-2 text-xs text-neutral-500">
+        Import never overwrites: if a note already exists with different content, your copy is kept
+        alongside the imported one.
+      </p>
+
+      <div className="mt-2 min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+            {msg.text}
+          </span>
+        )}
+      </div>
     </section>
   );
 }

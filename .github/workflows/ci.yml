@@ -1,0 +1,65 @@
+# CI — runs on every push and pull request.
+# Full quality gauntlet: install → typecheck → lint → format:check → test → build:web
+# A single failure fails the job; no partial green.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+# Cancel in-flight runs for the same ref so stale runs don't block merges.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gauntlet:
+    name: Typecheck · Lint · Format · Test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node + pnpm ───────────────────────────────────────────────────────
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        # Reads packageManager field from root package.json automatically.
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      # ── Install ───────────────────────────────────────────────────────────
+      # --frozen-lockfile ensures the committed lockfile is never silently updated.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Gauntlet steps ────────────────────────────────────────────────────
+      # Order mirrors docs/agent-company/playbook.md §5, fastest checks first.
+
+      - name: Typecheck (all workspaces)
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      # pnpm -r run test runs each workspace's "test" script in topological order.
+      # Workspaces without a "test" script are silently skipped.
+      - name: Tests (all workspaces)
+        run: pnpm test
+
+      # build:web is the static export consumed by the Tauri desktop shell.
+      # Verified here so a broken export never sneaks into a release tag.
+      - name: Build web (static export)
+        run: pnpm run build:web

@@ -31,6 +31,7 @@ import { fuzzyMatch } from '../lib/vault/fuzzy';
 import { isFolderPickerSupported, openFolder } from '../lib/vault/openFolder';
 import { useVaultContext } from '../lib/vault/VaultProvider';
 import type { NotePath } from '../lib/vault/types';
+import { OPEN_BACKUP_HISTORY_EVENT } from './BackupHistory';
 
 /** Custom event the vault page listens for to toggle its preview pane. */
 export const TOGGLE_PREVIEW_EVENT = 'graphvault:toggle-preview';
@@ -219,6 +220,16 @@ export function CommandPalette() {
               const message = err instanceof Error ? err.message : String(err);
               window.alert(`Could not import folder: ${message}`);
             });
+        },
+      },
+      {
+        id: 'backup-history',
+        label: 'Version history / Restore backup…',
+        hint: 'Browse and restore automatic local snapshots (IndexedDB)',
+        glyph: '⏲',
+        keywords: 'backup history restore snapshot version undo recovery',
+        run: () => {
+          window.dispatchEvent(new Event(OPEN_BACKUP_HISTORY_EVENT));
         },
       },
     ];

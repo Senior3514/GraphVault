@@ -18,6 +18,14 @@
  * passphrase has been supplied yet, `ready` stays `false` and
  * `needsPassphrase` is `true`. The `VaultProvider` mounts a `PassphraseGate`
  * that calls `unlock(passphrase)` when the user submits.
+ *
+ * ## Auto-snapshot (version history)
+ *
+ * After each autosave the hook debounces a background IndexedDB snapshot via
+ * {@link BackupStore}. The delay is intentionally longer than the autosave
+ * debounce (autosave: immediate-on-change, snapshot: 5 s after the last change
+ * settles) so rapid typing does not produce hundreds of snapshots. The snapshot
+ * is fire-and-forget — a failure never blocks a render or an autosave.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -39,9 +47,15 @@ import {
   type ImportSummary,
 } from './vault';
 import { EncryptedVaultStore, isVaultEncryptedSentinel } from './encryption/EncryptedVaultStore';
+import { debounce } from './debounce';
+import { getBackupStore } from './backups';
 
 // Module-level default store (unencrypted path).
 const store = new AdapterVaultStore();
+
+// Debounce delay for auto-snapshots (ms). Longer than autosave so rapid edits
+// don't produce a snapshot per keystroke.
+const SNAPSHOT_DEBOUNCE_MS = 5_000;
 
 /**
  * Build a `RawStorage` interface backed by `window.localStorage`, or a
@@ -83,6 +97,12 @@ export interface UseVault {
   deleteNote(path: NotePath): void;
   importNotes(incoming: readonly ImportNote[]): ImportSummary;
   resetVault(): Promise<void>;
+  /**
+   * Restore a snapshot by id. Non-destructive: a "pre-restore" snapshot of
+   * the current state is taken first, then the snapshot notes are merged in
+   * via the collision-safe merge. Returns false if the snapshot was not found.
+   */
+  restoreFromSnapshot(snapshotId: string): Promise<boolean>;
 
   // -------------------------------------------------------------------------
   // Encryption API
@@ -132,6 +152,31 @@ export function useVault(): UseVault {
 
   // Holds the active EncryptedVaultStore when encryption is on.
   const encryptedStore = useRef<EncryptedVaultStore | null>(null);
+
+  // Debounced auto-snapshot function. Created once and stable across renders.
+  // The ref holds the latest rawNotes so the debounced callback always captures
+  // the most recent notes without needing to be re-created on every state change.
+  const latestNotesRef = useRef<Note[]>([]);
+  const debouncedSnapshotRef = useRef<ReturnType<typeof debounce> | null>(null);
+
+  // Initialise the debounced snapshot function once (browser only).
+  useEffect(() => {
+    if (typeof indexedDB === 'undefined') return; // SSR / Node guard
+    const fn = debounce(() => {
+      const notes = latestNotesRef.current;
+      if (notes.length === 0) return;
+      void getBackupStore()
+        .takeSnapshot(notes)
+        .then(() => getBackupStore().pruneOld())
+        .catch(() => {
+          // Snapshot failures are silent — never block a render or autosave.
+        });
+    }, SNAPSHOT_DEBOUNCE_MS);
+    debouncedSnapshotRef.current = fn;
+    return () => {
+      fn.cancel();
+    };
+  }, []);
 
   // Initial load from the persistence store (seeds on first run).
   useEffect(() => {
@@ -189,13 +234,22 @@ export function useVault(): UseVault {
   }, [notes]);
 
   // Persist whenever notes change (after the initial load).
+  // Also kicks off a debounced auto-snapshot so IDB history stays current.
   useEffect(() => {
     if (!ready) return;
+
+    // Keep the ref up to date so the debounced snapshot function captures the
+    // latest state without needing to be re-created.
+    latestNotesRef.current = rawNotes;
+
     if (encryptedStore.current) {
       void encryptedStore.current.save(rawNotes);
     } else {
       void store.save(rawNotes);
     }
+
+    // Trigger a debounced snapshot after the save settles. Fire-and-forget.
+    debouncedSnapshotRef.current?.();
   }, [rawNotes, ready]);
 
   // ---------------------------------------------------------------------------
@@ -313,6 +367,16 @@ export function useVault(): UseVault {
     setRawNotes(seeded);
   }, []);
 
+  const restoreFromSnapshot = useCallback(
+    async (snapshotId: string): Promise<boolean> => {
+      const merged = await getBackupStore().restoreSnapshot(snapshotId, rawNotes, mergeImport);
+      if (merged === undefined) return false;
+      setRawNotes(merged);
+      return true;
+    },
+    [rawNotes],
+  );
+
   const search = useCallback((query: string) => searchIndex.current?.search(query) ?? [], []);
 
   const resolveLink = useCallback(
@@ -339,6 +403,7 @@ export function useVault(): UseVault {
     deleteNote,
     importNotes,
     resetVault,
+    restoreFromSnapshot,
     encryptionEnabled,
     needsPassphrase,
     unlock,

@@ -1,0 +1,159 @@
+# Desktop Release — builds native installers for macOS / Linux / Windows.
+#
+# Triggers:
+#   • Push of a semver tag  v*  (e.g. v0.2.0)  → creates a GitHub Release draft
+#   • workflow_dispatch  → manual run, useful for pre-release builds
+#
+# What ships:
+#   macOS    →  .dmg  (universal if cross-compiled, arm64/x64 otherwise)
+#   Linux    →  .AppImage  +  .deb
+#   Windows  →  .msi  +  NSIS installer  (.exe)
+#
+# Required secrets (optional — builds succeed without them but installers are unsigned):
+#   macOS code-signing (if you want a notarised .dmg):
+#     APPLE_CERTIFICATE          Base64-encoded .p12 developer certificate
+#     APPLE_CERTIFICATE_PASSWORD Passphrase for the .p12
+#     APPLE_SIGNING_IDENTITY     "Developer ID Application: Name (TEAM_ID)"
+#     APPLE_ID                   Apple ID email used for notarisation
+#     APPLE_PASSWORD             App-specific password for notarisation
+#     APPLE_TEAM_ID              10-char Apple team ID
+#   Windows code-signing (if you want a signed .msi/.exe):
+#     WINDOWS_CERTIFICATE        Base64-encoded .pfx code-signing certificate
+#     WINDOWS_CERTIFICATE_PASSWORD Passphrase for the .pfx
+#   Tauri updater key (required only when tauri-plugin-updater is enabled):
+#     TAURI_SIGNING_PRIVATE_KEY  Ed25519 private key (tauri signer generate)
+#     TAURI_SIGNING_PRIVATE_KEY_PASSWORD Passphrase for the updater key
+#
+# If none of these are set the tauri-action still builds and uploads unsigned
+# installers — fine for a draft release reviewed before publication.
+
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Create release as draft?'
+        required: false
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+# Only the release-upload step needs write access to contents.
+# Code checkout and build are done with read-only permissions.
+permissions:
+  contents: read
+
+jobs:
+  build-tauri:
+    name: Build (${{ matrix.platform }})
+    permissions:
+      contents: write # required by tauri-action to upload assets and create the release
+    strategy:
+      fail-fast: false # if one platform fails, others keep going so you get partial artifacts
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+          - platform: ubuntu-latest
+            args: ''
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60 # Rust compile on a cold runner can take ~30-40 min
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node + pnpm ───────────────────────────────────────────────────────
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      # ── Linux system libraries (Tauri / WebKit2GTK) ───────────────────────
+      # See https://tauri.app/start/prerequisites/#linux
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            patchelf
+
+      # ── Rust ──────────────────────────────────────────────────────────────
+      - name: Set up Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # universal-apple-darwin requires both Apple targets
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      # Cache Cargo registry + build artefacts — dramatically speeds up reruns.
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'apps/desktop/src-tauri -> target'
+
+      # ── JS install ────────────────────────────────────────────────────────
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Web export (beforeBuildCommand in tauri.conf.json also runs this,
+      #    but running it explicitly first gives cleaner error output) ────────
+      - name: Build web static export
+        run: pnpm run build:web
+
+      # ── Tauri build + GitHub Release ──────────────────────────────────────
+      # tauri-action handles:
+      #   1. Running `tauri build` with the matrix args.
+      #   2. Creating (or updating) the GitHub Release draft.
+      #   3. Uploading platform-specific installer artefacts.
+      #
+      # The action reads APPLE_*, WINDOWS_CERTIFICATE*, and TAURI_SIGNING_*
+      # secrets automatically when present; it silently skips signing when absent.
+      - name: Build and upload release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS notarisation (optional — comment out if secrets not configured)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows signing (optional)
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          # Tauri updater (optional — only if tauri-plugin-updater is enabled)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'GraphVault ${{ github.ref_name }}'
+          releaseBody: |
+            See [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+            **Installers (unsigned unless signing secrets are configured):**
+            | Platform | File |
+            |---|---|
+            | macOS | `.dmg` (universal) |
+            | Linux | `.AppImage`, `.deb` |
+            | Windows | `.msi`, `.exe` (NSIS) |
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
