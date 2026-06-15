@@ -12,15 +12,37 @@ interface SearchBoxProps {
   onOpen(path: NotePath): void;
 }
 
+/** How long (ms) to wait after the last keystroke before running the search index. */
+const SEARCH_DEBOUNCE_MS = 180;
+
+/**
+ * Debounce a value: returns a copy that only updates after `delay` ms of
+ * stability. The initial value is available immediately (no first-render blank).
+ *
+ * Kept here (not in lib/vault/debounce.ts) to avoid mixing React imports into
+ * that test-friendly, pure-function module.
+ */
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
 export function SearchBox({ search, onOpen }: SearchBoxProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  // Debounce the raw query: MiniSearch only runs after the user pauses typing.
+  const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
+
   useEffect(() => {
-    setResults(query.trim() ? search(query) : []);
-  }, [query, search]);
+    setResults(debouncedQuery.trim() ? search(debouncedQuery) : []);
+  }, [debouncedQuery, search]);
 
   // Close on outside click.
   useEffect(() => {
