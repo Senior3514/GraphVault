@@ -72,14 +72,14 @@ pnpm --filter @graphvault/cli clean      # remove dist/
 
 ## Architecture
 
-| File | Role |
-|------|------|
-| `src/commands.ts` | Pure, IO-free command logic (testable with node:test) |
-| `src/vault.ts` | Filesystem reader — walks vault dir, returns NoteInput[] |
-| `src/format.ts` | Human-readable output formatters (return strings, no IO) |
-| `src/index.ts` | Entry point: parses args, calls vault reader + commands + formatters |
-| `src/types.ts` | Internal result types |
-| `src/commands.test.ts` | Unit tests for the pure command layer |
+| File                   | Role                                                                 |
+| ---------------------- | -------------------------------------------------------------------- |
+| `src/commands.ts`      | Pure, IO-free command logic (testable with node:test)                |
+| `src/vault.ts`         | Filesystem reader — walks vault dir, returns NoteInput[]             |
+| `src/format.ts`        | Human-readable output formatters (return strings, no IO)             |
+| `src/index.ts`         | Entry point: parses args, calls vault reader + commands + formatters |
+| `src/types.ts`         | Internal result types                                                |
+| `src/commands.test.ts` | Unit tests for the pure command layer                                |
 
 No third-party runtime dependencies — only `@graphvault/engine` (workspace) and
 Node.js built-ins (`node:fs`, `node:path`, `node:util`).

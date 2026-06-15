@@ -7,13 +7,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { NoteInput } from '@graphvault/engine';
-import {
-  buildFromNotes,
-  computeStats,
-  graphPayload,
-  listNotes,
-  searchNotes,
-} from './commands.js';
+import { buildFromNotes, computeStats, graphPayload, listNotes, searchNotes } from './commands.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures

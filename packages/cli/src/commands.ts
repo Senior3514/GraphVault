@@ -30,11 +30,7 @@ export function listNotes(index: GraphIndex): NoteEntry[] {
  * `contents` must be passed in parallel with `notes` (same index order)
  * so we can check the raw text without re-reading files.
  */
-export function searchNotes(
-  index: GraphIndex,
-  notes: NoteInput[],
-  query: string,
-): SearchResult[] {
+export function searchNotes(index: GraphIndex, notes: NoteInput[], query: string): SearchResult[] {
   const q = query.toLowerCase();
   const results: SearchResult[] = [];
 
@@ -89,9 +85,7 @@ export function computeStats(index: GraphIndex): StatsResult {
   for (const edge of index.edges) {
     if (edge.resolved) hasInbound.add(edge.target);
   }
-  const orphanNotes = [...index.nodes.keys()]
-    .filter((id) => !hasInbound.has(id))
-    .sort();
+  const orphanNotes = [...index.nodes.keys()].filter((id) => !hasInbound.has(id)).sort();
 
   return { noteCount, linkCount, resolvedLinkCount, tagCount, topTags, orphanNotes };
 }
