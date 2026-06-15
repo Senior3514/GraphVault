@@ -15,7 +15,7 @@ const SYSTEM_PROMPT =
   'The user will share content from their personal notes. ' +
   'Your responses should be concise, factual, and formatted in Markdown. ' +
   'Do not fabricate external URLs or references. ' +
-  'Respect the user\'s privacy: do not repeat or summarize their data back unnecessarily.';
+  "Respect the user's privacy: do not repeat or summarize their data back unnecessarily.";
 
 /**
  * Build the message array for a given action.
@@ -47,7 +47,8 @@ export function buildPrompt(
     case 'find-related': {
       const titlesSection =
         relatedTitles.length > 0
-          ? '\n\nOther notes in this vault (titles only):\n' + relatedTitles.map((t) => `- ${t}`).join('\n')
+          ? '\n\nOther notes in this vault (titles only):\n' +
+            relatedTitles.map((t) => `- ${t}`).join('\n')
           : '';
       const user: ChatMessage = {
         role: 'user',

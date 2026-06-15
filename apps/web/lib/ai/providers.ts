@@ -118,7 +118,9 @@ async function callOpenAICompatible(
   } catch (cause) {
     const msg = cause instanceof Error ? cause.message : 'Network error';
     // Never include the key in the thrown message.
-    throw new Error(`AI provider unreachable (${redactKey(apiKey)}): ${sanitiseErrorMessage(msg, apiKey)}`);
+    throw new Error(
+      `AI provider unreachable (${redactKey(apiKey)}): ${sanitiseErrorMessage(msg, apiKey)}`,
+    );
   }
 
   if (!res.ok) {
@@ -141,7 +143,9 @@ async function callOpenAICompatible(
   }
 
   if (!isOpenAIResponse(json)) {
-    throw new Error('AI provider response has unexpected shape (missing choices[0].message.content).');
+    throw new Error(
+      'AI provider response has unexpected shape (missing choices[0].message.content).',
+    );
   }
 
   return json.choices[0].message.content.trim();

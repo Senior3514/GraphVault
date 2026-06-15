@@ -27,9 +27,15 @@ const makeSessionStorage = () => {
   const store: Record<string, string> = {};
   return {
     getItem: (k: string) => store[k] ?? null,
-    setItem: (k: string, v: string) => { store[k] = v; },
-    removeItem: (k: string) => { delete store[k]; },
-    clear: () => { Object.keys(store).forEach((k) => delete store[k]); },
+    setItem: (k: string, v: string) => {
+      store[k] = v;
+    },
+    removeItem: (k: string) => {
+      delete store[k];
+    },
+    clear: () => {
+      Object.keys(store).forEach((k) => delete store[k]);
+    },
   };
 };
 
@@ -132,9 +138,7 @@ describe('chat() with kind=local and empty endpoint', () => {
       kind: 'local',
       localEndpoint: '',
     };
-    await assert.rejects(
-      () => chat(settings, [{ role: 'user', content: 'hello' }]),
-    );
+    await assert.rejects(() => chat(settings, [{ role: 'user', content: 'hello' }]));
 
     assert.equal(fetchCalled, false, 'fetch should not have been called with empty endpoint');
 

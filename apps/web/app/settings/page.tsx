@@ -1188,8 +1188,8 @@ function AIAssistantSection() {
       <div className="mt-2 rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-300">
         <strong>Privacy notice:</strong> your notes leave your device only if you enable a cloud
         provider below. <strong>Local</strong> and <strong>Off</strong> modes keep everything
-        on-device. API keys are stored in sessionStorage only and cleared when the tab closes —
-        they are never logged, synced, or sent anywhere other than the provider you choose.
+        on-device. API keys are stored in sessionStorage only and cleared when the tab closes — they
+        are never logged, synced, or sent anywhere other than the provider you choose.
       </div>
 
       {/* Provider selector */}
@@ -1245,7 +1245,10 @@ function AIAssistantSection() {
       {settings.kind === 'local' && (
         <div className="mt-4 space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-local-ep">
+            <label
+              className="mb-1 block text-xs font-medium text-neutral-400"
+              htmlFor="ai-local-ep"
+            >
               Endpoint
             </label>
             <input
@@ -1261,7 +1264,10 @@ function AIAssistantSection() {
             </p>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-local-model">
+            <label
+              className="mb-1 block text-xs font-medium text-neutral-400"
+              htmlFor="ai-local-model"
+            >
               Model
             </label>
             <input
@@ -1283,13 +1289,14 @@ function AIAssistantSection() {
           <div>
             <label className="mb-1 block text-xs font-medium text-neutral-400">Backend</label>
             <div className="flex gap-3 text-sm">
-              {(
-                [
-                  { backend: 'anthropic' as ByokBackend, label: 'Anthropic (Claude)' },
-                  { backend: 'openai-compatible' as ByokBackend, label: 'OpenAI-compatible' },
-                ]
-              ).map(({ backend, label }) => (
-                <label key={backend} className="flex cursor-pointer items-center gap-1.5 text-neutral-300">
+              {[
+                { backend: 'anthropic' as ByokBackend, label: 'Anthropic (Claude)' },
+                { backend: 'openai-compatible' as ByokBackend, label: 'OpenAI-compatible' },
+              ].map(({ backend, label }) => (
+                <label
+                  key={backend}
+                  className="flex cursor-pointer items-center gap-1.5 text-neutral-300"
+                >
                   <input
                     type="radio"
                     name="byok-backend"
@@ -1306,7 +1313,10 @@ function AIAssistantSection() {
 
           {/* API key */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-byok-key">
+            <label
+              className="mb-1 block text-xs font-medium text-neutral-400"
+              htmlFor="ai-byok-key"
+            >
               API key
             </label>
             <div className="flex gap-2">
@@ -1317,9 +1327,7 @@ function AIAssistantSection() {
                 onChange={(e) => update({ byokKey: e.target.value })}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder={
-                  settings.byokBackend === 'anthropic' ? 'sk-ant-…' : 'sk-…'
-                }
+                placeholder={settings.byokBackend === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
                 className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 font-mono"
               />
               <button
@@ -1339,7 +1347,10 @@ function AIAssistantSection() {
           {/* Endpoint (OpenAI-compatible only) */}
           {settings.byokBackend === 'openai-compatible' && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-byok-ep">
+              <label
+                className="mb-1 block text-xs font-medium text-neutral-400"
+                htmlFor="ai-byok-ep"
+              >
                 Endpoint
               </label>
               <input
@@ -1355,7 +1366,10 @@ function AIAssistantSection() {
 
           {/* Model */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-byok-model">
+            <label
+              className="mb-1 block text-xs font-medium text-neutral-400"
+              htmlFor="ai-byok-model"
+            >
               Model
             </label>
             <input
@@ -1370,8 +1384,8 @@ function AIAssistantSection() {
             />
             {settings.byokBackend === 'anthropic' && (
               <p className="mt-1 text-xs text-neutral-600">
-                Default: <code className="text-neutral-500">claude-sonnet-4-6</code>. Any
-                model your API key has access to works.
+                Default: <code className="text-neutral-500">claude-sonnet-4-6</code>. Any model your
+                API key has access to works.
               </p>
             )}
           </div>

@@ -20,7 +20,7 @@
  */
 
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { CommandPalette } from './CommandPalette';
 import { OnboardingHint } from './onboarding/OnboardingHint';
@@ -163,8 +163,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <CommandPalette />
       {/* Onboarding hint: shown only on first use, persisted-dismissed in localStorage */}
       <OnboardingHint />
-      {/* AI assistant panel — toggleable, off by default, privacy-first */}
-      <AssistantPanel />
+      {/* AI assistant panel — toggleable, off by default, privacy-first.
+          Wrapped in Suspense because it reads useSearchParams() (current note),
+          which requires a boundary for the static export to prerender. */}
+      <Suspense fallback={null}>
+        <AssistantPanel />
+      </Suspense>
       <AssistantButton />
     </div>
   );
