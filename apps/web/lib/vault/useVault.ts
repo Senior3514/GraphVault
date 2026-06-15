@@ -19,8 +19,11 @@ import {
   createNote as createNoteOp,
   deleteNote as deleteNoteOp,
   indexNotes,
+  mergeImport,
   renameNote as renameNoteOp,
   updateNoteContent as updateNoteContentOp,
+  type ImportNote,
+  type ImportSummary,
 } from './vault';
 
 const store = new LocalStorageVaultStore();
@@ -36,6 +39,7 @@ export interface UseVault {
   updateContent(path: NotePath, content: string): void;
   renameNote(from: NotePath, to: string): NotePath;
   deleteNote(path: NotePath): void;
+  importNotes(incoming: readonly ImportNote[]): ImportSummary;
   resetVault(): Promise<void>;
 }
 
@@ -122,6 +126,17 @@ export function useVault(): UseVault {
     setRawNotes((prev) => deleteNoteOp(prev, path));
   }, []);
 
+  const importNotes = useCallback((incoming: readonly ImportNote[]): ImportSummary => {
+    let summary: ImportSummary = { added: 0, renamed: [], unchanged: 0 };
+    setRawNotes((prev) => {
+      const result = mergeImport(prev, incoming);
+      summary = result.summary;
+      return result.notes;
+    });
+    // `summary` is assigned synchronously inside the updater above.
+    return summary;
+  }, []);
+
   const resetVault = useCallback(async () => {
     await store.clear();
     const seeded = await store.load();
@@ -148,6 +163,7 @@ export function useVault(): UseVault {
     updateContent,
     renameNote,
     deleteNote,
+    importNotes,
     resetVault,
   };
 }
