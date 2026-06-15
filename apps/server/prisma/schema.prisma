@@ -1,0 +1,135 @@
+// GraphVault sync server — PostgreSQL schema (spec §3).
+//
+// This schema is the durable backend selected via GRAPHVAULT_STORAGE=postgres.
+// In environments without a live database (and without `prisma generate` run),
+// the server defaults to the in-memory backend and never imports the generated
+// client, so this file is not required to build the default path.
+//
+// Generate with:  pnpm --filter @graphvault/server prisma:generate
+// Migrate with:   pnpm --filter @graphvault/server prisma:migrate
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/store/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  devices Device[]
+  vaults  Vault[]
+  tokens  Token[]
+
+  @@map("users")
+}
+
+model Device {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  lastSeen  DateTime @default(now()) @map("last_seen")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokens Token[]
+
+  @@index([userId])
+  @@map("devices")
+}
+
+// Opaque bearer tokens; only the SHA-256 hash of the token is stored.
+model Token {
+  tokenHash String   @id @map("token_hash")
+  userId    String   @map("user_id")
+  deviceId  String   @map("device_id")
+  expiresAt BigInt   @map("expires_at") // unix epoch seconds
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("tokens")
+}
+
+model Vault {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  name         String
+  headRevision Int      @default(0) @map("head_revision")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files     File[]
+  revisions Revision[]
+
+  @@index([userId])
+  @@map("vaults")
+}
+
+model File {
+  id               String   @id @default(uuid())
+  vaultId          String   @map("vault_id")
+  path             String
+  currentVersionId String?  @unique @map("current_version_id")
+  isDeleted        Boolean  @default(false) @map("is_deleted")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  vault          Vault         @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  versions       FileVersion[] @relation("FileVersions")
+  currentVersion FileVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+
+  @@unique([vaultId, path])
+  @@index([vaultId])
+  @@map("files")
+}
+
+model FileVersion {
+  id        String   @id @default(uuid())
+  fileId    String   @map("file_id")
+  hash      String? // null for a tombstone
+  size      Int
+  mtime     BigInt // unix epoch ms
+  deleted   Boolean  @default(false)
+  revision  Int // per-vault seq this version was recorded at
+  createdAt DateTime @default(now()) @map("created_at")
+
+  file        File  @relation("FileVersions", fields: [fileId], references: [id], onDelete: Cascade)
+  currentFor  File? @relation("CurrentVersion")
+
+  @@index([fileId])
+  @@index([revision])
+  @@map("file_versions")
+}
+
+// One row per accepted change-set step; seq is the per-vault head at that step.
+model Revision {
+  id        String   @id @default(uuid())
+  vaultId   String   @map("vault_id")
+  seq       Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  vault Vault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@unique([vaultId, seq])
+  @@index([vaultId])
+  @@map("revisions")
+}
+
+// Content-addressed blob metadata; the bytes live on disk under dataDir.
+model Blob {
+  hash      String   @id
+  size      Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("blobs")
+}

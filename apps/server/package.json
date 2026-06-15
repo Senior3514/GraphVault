@@ -9,14 +9,21 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc -b --noEmit",
+    "test": "tsx --test test/**/*.test.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",
     "@graphvault/shared": "workspace:*",
-    "fastify": "^5.2.0"
+    "argon2": "^0.44.0",
+    "fastify": "^5.2.0",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@prisma/client": "^6.2.1",
+    "prisma": "^6.2.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
