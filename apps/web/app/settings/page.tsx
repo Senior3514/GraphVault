@@ -32,6 +32,8 @@ import {
 } from '../../lib/vault/store';
 import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
 import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/exportToDirectory';
+import { useAISettings } from '../../components/assistant/useAISettings';
+import type { AISettings, ByokBackend } from '../../lib/ai/types';
 
 /** Trigger a browser download of `data` under `filename`. */
 function downloadBlob(data: BlobPart, filename: string, type: string) {
@@ -393,10 +395,16 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* AI assistant                                                        */}
+      {/* ------------------------------------------------------------------ */}
+      <AIAssistantSection />
+
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5 text-xs text-neutral-500">
         <h2 className="text-sm font-semibold text-neutral-200">Privacy</h2>
         <p className="mt-2">
-          No telemetry. The app only contacts the sync server URL you configure above.
+          No telemetry. The app only contacts the sync server URL you configure above, and the AI
+          provider you explicitly enable (if any).
         </p>
       </section>
     </main>
@@ -1145,6 +1153,250 @@ function VaultRegistrationSection({
       </form>
 
       <div className="mt-2 min-h-4">{msg && <Msg kind={msg.kind} text={msg.text} />}</div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI assistant settings section
+// ---------------------------------------------------------------------------
+
+function AIAssistantSection() {
+  const { settings, update } = useAISettings();
+  const [showKey, setShowKey] = useState(false);
+
+  const handleKindChange = (kind: AISettings['kind']) => {
+    update({ kind });
+  };
+
+  const handleByokBackendChange = (backend: ByokBackend) => {
+    // When switching to Anthropic, default the model if it looks like an OpenAI model.
+    const modelPatch: Partial<AISettings> = {};
+    if (backend === 'anthropic' && settings.byokModel.startsWith('gpt-')) {
+      modelPatch.byokModel = 'claude-sonnet-4-6';
+    } else if (backend === 'openai-compatible' && settings.byokModel.startsWith('claude-')) {
+      modelPatch.byokModel = 'gpt-4o-mini';
+    }
+    update({ byokBackend: backend, ...modelPatch });
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <h2 className="text-sm font-semibold text-neutral-200">AI assistant</h2>
+
+      {/* Unmissable privacy notice */}
+      <div className="mt-2 rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-300">
+        <strong>Privacy notice:</strong> your notes leave your device only if you enable a cloud
+        provider below. <strong>Local</strong> and <strong>Off</strong> modes keep everything
+        on-device. API keys are stored in sessionStorage only and cleared when the tab closes —
+        they are never logged, synced, or sent anywhere other than the provider you choose.
+      </div>
+
+      {/* Provider selector */}
+      <fieldset className="mt-4">
+        <legend className="mb-2 text-xs font-medium text-neutral-400">Provider</legend>
+        <div className="space-y-1">
+          {(
+            [
+              {
+                kind: 'off' as const,
+                label: 'Off (default)',
+                desc: 'No AI, no network. All assistant features are disabled.',
+              },
+              {
+                kind: 'local' as const,
+                label: 'Local (Ollama / llama.cpp)',
+                desc: 'Calls a localhost OpenAI-compatible endpoint. Notes never leave your machine.',
+              },
+              {
+                kind: 'byok' as const,
+                label: 'Bring your own key',
+                desc: 'Send requests to your own Anthropic or OpenAI-compatible account.',
+              },
+            ] satisfies { kind: AISettings['kind']; label: string; desc: string }[]
+          ).map(({ kind, label, desc }) => (
+            <label
+              key={kind}
+              className={[
+                'flex cursor-pointer items-start gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+                settings.kind === kind
+                  ? 'bg-neutral-800 text-neutral-100'
+                  : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200',
+              ].join(' ')}
+            >
+              <input
+                type="radio"
+                name="ai-provider-kind"
+                value={kind}
+                checked={settings.kind === kind}
+                onChange={() => handleKindChange(kind)}
+                className="mt-0.5 accent-sky-500"
+              />
+              <span>
+                <span className="font-medium">{label}</span>
+                <span className="ml-1 text-xs text-neutral-500"> — {desc}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* Local config */}
+      {settings.kind === 'local' && (
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-local-ep">
+              Endpoint
+            </label>
+            <input
+              id="ai-local-ep"
+              type="url"
+              value={settings.localEndpoint}
+              onChange={(e) => update({ localEndpoint: e.target.value })}
+              placeholder="http://localhost:11434/v1"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
+            />
+            <p className="mt-1 text-xs text-neutral-600">
+              Ollama default: <code className="text-neutral-500">http://localhost:11434/v1</code>
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-local-model">
+              Model
+            </label>
+            <input
+              id="ai-local-model"
+              type="text"
+              value={settings.localModel}
+              onChange={(e) => update({ localModel: e.target.value })}
+              placeholder="llama3"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* BYOK config */}
+      {settings.kind === 'byok' && (
+        <div className="mt-4 space-y-3">
+          {/* Backend selector */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Backend</label>
+            <div className="flex gap-3 text-sm">
+              {(
+                [
+                  { backend: 'anthropic' as ByokBackend, label: 'Anthropic (Claude)' },
+                  { backend: 'openai-compatible' as ByokBackend, label: 'OpenAI-compatible' },
+                ]
+              ).map(({ backend, label }) => (
+                <label key={backend} className="flex cursor-pointer items-center gap-1.5 text-neutral-300">
+                  <input
+                    type="radio"
+                    name="byok-backend"
+                    value={backend}
+                    checked={settings.byokBackend === backend}
+                    onChange={() => handleByokBackendChange(backend)}
+                    className="accent-sky-500"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* API key */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-byok-key">
+              API key
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="ai-byok-key"
+                type={showKey ? 'text' : 'password'}
+                value={settings.byokKey}
+                onChange={(e) => update({ byokKey: e.target.value })}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={
+                  settings.byokBackend === 'anthropic' ? 'sk-ant-…' : 'sk-…'
+                }
+                className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey((s) => !s)}
+                className="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs text-neutral-400 hover:text-neutral-200"
+                aria-label={showKey ? 'Hide key' : 'Show key'}
+              >
+                {showKey ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-neutral-600">
+              Stored in sessionStorage only — cleared when the tab closes. Never logged.
+            </p>
+          </div>
+
+          {/* Endpoint (OpenAI-compatible only) */}
+          {settings.byokBackend === 'openai-compatible' && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-byok-ep">
+                Endpoint
+              </label>
+              <input
+                id="ai-byok-ep"
+                type="url"
+                value={settings.byokEndpoint}
+                onChange={(e) => update({ byokEndpoint: e.target.value })}
+                placeholder="https://api.openai.com/v1"
+                className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
+              />
+            </div>
+          )}
+
+          {/* Model */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="ai-byok-model">
+              Model
+            </label>
+            <input
+              id="ai-byok-model"
+              type="text"
+              value={settings.byokModel}
+              onChange={(e) => update({ byokModel: e.target.value })}
+              placeholder={
+                settings.byokBackend === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-4o-mini'
+              }
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
+            />
+            {settings.byokBackend === 'anthropic' && (
+              <p className="mt-1 text-xs text-neutral-600">
+                Default: <code className="text-neutral-500">claude-sonnet-4-6</code>. Any
+                model your API key has access to works.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Status pill */}
+      <div className="mt-4">
+        <span
+          className={[
+            'inline-block rounded px-2 py-0.5 text-xs font-medium',
+            settings.kind === 'off'
+              ? 'bg-neutral-800 text-neutral-500'
+              : settings.kind === 'local'
+                ? 'bg-emerald-950 text-emerald-300'
+                : 'bg-sky-950 text-sky-300',
+          ].join(' ')}
+        >
+          {settings.kind === 'off'
+            ? 'AI is off — no network calls will be made'
+            : settings.kind === 'local'
+              ? 'Local inference — notes stay on-device'
+              : 'Cloud key — notes sent to your provider'}
+        </span>
+      </div>
     </section>
   );
 }

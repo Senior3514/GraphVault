@@ -26,6 +26,8 @@ import { CommandPalette } from './CommandPalette';
 import { OnboardingHint } from './onboarding/OnboardingHint';
 import { Sidebar } from './Sidebar';
 import { VaultProvider } from '../lib/vault/VaultProvider';
+import { AssistantPanel } from './assistant/AssistantPanel';
+import { AssistantButton } from './assistant/AssistantButton';
 
 const COLLAPSE_KEY = 'graphvault.sidebar.collapsed';
 
@@ -161,6 +163,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <CommandPalette />
       {/* Onboarding hint: shown only on first use, persisted-dismissed in localStorage */}
       <OnboardingHint />
+      {/* AI assistant panel — toggleable, off by default, privacy-first */}
+      <AssistantPanel />
+      <AssistantButton />
     </div>
   );
 }
