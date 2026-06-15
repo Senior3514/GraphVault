@@ -92,6 +92,8 @@
 - ✅ Docs: quickstart, self-hosting, security model, data portability; public-launch README (scrubbed); one-command install table
 - ✅ Accessibility pass: focus traps + restoration, skip-link, ARIA + live regions, WCAG AA
 - ✅ QA gauntlet + review (data-loss / privacy / security CLEAR; 2 fixes applied)
+- ⬜ Light/dark theming via design tokens (system preference + persisted override)
+- ⬜ "+ to add files" primary action: bottom-thumb FAB (mobile) + file-tree header (desktop)
 - ⬜ Tagged v0.1.0 release → native installers via CI
 
 ## Milestone 18 — Universal storage providers (your data, literally anywhere) 🟡
@@ -138,6 +140,10 @@ device unless the user enables a provider.
   sessionStorage, redacted from errors, never logged; button hidden when off
 - ✅ Graph intelligence: AI-named clusters, related-notes, gap-finding overlays
   (titles + topology only; off by default; confirm-before-send)
+- ⬜ **Server-side AI proxy (BFF)** — keys live on the user's self-hosted server
+  (encrypted), never the browser; **OpenRouter** as default gateway (400+ models)
+  - per-key spend caps. (Research-backed: client-stored secrets are extractable.)
+- ⬜ MCP server — expose the vault to external agents (Claude) for interoperability
 
 ## Milestone 22 — Connectors (email & everything, privacy-graded) 🟡
 
