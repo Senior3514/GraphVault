@@ -67,7 +67,9 @@
 - ✅ Security review of render/XSS + import paths (passed)
 - ✅ Encryption wired into Settings: `EncryptedVaultStore` decorator + passphrase gate + safe enable/disable
 - ✅ Strict CSP (`<meta>` + `vercel.json` headers) + X-Content-Type-Options / Referrer-Policy / X-Frame-Options / Permissions-Policy
-- ⬜ Performance budget: virtualize long lists, debounce indexing, lazy graph
+- ✅ Performance: virtualized note list + debounced search
+- ✅ Automatic backups / version history (IndexedDB, non-destructive restore) — data-loss safety net
+- ⬜ Lazy-load graph; CSP Trusted Types (CSP shipped)
 
 ## Milestone 14b — Graph v2 extras ✅
 
@@ -79,7 +81,7 @@
   runs as a standalone desktop app from any modern browser, auto-updating (the
   "run it right now, any OS" path)
 - ✅ Tauri 2 shell scaffold (`apps/desktop`) wrapping the web export + `TauriStorageAdapter`
-- ⬜ CI workflow to build signed Win/Mac/Linux Tauri installers
+- ✅ CI gauntlet workflow + Tauri release workflow (Win/Mac/Linux installers on `v*` tags)
 - ⬜ Native file watching; open an existing folder as a vault (web: "Open folder" ✅)
 
 ## Milestone 17 — Polish, onboarding & launch 🟡
@@ -114,8 +116,8 @@ providers go through the self-hosted server (keys never touch the browser).
 
 Make GraphVault the most _usable_ knowledge tool — it goes where you are.
 
-- ⬜ One-click importers from Obsidian / Notion / Roam / Logseq / plain folders
-- ⬜ Embeddable read-only graph widget (`<iframe>` / web component) for sharing
+- ✅ One-click importers: Obsidian / Notion / Roam / Logseq / plain folders
+- ✅ Embeddable read-only graph (`/embed?s=…`, privacy-safe snapshot) + Share button
 - ⬜ Public shareable graph snapshots (opt-in, no account)
 - ⬜ CLI + local HTTP API for power users / automation
 - ⬜ URL scheme + share targets (clip from any app)
