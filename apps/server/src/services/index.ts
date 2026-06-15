@@ -19,8 +19,12 @@ export interface Services {
   blob: BlobService;
 }
 
-export function createServices(storage: Storage, dataDir: string): Services {
-  const blobStore = new DiskBlobStore(dataDir);
+export function createServices(
+  storage: Storage,
+  dataDir: string,
+  encryptionKey?: Buffer,
+): Services {
+  const blobStore = new DiskBlobStore(dataDir, encryptionKey);
   return {
     auth: new AuthService(storage),
     vault: new VaultService(storage),

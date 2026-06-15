@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { after, before } from 'node:test';
@@ -18,7 +18,15 @@ function sha256(bytes: Buffer): string {
 
 before(async () => {
   dataDir = await mkdtemp(join(tmpdir(), 'gv-test-'));
-  const config = loadConfig({ GRAPHVAULT_DATA_DIR: dataDir, NODE_ENV: 'test' });
+  const config = loadConfig({
+    GRAPHVAULT_DATA_DIR: dataDir,
+    NODE_ENV: 'test',
+    // Keep limits effectively disabled for the shared app so the many auth
+    // calls across the protocol tests don't trip rate limiting; dedicated
+    // tests below exercise the limits with their own low-cap apps.
+    GRAPHVAULT_RATE_LIMIT_MAX: '100000',
+    GRAPHVAULT_AUTH_RATE_LIMIT_MAX: '100000',
+  });
   app = await buildApp(config, { storage: new InMemoryStorage() });
   await app.ready();
 });
@@ -407,4 +415,138 @@ test('delete vs edit yields DELETE_EDIT_CONFLICT', async () => {
     },
   });
   assert.equal(del.json().conflicts[0].kind, 'DELETE_EDIT_CONFLICT');
+});
+
+// --- Milestone 8: security hardening ---
+
+test('server-info reports non-sensitive posture flags', async () => {
+  const res = await app.inject({ method: 'GET', url: '/v1/server-info' });
+  assert.equal(res.statusCode, 200);
+  const info = res.json();
+  assert.equal(info.storage, 'memory');
+  assert.equal(info.encryptionAtRest, false);
+  assert.equal(info.rateLimit.enabled, true);
+  assert.equal(info.requireHttps, false);
+  assert.equal(info.trustProxy, false);
+  // Never leak secrets/keys/connection strings.
+  const serialized = JSON.stringify(info);
+  assert.ok(!/encryptionKey|databaseUrl|password|secret/i.test(serialized), serialized);
+});
+
+test('blob routes reject a malformed :hash before touching disk', async () => {
+  const { token } = await register('mallory@example.com');
+  for (const bad of ['not-a-hash', 'sha256:zzzz', 'sha1:abc', '../etc/passwd']) {
+    const get = await app.inject({
+      method: 'GET',
+      url: `/v1/blobs/${encodeURIComponent(bad)}`,
+      headers: authHeader(token),
+    });
+    assert.equal(get.statusCode, 400, `GET ${bad} -> ${get.statusCode}`);
+    assert.equal(get.json().error.code, 'BAD_REQUEST');
+
+    const put = await app.inject({
+      method: 'PUT',
+      url: `/v1/blobs/${encodeURIComponent(bad)}`,
+      headers: { ...authHeader(token), 'content-type': 'application/octet-stream' },
+      payload: Buffer.from('x'),
+    });
+    assert.equal(put.statusCode, 400, `PUT ${bad} -> ${put.statusCode}`);
+  }
+});
+
+test('auth routes rate-limit aggressive clients with 429', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gv-rl-'));
+  const config = loadConfig({
+    GRAPHVAULT_DATA_DIR: dir,
+    NODE_ENV: 'test',
+    GRAPHVAULT_AUTH_RATE_LIMIT_MAX: '3',
+    GRAPHVAULT_RATE_LIMIT_WINDOW: '60000',
+  });
+  const rlApp = await buildApp(config, { storage: new InMemoryStorage() });
+  await rlApp.ready();
+  try {
+    let limited = false;
+    for (let i = 0; i < 6; i++) {
+      const res = await rlApp.inject({
+        method: 'POST',
+        url: '/v1/auth/login',
+        payload: { email: `rl${i}@example.com`, password: PASSWORD },
+      });
+      if (res.statusCode === 429) {
+        limited = true;
+        assert.equal(res.json().error.code, 'RATE_LIMITED');
+        break;
+      }
+    }
+    assert.ok(limited, 'expected a 429 within the auth rate-limit window');
+  } finally {
+    await rlApp.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('at-rest encryption: blob round-trips and on-disk bytes differ', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gv-enc-'));
+  // 32-byte key, base64-encoded.
+  const key = Buffer.alloc(32, 7).toString('base64');
+  const config = loadConfig({
+    GRAPHVAULT_DATA_DIR: dir,
+    NODE_ENV: 'test',
+    GRAPHVAULT_ENCRYPTION_KEY: key,
+    GRAPHVAULT_AUTH_RATE_LIMIT_MAX: '100000',
+  });
+  const encApp = await buildApp(config, { storage: new InMemoryStorage() });
+  await encApp.ready();
+  try {
+    const info = (await encApp.inject({ method: 'GET', url: '/v1/server-info' })).json();
+    assert.equal(info.encryptionAtRest, true);
+
+    const reg = await encApp.inject({
+      method: 'POST',
+      url: '/v1/auth/register',
+      payload: { email: 'enc@example.com', password: PASSWORD, deviceName: 'd' },
+    });
+    const token = reg.json().accessToken;
+
+    const content = Buffer.from('secret note content that must be encrypted at rest');
+    const hash = sha256(content);
+
+    const put = await encApp.inject({
+      method: 'PUT',
+      url: `/v1/blobs/${hash}`,
+      headers: { ...authHeader(token), 'content-type': 'application/octet-stream' },
+      payload: content,
+    });
+    assert.equal(put.statusCode, 201, put.body);
+    // Size reported is the PLAINTEXT length (protocol/dedupe unchanged).
+    assert.equal(put.json().size, content.length);
+    assert.equal(put.json().hash, hash);
+
+    // Round-trip returns the original plaintext.
+    const get = await encApp.inject({
+      method: 'GET',
+      url: `/v1/blobs/${hash}`,
+      headers: authHeader(token),
+    });
+    assert.equal(get.statusCode, 200);
+    assert.deepEqual(get.rawPayload, content);
+
+    // The bytes on disk must be ciphertext, not the plaintext.
+    const hex = hash.slice('sha256:'.length);
+    const onDiskPath = join(dir, 'blobs', hex.slice(0, 2), hex.slice(2, 4), hex);
+    const onDisk = await readFile(onDiskPath);
+    assert.notDeepEqual(onDisk, content, 'on-disk bytes should be encrypted');
+    assert.ok(onDisk.length > content.length, 'ciphertext frame carries nonce+tag overhead');
+    assert.ok(!onDisk.includes(content), 'plaintext must not appear on disk');
+  } finally {
+    await encApp.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a malformed encryption key fails fast', () => {
+  assert.throws(() =>
+    loadConfig({ GRAPHVAULT_ENCRYPTION_KEY: Buffer.alloc(16, 1).toString('base64') }),
+  );
+  assert.throws(() => loadConfig({ GRAPHVAULT_ENCRYPTION_KEY: 'not valid base64 !!!' }));
 });
