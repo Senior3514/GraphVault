@@ -8,6 +8,9 @@
  * New sections (M8 / security milestone):
  *  - Storage location: active adapter + switch to File System Access API.
  *  - Vault encryption: enable/disable AES-256-GCM at-rest encryption.
+ *
+ * New section (M22 / connectors):
+ *  - Connectors: privacy-graded opt-in import connectors (phase 1: local only).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -34,6 +37,14 @@ import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
 import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/exportToDirectory';
 import { useAISettings } from '../../components/assistant/useAISettings';
 import type { AISettings, ByokBackend } from '../../lib/ai/types';
+import { LOCAL_IMPORT_CONNECTORS } from '../../lib/connectors/registry';
+import { rssOpmlConnector } from '../../lib/connectors/rssOpml';
+import {
+  PRIVACY_POSTURE_COLORS,
+  PRIVACY_POSTURE_LABELS,
+  ConnectorError,
+} from '../../lib/connectors/types';
+import type { LocalImportConnector } from '../../lib/connectors/types';
 
 /** Trigger a browser download of `data` under `filename`. */
 function downloadBlob(data: BlobPart, filename: string, type: string) {
@@ -400,11 +411,17 @@ export default function SettingsPage() {
       {/* ------------------------------------------------------------------ */}
       <AIAssistantSection />
 
+      {/* ------------------------------------------------------------------ */}
+      {/* Connectors (M22)                                                    */}
+      {/* ------------------------------------------------------------------ */}
+      <ConnectorsSection vault={vault} />
+
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5 text-xs text-neutral-500">
         <h2 className="text-sm font-semibold text-neutral-200">Privacy</h2>
         <p className="mt-2">
-          No telemetry. The app only contacts the sync server URL you configure above, and the AI
-          provider you explicitly enable (if any).
+          No telemetry. The app only contacts the sync server URL you configure above, the AI
+          provider you explicitly enable (if any), and no third-party URLs in the browser —
+          connectors in phase 1 are 100% client-side (user-provided content only).
         </p>
       </section>
     </main>
@@ -1411,6 +1428,256 @@ function AIAssistantSection() {
               : 'Cloud key — notes sent to your provider'}
         </span>
       </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Connectors section (M22 — phase 1: local-only)
+// ---------------------------------------------------------------------------
+
+/** Privacy posture badge shown before a connector runs. */
+function PostureBadge({ posture }: { posture: 'local' | 'server' | 'byo' }) {
+  const colors = PRIVACY_POSTURE_COLORS[posture];
+  return (
+    <span
+      className={[
+        'inline-block rounded border px-2 py-0.5 text-xs font-medium',
+        colors.bg,
+        colors.text,
+        colors.border,
+      ].join(' ')}
+    >
+      {posture === 'local' ? 'On-device' : posture === 'server' ? 'Via your server' : 'BYO cred'}
+    </span>
+  );
+}
+
+/**
+ * The RSS / Atom / OPML import sub-panel. Shown inside ConnectorsSection when
+ * the user chooses to use the RSS connector.
+ */
+function RssImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext> }) {
+  const [xmlInput, setXmlInput] = useState('');
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const connector: LocalImportConnector = rssOpmlConnector;
+
+  const runImport = async (source: string, sourceName?: string) => {
+    if (!source.trim()) {
+      setMsg({ kind: 'err', text: 'Paste XML content or upload a file first.' });
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const connectorNotes = connector.parse(source);
+      const summary = vault.importNotes(connectorNotes);
+      const parts: string[] = [];
+      if (summary.added) parts.push(`${summary.added} note${summary.added !== 1 ? 's' : ''} added`);
+      if (summary.renamed.length)
+        parts.push(`${summary.renamed.length} kept as copies (no overwrite)`);
+      if (summary.unchanged) parts.push(`${summary.unchanged} unchanged`);
+      const label = sourceName ? `"${sourceName}"` : 'feed';
+      setMsg({
+        kind: 'ok',
+        text: `Imported from ${label}: ${parts.join(', ') || 'nothing new'}.`,
+      });
+      setXmlInput('');
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text:
+          err instanceof ConnectorError || err instanceof Error ? err.message : 'Import failed.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      await runImport(text, file.name);
+    } catch {
+      setMsg({ kind: 'err', text: 'Could not read file.' });
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) void handleFile(file);
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      {/* Instructions */}
+      <p className="text-xs text-neutral-500">
+        Paste RSS 2.0, Atom, or OPML XML below, or upload a{' '}
+        <code className="text-neutral-400">.xml</code> /{' '}
+        <code className="text-neutral-400">.opml</code> file. Each feed item becomes one note under{' '}
+        <code className="text-neutral-400">connectors/rss/</code>. Import is collision-safe —
+        existing notes are never overwritten.
+      </p>
+
+      {/* Paste area */}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="rss-xml-input">
+          Paste XML
+        </label>
+        <textarea
+          id="rss-xml-input"
+          rows={6}
+          value={xmlInput}
+          onChange={(e) => setXmlInput(e.target.value)}
+          disabled={busy}
+          placeholder={'<?xml version="1.0"?>\n<rss version="2.0">\n  ...\n</rss>'}
+          spellCheck={false}
+          className="w-full resize-y rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 font-mono text-xs text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={() => void runImport(xmlInput)}
+          disabled={busy || !xmlInput.trim()}
+          className="mt-2 rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+        >
+          {busy ? 'Importing…' : 'Import from pasted XML'}
+        </button>
+      </div>
+
+      {/* File upload drag-and-drop */}
+      <div>
+        <p className="mb-2 text-xs text-neutral-500">Or upload a file:</p>
+        <div
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          aria-label="Drop RSS/OPML file here to import"
+          className={[
+            'flex min-h-[5rem] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors',
+            dragOver
+              ? 'border-neutral-400 bg-neutral-800/60'
+              : 'border-neutral-700 bg-neutral-900/20 hover:border-neutral-600',
+          ].join(' ')}
+        >
+          <p className="select-none text-xs text-neutral-500">
+            {dragOver ? 'Drop to import' : 'Drop .xml / .opml here'}
+          </p>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+          >
+            Upload file…
+          </button>
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept={connector.acceptedExtensions.join(',')}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(file);
+            e.target.value = '';
+          }}
+        />
+      </div>
+
+      {/* Result message */}
+      <div className="min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The full Connectors settings section. Lists all available connectors with
+ * their privacy posture, description, and an expand/collapse panel per connector.
+ */
+function ConnectorsSection({ vault }: { vault: ReturnType<typeof useVaultContext> }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const toggle = (id: string) => setOpenId((prev) => (prev === id ? null : id));
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <h2 className="text-sm font-semibold text-neutral-200">Connectors</h2>
+
+      {/* Privacy preamble */}
+      <div className="mt-2 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+        <strong>Privacy model:</strong> connectors are opt-in and off by default. Each connector
+        shows its privacy posture before it runs. Phase 1 connectors are{' '}
+        <strong>on-device only</strong> — no network calls, no credentials. Future phases will add
+        server-proxied connectors (email, webhooks) where credentials stay on your self-hosted
+        server and never reach the browser.
+      </div>
+
+      {/* Connector list */}
+      <ul className="mt-4 space-y-3">
+        {LOCAL_IMPORT_CONNECTORS.filter((c) => c.isAvailable()).map((c) => (
+          <li
+            key={c.id}
+            className="rounded-lg border border-neutral-800 bg-neutral-950/30 px-4 py-3"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-neutral-200">{c.name}</span>
+                  <PostureBadge posture={c.privacyPosture} />
+                </div>
+                <p className="mt-1 text-xs text-neutral-500">{c.description}</p>
+                <p className="mt-1 text-xs text-neutral-600">
+                  {PRIVACY_POSTURE_LABELS[c.privacyPosture]}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => toggle(c.id)}
+                className={[
+                  'shrink-0 rounded-md px-3 py-1.5 text-sm transition-colors',
+                  openId === c.id
+                    ? 'bg-neutral-700 text-neutral-200 hover:bg-neutral-600'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700',
+                ].join(' ')}
+                aria-expanded={openId === c.id}
+              >
+                {openId === c.id ? 'Close' : 'Use'}
+              </button>
+            </div>
+
+            {/* Expand the import UI for this connector */}
+            {openId === c.id && c.id === 'rss-opml-import' && <RssImportPanel vault={vault} />}
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-4 text-xs text-neutral-600">
+        More connectors (email, calendar, bookmarks) are planned for phase 2. They will route
+        through your self-hosted server so credentials never touch the browser.
+      </p>
     </section>
   );
 }
