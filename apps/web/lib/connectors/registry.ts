@@ -9,6 +9,7 @@
  * a single line here. The Settings UI auto-renders from this list.
  */
 
+import { emailConnector } from './email';
 import { rssOpmlConnector } from './rssOpml';
 import type { Connector, LocalImportConnector } from './types';
 
@@ -16,9 +17,10 @@ import type { Connector, LocalImportConnector } from './types';
  * All registered connectors, in display order.
  *
  * Phase 1: local-only (no network, no credentials).
- * Phase 2 will add server-posture connectors for email/IMAP/webhooks.
+ * Phase 2 will add server-posture connectors for live email (IMAP/Gmail/Outlook)
+ * where credentials stay on the self-hosted server and never touch the browser.
  */
-export const ALL_CONNECTORS: readonly Connector[] = [rssOpmlConnector] as const;
+export const ALL_CONNECTORS: readonly Connector[] = [rssOpmlConnector, emailConnector] as const;
 
 /**
  * Local-import connectors only — the subset that accept user-provided content
