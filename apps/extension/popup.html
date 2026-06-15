@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GraphVault Clipper</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <!-- Header -->
+      <header class="header">
+        <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+          <!-- Simple graph-node icon: three circles + connecting lines -->
+          <circle cx="12" cy="4"  r="2.5" />
+          <circle cx="4"  cy="18" r="2.5" />
+          <circle cx="20" cy="18" r="2.5" />
+          <line x1="12" y1="6.5"  x2="5"  y2="15.5" stroke-width="1.5" />
+          <line x1="12" y1="6.5"  x2="19" y2="15.5" stroke-width="1.5" />
+          <line x1="6.5"  y1="18" x2="17.5" y2="18" stroke-width="1.5" />
+        </svg>
+        <span class="logo-text">GraphVault</span>
+      </header>
+
+      <!-- Clip controls -->
+      <section class="clip-actions" aria-label="Clip source">
+        <button id="btn-clip-selection" class="btn btn-secondary" type="button">
+          Clip selection
+        </button>
+        <button id="btn-clip-page" class="btn btn-secondary" type="button">
+          Clip page
+        </button>
+      </section>
+
+      <!-- Metadata form -->
+      <form id="note-form" class="form" autocomplete="off">
+        <label class="field">
+          <span class="field-label">Title</span>
+          <input
+            id="field-title"
+            class="input"
+            type="text"
+            placeholder="Note title"
+            maxlength="200"
+            spellcheck="true"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Tag <span class="field-hint">(optional)</span></span>
+          <input
+            id="field-tag"
+            class="input"
+            type="text"
+            placeholder="#clipping"
+            maxlength="80"
+            spellcheck="false"
+          />
+        </label>
+
+        <!-- Preview (collapsed by default, shown after clip) -->
+        <details id="preview-block" class="preview-block" hidden>
+          <summary class="preview-toggle">Preview</summary>
+          <pre id="preview-text" class="preview-text"></pre>
+        </details>
+
+        <!-- Status message -->
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+
+        <!-- Save actions -->
+        <div class="save-actions">
+          <button id="btn-download" class="btn btn-primary" type="button" disabled>
+            Download .md
+          </button>
+          <button id="btn-send-vault" class="btn btn-accent" type="button" disabled>
+            Send to GraphVault
+          </button>
+        </div>
+      </form>
+
+      <!-- Settings link -->
+      <footer class="footer">
+        <button id="btn-settings" class="link-btn" type="button">Settings</button>
+      </footer>
+
+      <!-- Settings panel (hidden by default) -->
+      <div id="settings-panel" class="settings-panel" hidden>
+        <h2 class="settings-title">Settings</h2>
+        <label class="field">
+          <span class="field-label">GraphVault URL</span>
+          <input
+            id="field-vault-url"
+            class="input"
+            type="url"
+            placeholder="http://localhost:3000"
+            spellcheck="false"
+          />
+        </label>
+        <p class="field-hint">
+          Used for "Send to GraphVault". Must be a running GraphVault web app.
+        </p>
+        <div class="settings-actions">
+          <button id="btn-save-settings" class="btn btn-primary" type="button">Save</button>
+          <button id="btn-close-settings" class="btn btn-secondary" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
