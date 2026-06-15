@@ -301,7 +301,7 @@ stop repeating mistakes. Newest at the top within each section.
 - **Symptom concern:** removing nodes from the force layout while scrubbing
   causes constant layout thrash — nodes re-enter at random positions every time
   the window moves, making the animation disorienting.
-- **Root cause / rule:** the time-slider must operate as a *dimming overlay* (like
+- **Root cause / rule:** the time-slider must operate as a _dimming overlay_ (like
   `searchIds`) rather than a hard filter that changes `payload.nodes`. The graph
   layout stays completely stable; only canvas alpha changes. This means
   `timelineIds: Set<string> | null` travels the same path as `searchIds` —
