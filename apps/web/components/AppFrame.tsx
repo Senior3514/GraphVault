@@ -19,10 +19,12 @@
  *    edges so notched devices don't clip the chrome.
  */
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { CommandPalette } from './CommandPalette';
+import { NavIcon } from './NavIcon';
 import { OnboardingHint } from './onboarding/OnboardingHint';
 import { Sidebar } from './Sidebar';
 import { VaultProvider } from '../lib/vault/VaultProvider';
@@ -185,31 +187,58 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
 
   return (
     <header
-      className="flex h-12 shrink-0 items-center justify-between border-b border-neutral-800 bg-neutral-950/95 px-3 md:hidden"
+      className="flex h-12 shrink-0 items-center justify-between gap-1 border-b border-neutral-800 bg-neutral-950/95 px-2 md:hidden"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* Hamburger */}
-      <button
-        type="button"
-        onClick={onMenuOpen}
-        aria-label="Open navigation menu"
-        className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
-      >
-        <HamburgerIcon />
-      </button>
+      {/* Left group: hamburger + back */}
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={onMenuOpen}
+          aria-label="Open navigation menu"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+        >
+          <HamburgerIcon />
+        </button>
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          aria-label="Go back"
+          title="Back"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+        >
+          <BackIcon />
+        </button>
+      </div>
 
-      {/* Wordmark */}
-      <span className="text-sm font-semibold tracking-tight text-neutral-100">GraphVault</span>
-
-      {/* Search / command palette shortcut */}
-      <button
-        type="button"
-        onClick={open}
-        aria-label="Open command palette"
-        className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+      {/* Wordmark → home (landing) */}
+      <Link
+        href="/"
+        aria-label="GraphVault home"
+        className="truncate text-sm font-semibold tracking-tight text-neutral-100 hover:text-white"
       >
-        <SearchIcon />
-      </button>
+        GraphVault
+      </Link>
+
+      {/* Right group: home + search */}
+      <div className="flex items-center">
+        <Link
+          href="/"
+          aria-label="Home"
+          title="Home"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+        >
+          <NavIcon glyph="home" className="h-5 w-5" />
+        </Link>
+        <button
+          type="button"
+          onClick={open}
+          aria-label="Open command palette"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+        >
+          <SearchIcon />
+        </button>
+      </div>
     </header>
   );
 }
@@ -220,6 +249,18 @@ function HamburgerIcon() {
       <path
         fillRule="evenodd"
         d="M3 5h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2zm0 4h14a1 1 0 010 2H3a1 1 0 010-2z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        d="M12.7 4.3a1 1 0 010 1.4L8.4 10l4.3 4.3a1 1 0 01-1.4 1.4l-5-5a1 1 0 010-1.4l5-5a1 1 0 011.4 0z"
         clipRule="evenodd"
       />
     </svg>
