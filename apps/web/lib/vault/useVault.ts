@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeBacklinks, type Backlink } from './links';
 import { NoteSearchIndex, type SearchResult } from './search';
 import { LocalStorageVaultStore } from './store';
+import { aggregateTags, notesWithTag as notesWithTagOp, type TagCount } from './tags';
 import type { IndexedNote, Note, NotePath } from './types';
 import {
   createNote as createNoteOp,
@@ -31,8 +32,12 @@ const store = new LocalStorageVaultStore();
 export interface UseVault {
   ready: boolean;
   notes: IndexedNote[];
+  /** Every tag in the vault with its note count, most-used first. */
+  tags: TagCount[];
   getNote(path: NotePath): IndexedNote | undefined;
   backlinksFor(path: NotePath): Backlink[];
+  /** Paths of notes carrying the given tag (case-insensitive, `#` optional). */
+  notesWithTag(tag: string): NotePath[];
   search(query: string): SearchResult[];
   resolveLink(target: string): NotePath | null;
   createNote(path: string, content?: string): Note;
@@ -73,6 +78,8 @@ export function useVault(): UseVault {
   }, [notes]);
 
   const backlinks = useMemo(() => computeBacklinks(notes), [notes]);
+
+  const tags = useMemo(() => aggregateTags(notes), [notes]);
 
   const resolver = useMemo(() => {
     const byKey = new Map<string, NotePath>();
@@ -152,11 +159,15 @@ export function useVault(): UseVault {
 
   const backlinksFor = useCallback((path: NotePath) => backlinks.get(path) ?? [], [backlinks]);
 
+  const notesWithTag = useCallback((tag: string) => notesWithTagOp(notes, tag), [notes]);
+
   return {
     ready,
     notes,
+    tags,
     getNote,
     backlinksFor,
+    notesWithTag,
     search,
     resolveLink,
     createNote,

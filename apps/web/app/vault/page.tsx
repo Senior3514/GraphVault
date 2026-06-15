@@ -1,18 +1,22 @@
 'use client';
 
 /**
- * The vault workspace: note tree (left), editor + preview (center), backlinks
- * (right). Autosaves edits to the local store, supports `[[wikilink]]`
- * navigation/creation, and a keyboard shortcut (Cmd/Ctrl+E) to toggle preview.
+ * The vault workspace: note tree + tags (left), editor + preview (center),
+ * backlinks/outline (right). Autosaves edits to the local store, supports
+ * `[[wikilink]]` navigation/creation and clickable `#tags`, opens a note from a
+ * `?note=<encoded-path>` deep link (used by the graph view), and offers a
+ * keyboard shortcut (Cmd/Ctrl+E) to toggle the preview pane.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { TOGGLE_PREVIEW_EVENT } from '../../components/CommandPalette';
 import { BacklinksPanel } from '../../components/BacklinksPanel';
 import { MarkdownEditor } from '../../components/MarkdownEditor';
 import { MarkdownPreview } from '../../components/MarkdownPreview';
 import { NoteTree } from '../../components/NoteTree';
 import { SearchBox } from '../../components/SearchBox';
+import { TagList } from '../../components/TagList';
 import { VaultError } from '../../lib/vault/vault';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import type { NotePath } from '../../lib/vault/types';
@@ -27,25 +31,41 @@ export default function VaultPage() {
   const [draft, setDraft] = useState('');
   const [view, setView] = useState<ViewMode>('split');
   const [error, setError] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [showPanel, setShowPanel] = useState(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedPath = useRef<NotePath | null>(null);
 
   const activeNote = activePath ? vault.getNote(activePath) : undefined;
 
-  // Honor a `?note=<path>` deep link (e.g. "Open note" from the graph view)
-  // once, on first load, before falling back to the first note.
+  // Honor a `?note=<encodeURIComponent(path)>` deep link (e.g. the graph view's
+  // "Open note") once, on first load, before falling back to the first note.
   const appliedQueryNote = useRef(false);
+
+  // Tag names (no leading `#`) for the editor's `#` autocomplete.
+  const tagNames = useMemo(() => vault.tags.map((t) => t.tag), [vault.tags]);
+
+  // The note list, narrowed to the active tag filter when one is set.
+  const visibleNotes = useMemo(() => {
+    if (!tagFilter) return vault.notes;
+    const paths = new Set(vault.notesWithTag(tagFilter));
+    return vault.notes.filter((n) => paths.has(n.path));
+  }, [vault, tagFilter]);
 
   // Pick the initial note once the vault loads.
   useEffect(() => {
     if (!vault.ready) return;
     if (!appliedQueryNote.current) {
       appliedQueryNote.current = true;
+      // The graph view links to `/vault?note=${encodeURIComponent(node.path)}`,
+      // so the param is URI-component-encoded; URLSearchParams decodes it.
       const requested = new URLSearchParams(window.location.search).get('note');
       if (requested && vault.getNote(requested as NotePath)) {
         setActivePath(requested as NotePath);
         return;
       }
+      // Unknown / missing target falls through to the default selection below —
+      // no crash, graceful fallback.
     }
     if (activePath && vault.getNote(activePath)) return;
     setActivePath(vault.notes[0]?.path ?? null);
@@ -121,16 +141,30 @@ export default function VaultPage() {
     [vault, openPath],
   );
 
-  // Cmd/Ctrl+E toggles between edit and preview.
+  // Clicking a tag in the preview filters the note list by that tag.
+  const onTag = useCallback((tag: string) => {
+    setTagFilter((prev) => (prev === tag ? null : tag));
+  }, []);
+
+  const toggleTagFilter = useCallback((tag: string) => {
+    setTagFilter((prev) => (prev === tag ? null : tag));
+  }, []);
+
+  // Cmd/Ctrl+E (and the palette's "Toggle preview") flip between edit/preview.
   useEffect(() => {
+    const togglePreview = () => setView((v) => (v === 'preview' ? 'edit' : 'preview'));
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
         e.preventDefault();
-        setView((v) => (v === 'preview' ? 'edit' : 'preview'));
+        togglePreview();
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener(TOGGLE_PREVIEW_EVENT, togglePreview);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener(TOGGLE_PREVIEW_EVENT, togglePreview);
+    };
   }, []);
 
   const backlinks = useMemo(
@@ -174,11 +208,11 @@ export default function VaultPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-1">
-      {/* Note list */}
+      {/* Note list + tags */}
       <div className="flex w-64 shrink-0 flex-col border-r border-neutral-800 bg-neutral-950">
         <div className="flex items-center justify-between px-3 py-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Notes ({vault.notes.length})
+            Notes ({visibleNotes.length})
           </span>
           <button
             type="button"
@@ -188,8 +222,37 @@ export default function VaultPage() {
             + New
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto px-1 pb-3">
-          <NoteTree notes={vault.notes} activePath={activePath} onSelect={openPath} />
+
+        {vault.tags.length > 0 && (
+          <div className="border-b border-neutral-900 pb-2">
+            <div className="flex items-center justify-between px-3 pb-1 pt-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                Tags
+              </span>
+              {tagFilter && (
+                <button
+                  type="button"
+                  onClick={() => setTagFilter(null)}
+                  className="text-[11px] text-sky-400 hover:text-sky-300"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="max-h-32 overflow-auto">
+              <TagList tags={vault.tags} activeTag={tagFilter} onToggle={toggleTagFilter} />
+            </div>
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 overflow-auto px-1 py-2">
+          {tagFilter && visibleNotes.length === 0 ? (
+            <p className="px-3 py-4 text-xs text-neutral-600">
+              No notes tagged <span className="text-neutral-400">#{tagFilter}</span>.
+            </p>
+          ) : (
+            <NoteTree notes={visibleNotes} activePath={activePath} onSelect={openPath} />
+          )}
         </div>
       </div>
 
@@ -211,6 +274,20 @@ export default function VaultPage() {
                 <ToolbarButton onClick={handleDelete}>Delete</ToolbarButton>
               </div>
             )}
+            <button
+              type="button"
+              onClick={() => setShowPanel((s) => !s)}
+              aria-pressed={showPanel}
+              title={showPanel ? 'Hide details panel' : 'Show details panel'}
+              className={[
+                'rounded p-1.5 transition-colors',
+                showPanel
+                  ? 'text-sky-400 hover:bg-neutral-800'
+                  : 'text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300',
+              ].join(' ')}
+            >
+              <PanelIcon className="h-4 w-4" />
+            </button>
           </div>
         </header>
 
@@ -228,7 +305,12 @@ export default function VaultPage() {
                   view === 'split' ? 'min-w-0 flex-1 border-r border-neutral-800' : 'min-w-0 flex-1'
                 }
               >
-                <MarkdownEditor value={draft} notes={vault.notes} onChange={onDraftChange} />
+                <MarkdownEditor
+                  value={draft}
+                  notes={vault.notes}
+                  tags={tagNames}
+                  onChange={onDraftChange}
+                />
               </div>
             )}
             {(view === 'preview' || view === 'split') && (
@@ -237,6 +319,7 @@ export default function VaultPage() {
                   markdown={draft}
                   resolve={vault.resolveLink}
                   onNavigate={onNavigate}
+                  onTag={onTag}
                 />
               </div>
             )}
@@ -248,12 +331,13 @@ export default function VaultPage() {
         )}
       </div>
 
-      {activeNote && (
+      {activeNote && showPanel && (
         <BacklinksPanel
           note={activeNote}
           backlinks={backlinks}
           resolveLink={vault.resolveLink}
           onOpen={openPath}
+          onTag={onTag}
         />
       )}
     </div>
@@ -293,5 +377,14 @@ function ToolbarButton({ onClick, children }: { onClick(): void; children: React
     >
       {children}
     </button>
+  );
+}
+
+function PanelIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M15 4v16" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
   );
 }

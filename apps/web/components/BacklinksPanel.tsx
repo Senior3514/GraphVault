@@ -10,9 +10,17 @@ interface BacklinksPanelProps {
   backlinks: Backlink[];
   resolveLink(target: string): NotePath | null;
   onOpen(path: NotePath): void;
+  /** Filter the note list by a tag when one of this note's tags is clicked. */
+  onTag?(tag: string): void;
 }
 
-export function BacklinksPanel({ note, backlinks, resolveLink, onOpen }: BacklinksPanelProps) {
+export function BacklinksPanel({
+  note,
+  backlinks,
+  resolveLink,
+  onOpen,
+  onTag,
+}: BacklinksPanelProps) {
   const outbound = note.parsed.links
     .map((l) => ({ link: l, path: resolveLink(l.target) }))
     .filter((o): o is { link: typeof o.link; path: NotePath } => o.path !== null);
@@ -25,12 +33,19 @@ export function BacklinksPanel({ note, backlinks, resolveLink, onOpen }: Backlin
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {note.parsed.tags.map((tag) => (
-              <span
+              <button
                 key={tag}
-                className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300"
+                type="button"
+                onClick={() => onTag?.(tag)}
+                disabled={!onTag}
+                title={onTag ? `Filter by #${tag}` : undefined}
+                className={[
+                  'rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300 transition-colors',
+                  onTag ? 'hover:bg-sky-500/20 hover:text-sky-200' : 'cursor-default',
+                ].join(' ')}
               >
                 #{tag}
-              </span>
+              </button>
             ))}
           </div>
         )}

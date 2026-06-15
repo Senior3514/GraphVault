@@ -3,11 +3,69 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
+  /* App is dark-first per DESIGN.md; pin the scheme so form controls and
+     scrollbars don't flash light. */
 }
 
 body {
   @apply bg-neutral-950 text-neutral-100 antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+  text-rendering: optimizeLegibility;
+}
+
+/* Quieter, dark scrollbars so panels feel cohesive rather than OS-default. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: theme('colors.neutral.700') transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  @apply rounded-full border-2 border-solid border-transparent bg-neutral-700 bg-clip-content;
+}
+*::-webkit-scrollbar-thumb:hover {
+  @apply bg-neutral-600;
+}
+
+/* Crisp focus rings for keyboard users; pointer focus stays quiet. */
+:focus-visible {
+  @apply outline-none ring-2 ring-sky-500/60 ring-offset-0;
+}
+
+/* Lightweight motion primitives used by the palette / popups. Gated to
+   motion-safe utilities at call sites, but also fully disabled here for users
+   who prefer reduced motion. */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes paletteIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Rendered Markdown preview. Tailwind's preflight resets element styles, so we
@@ -44,6 +102,10 @@ body {
 }
 .markdown-preview a.wikilink--unresolved {
   @apply text-amber-400/80 hover:text-amber-300;
+}
+.markdown-preview a.hashtag {
+  @apply cursor-pointer rounded px-1 text-xs font-medium text-sky-300/90 no-underline;
+  @apply bg-sky-950/40 hover:bg-sky-900/50 hover:text-sky-200;
 }
 .markdown-preview code {
   @apply rounded bg-neutral-800 px-1 py-0.5 font-mono text-[0.85em] text-neutral-200;
