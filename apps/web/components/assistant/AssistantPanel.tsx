@@ -21,7 +21,7 @@
  * wider screens.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { renderMarkdown } from '../../lib/markdown/render';
@@ -94,22 +94,67 @@ export function AssistantPanel() {
   const [result, setResult] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const panelRef = useRef<HTMLDivElement>(null);
+  const headingId = useId();
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   // Toggle via the custom event (command-palette / other triggers).
+  // Capture the previously focused element so we can restore it on close.
   useEffect(() => {
-    const onToggle = () => setOpen((prev) => !prev);
+    const onToggle = () =>
+      setOpen((prev) => {
+        if (!prev) {
+          restoreFocusRef.current = document.activeElement as HTMLElement | null;
+        }
+        return !prev;
+      });
     window.addEventListener(ASSISTANT_TOGGLE_EVENT, onToggle);
     return () => window.removeEventListener(ASSISTANT_TOGGLE_EVENT, onToggle);
   }, []);
 
-  // Close on Escape.
+  // Focus the panel heading when opened; restore on close.
   useEffect(() => {
-    if (!open) return;
+    if (open) {
+      // Defer to let the panel render before focusing.
+      requestAnimationFrame(() => {
+        panelRef.current?.focus?.();
+      });
+    } else {
+      restoreFocusRef.current?.focus?.();
+    }
+  }, [open]);
+
+  // Close on Escape; trap Tab inside the panel.
+  useEffect(() => {
+    if (!open || !panelRef.current) return;
+    const panel = panelRef.current;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        setOpen(false);
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first || document.activeElement === panel) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
   // Get the current note content.
@@ -189,19 +234,24 @@ export function AssistantPanel() {
       {/* Panel */}
       <aside
         ref={panelRef}
-        role="complementary"
-        aria-label="AI assistant"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        tabIndex={-1}
         className={[
           'fixed right-0 top-0 z-40 flex h-full w-80 max-w-[90vw] flex-col',
           'border-l border-neutral-800 bg-neutral-950 shadow-2xl',
           'motion-safe:animate-slide-in-right',
+          'focus:outline-none',
         ].join(' ')}
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-neutral-800 px-4 py-3">
           <div className="flex items-center gap-2">
             <SparkleIcon />
-            <span className="text-sm font-semibold text-neutral-100">AI assistant</span>
+            <span id={headingId} className="text-sm font-semibold text-neutral-100">
+              AI assistant
+            </span>
             <span
               className={[
                 'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide',
@@ -342,8 +392,22 @@ export function AssistantPanel() {
                 </div>
               )}
 
+              {/* Live region: announces async status changes (loading/done/error). */}
+              <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+                {status === 'loading'
+                  ? 'AI assistant is thinking…'
+                  : status === 'done'
+                    ? 'AI response ready.'
+                    : status === 'error'
+                      ? `Error: ${errorMsg}`
+                      : ''}
+              </div>
+
               {status === 'loading' && (
-                <div className="flex items-center gap-2 text-sm text-neutral-400">
+                <div
+                  className="flex items-center gap-2 text-sm text-neutral-400"
+                  aria-hidden="true"
+                >
                   <SpinnerIcon />
                   Thinking…
                 </div>

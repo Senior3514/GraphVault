@@ -43,7 +43,8 @@ export function Sidebar({ collapsed, onToggle, mobileDrawerClose }: SidebarProps
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label="Primary navigation"
+      aria-expanded={!collapsed}
       data-collapsed={collapsed}
       className={[
         'flex h-full shrink-0 flex-col border-r border-neutral-800/80 bg-neutral-950/95',
@@ -80,7 +81,7 @@ export function Sidebar({ collapsed, onToggle, mobileDrawerClose }: SidebarProps
             onClick={mobileDrawerClose ?? onToggle}
             aria-label={mobileDrawerClose ? 'Close navigation' : 'Collapse sidebar'}
             title={mobileDrawerClose ? 'Close navigation' : 'Collapse sidebar (Cmd/Ctrl+B)'}
-            className="rounded-md p-1 text-neutral-500 transition-colors hover:bg-neutral-900 hover:text-neutral-300"
+            className="rounded-md p-1 text-neutral-500 transition-colors hover:bg-neutral-900 hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           >
             <ChevronIcon className="h-4 w-4" />
           </button>

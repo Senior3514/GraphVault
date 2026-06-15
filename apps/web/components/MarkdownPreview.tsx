@@ -43,6 +43,8 @@ export function MarkdownPreview({ markdown, resolve, onNavigate, onTag }: Markdo
   return (
     <div
       className="markdown-preview h-full overflow-auto px-6 py-5"
+      role="region"
+      aria-label="Markdown preview"
       onClick={handleClick}
       dangerouslySetInnerHTML={{ __html: html }}
     />
