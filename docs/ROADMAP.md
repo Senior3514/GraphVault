@@ -117,6 +117,31 @@ Make GraphVault the most _usable_ knowledge tool — it goes where you are.
 - ⬜ CLI + local HTTP API for power users / automation
 - ⬜ URL scheme + share targets (clip from any app)
 
+## Milestone 21 — AI assistant (privacy-first, opt-in) 🟡
+
+Off by default. A privacy dial the user controls; note content never leaves the
+device unless the user enables a provider.
+
+- ⬜ Provider abstraction with a **privacy spectrum**: local/on-device (Ollama /
+  WebLLM, OpenAI-compatible localhost) → bring-your-own-key (Anthropic / OpenAI /
+  compatible) → nothing hosted-by-us by default
+- ⬜ Assistant panel: summarize / outline / find connections / suggest links &
+  tags / "organize this" — operating over the local notes + graph only when on
+- ⬜ Graph intelligence: AI-suggested clusters, related-notes, gap-finding; surfaced
+  as overlays on the graph (by time & context, dynamic)
+- ⬜ Clear in-UI privacy notice + per-action consent; no telemetry; keys stored
+  locally (or server-side for shared deployments), never logged
+
+## Milestone 22 — Connectors (email & everything, privacy-graded) ⬜
+
+Opt-in, credential-bearing flows go through the self-hosted server; each
+connector shows its privacy posture.
+
+- ⬜ Email (IMAP / Gmail / Outlook via OAuth) → clip messages to notes
+- ⬜ Read-only importers & sync: calendars, RSS, web bookmarks, Readwise, etc.
+- ⬜ Generic webhook / "connect anything" recipe layer (à la a privacy-first Zapier)
+- ⬜ Per-connector privacy controls + audit log of what was fetched
+
 ---
 
 ## Open question to resolve with the owner
