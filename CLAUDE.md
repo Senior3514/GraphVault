@@ -68,6 +68,16 @@ README.md   CLAUDE.md   DESIGN.md
 - No external telemetry by default.
 - Conventional, descriptive commit messages.
 
+## Agent company
+
+This project is operated by a dedicated, in-repo "company" of specialist agents
+(architect, server, web, graph, sync, security, devops, docs, QA, orchestrator).
+The roster lives in `.claude/agents/gv-*.md`; how it works — ownership matrix,
+parallel-worktree workflow, the Definition-of-Done gauntlet, and the continuous
+learning loop — is documented in `docs/agent-company/`. Before doing substantial
+work, read `docs/agent-company/playbook.md` and `docs/agent-company/lessons.md`.
+The company always learns and evolves: append lessons after each task.
+
 ## Milestones
 
 0. Repo bootstrap ✅
