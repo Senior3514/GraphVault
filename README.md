@@ -134,25 +134,25 @@ are in [`docs/deployment.md`](docs/deployment.md).
 
 ## Milestones
 
-| #   | Milestone                      | Status         |
-| --- | ------------------------------ | -------------- |
-| 0   | Repo bootstrap                 | ✅ done        |
-| 1   | Sync protocol design           | ✅ draft spec  |
-| 2   | Server scaffold (auth + sync)  | ✅ done        |
-| 3   | Web scaffold                   | ✅ done        |
-| 4   | Local vault + markdown editing | ✅ done        |
-| 5   | Sync end-to-end                | 🚧 in progress |
-| 6   | Graph engine (indexing + API)  | ✅ done        |
-| 7   | Graph UI v1                    | 🚧 in progress |
-| 8   | Security & settings            | 🚧 in progress |
-| 9   | Docker & packaging             | ✅ done        |
-| 10  | Docs                           | ✅ done        |
+| #   | Milestone                      | Status        |
+| --- | ------------------------------ | ------------- |
+| 0   | Repo bootstrap                 | ✅ done       |
+| 1   | Sync protocol design           | ✅ draft spec |
+| 2   | Server scaffold (auth + sync)  | ✅ done       |
+| 3   | Web scaffold                   | ✅ done       |
+| 4   | Local vault + markdown editing | ✅ done       |
+| 5   | Sync end-to-end                | ✅ done       |
+| 6   | Graph engine (indexing + API)  | ✅ done       |
+| 7   | Graph UI v1                    | ✅ done       |
+| 8   | Security & settings            | ✅ done       |
+| 9   | Docker & packaging             | ✅ done       |
+| 10  | Docs                           | ✅ done       |
 
-> The **desktop (Tauri) shell** remains a placeholder. The web vault persists to
-> the browser store today; real `.md` filesystem access arrives with the desktop
-> shell. Milestones 5, 7, and 8 are landing in parallel; the deployment and
-> security docs describe their intended, documented behavior (e.g. the
-> `GRAPHVAULT_ENCRYPTION_KEY` at-rest encryption and rate limiting from M8).
+> All v0 milestones (0–10) are implemented. The **desktop (Tauri) shell** remains
+> a placeholder: the web vault persists to the browser store today, and real
+> `.md` filesystem access arrives with the desktop shell. End-to-end sync wiring
+> in the client is gated on a signed-in session + a registered server vault
+> (surfaced as a clear placeholder, never a silent failure).
 
 ## License
 

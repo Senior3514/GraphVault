@@ -13,6 +13,7 @@
   "dependencies": {
     "@graphvault/engine": "workspace:*",
     "@graphvault/shared": "workspace:*",
+    "@graphvault/sync-core": "workspace:*",
     "dompurify": "^3.2.4",
     "marked": "^15.0.6",
     "minisearch": "^7.1.1",

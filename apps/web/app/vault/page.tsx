@@ -32,9 +32,21 @@ export default function VaultPage() {
 
   const activeNote = activePath ? vault.getNote(activePath) : undefined;
 
-  // Pick a first note once the vault loads.
+  // Honor a `?note=<path>` deep link (e.g. "Open note" from the graph view)
+  // once, on first load, before falling back to the first note.
+  const appliedQueryNote = useRef(false);
+
+  // Pick the initial note once the vault loads.
   useEffect(() => {
     if (!vault.ready) return;
+    if (!appliedQueryNote.current) {
+      appliedQueryNote.current = true;
+      const requested = new URLSearchParams(window.location.search).get('note');
+      if (requested && vault.getNote(requested as NotePath)) {
+        setActivePath(requested as NotePath);
+        return;
+      }
+    }
     if (activePath && vault.getNote(activePath)) return;
     setActivePath(vault.notes[0]?.path ?? null);
   }, [vault.ready, vault.notes, activePath, vault]);
