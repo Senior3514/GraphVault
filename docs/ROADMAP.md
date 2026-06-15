@@ -32,10 +32,19 @@
 - ✅ Export vault as Markdown `.zip` (lossless) and JSON backup
 - ✅ Import from `.zip` / `.json` / `.md`, collision-safe (never overwrites)
 - ✅ Hardened import (zip-slip / size / count guards) + tests
-- ⬜ Pluggable storage backend interface (browser ↔ disk ↔ sync server) + docs
-- ⬜ Drag-and-drop import; "export to folder" via File System Access API (where available)
+- ✅ Pluggable storage backend seam: `StorageAdapter` + localStorage + File System Access disk adapter
+- ⬜ Settings UI to pick storage location (folder on disk) + migrate safely
+- ⬜ Drag-and-drop import; "export to folder"
 
 > Decision: **open-core** — auditable client + engine, optional paid hosted sync.
+
+## Milestone 12 — Workspace, panes & window controls ✅
+
+- ✅ Resizable panes with drag dividers (sidebar ↔ editor ↔ details)
+- ✅ Collapse / expand / maximize-restore controls per pane; layout persisted
+- ✅ Editor tabs: open/close/reorder, dirty indicator, "+"; split view (editor+preview / two notes)
+- ✅ Per-tab autosave that flushes before switch/close/unmount (no lost edits)
+- ⬜ Pop-out windows / focus mode (nice-to-have)
 
 ## Milestone 13 — Command palette & power editing ✅
 
@@ -52,21 +61,17 @@
 - ✅ Live force controls (link distance, repel, gravity, label threshold)
 - ✅ Zoom-to-fit / reset; degree-scaled nodes; reduced-motion aware
 
-## Milestone 12 — Workspace, panes & window controls ⬜
+## Milestone 15 — Security, encryption & speed 🟡
 
-The Obsidian-grade shell. Make the layout feel alive and under the user's control.
-
-- ⬜ Resizable panes with drag dividers (sidebar ↔ editor ↔ right panel)
-- ⬜ Collapse / expand / maximize buttons per pane; remember layout
-- ⬜ Tabs: open multiple notes, split view (editor + preview, or two notes)
-- ⬜ Movable/dockable panels; "focus mode" (hide all chrome)
-- ⬜ Persist workspace layout locally; reduced-motion friendly
-
-## Milestone 15 — Security, encryption & speed ⬜
-
-- ⬜ Optional end-to-end vault encryption (passphrase, WebCrypto) at rest in browser
-- ⬜ CSP + Trusted Types audit; re-verify markdown XSS safety
+- ✅ E2E vault encryption library: PBKDF2(310k)+AES-256-GCM, tamper-rejecting, versioned (`lib/crypto`)
+- ✅ Security review of render/XSS + import paths (passed)
+- ⬜ Wire encryption into Settings (passphrase enable + decrypt-on-load flow)
+- ⬜ CSP + Trusted Types audit
 - ⬜ Performance budget: virtualize long lists, debounce indexing, lazy graph
+
+## Milestone 14b — Graph v2 extras ⬜ (deferred — re-do from current base)
+
+- ⬜ In-graph search (highlight/zoom to matches), drag-to-pin nodes, zoom buttons, 1000+ node perf
 
 ## Milestone 16 — True local desktop (Tauri) ⬜
 

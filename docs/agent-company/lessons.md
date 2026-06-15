@@ -198,3 +198,21 @@ stop repeating mistakes. Newest at the top within each section.
   (`pnpm build` in each of `packages/shared`, `packages/engine`, `packages/sync-core`)
   before running `pnpm build` in `apps/web`. The root `pnpm -r build` handles this
   ordering automatically via topological sort.
+
+### Worktree isolation can branch from a stale base — verify before integrating
+- **Symptom:** five parallel slice agents (`isolation: worktree`) all branched
+  from the old `29e3071` v0 squash-merge, NOT the driver's current branch HEAD.
+  Slices that only added new files (docs, crypto, storage adapters, layout +
+  workspace components) cherry-picked / `git checkout`-ed in cleanly; slices that
+  rewrote files the driver had already changed (graph canvas, `vault/page.tsx`,
+  `useVault.ts`) conflicted because they were built on v0, missing v1-graph + the
+  command-palette shell.
+- **Rule:** before integrating a worktree branch, run
+  `git log --oneline <currentHEAD>..<branch>` — if it contains an OLD merge
+  commit, the branch is stale-based. For additive new-file work, `git checkout
+  <branch> -- <paths>` is cleanest. For rewrites of shared files, do a manual
+  3-way: take the agent's file, then re-thread the current API (e.g. the panes
+  `EditorBody` needed the shell's `tags` prop wired into `MarkdownEditor`).
+  Keep exactly one implementation per slice; defer divergent duplicates.
+- **Data-safety:** never blindly overwrite the editor page (autosave/draft logic
+  is where data-loss bugs hide) — adapt props, keep the tested flush logic.
