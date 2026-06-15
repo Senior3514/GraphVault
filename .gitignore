@@ -32,6 +32,9 @@ storage/
 !.vscode/extensions.json
 Thumbs.db
 
+# Claude Code agent worktrees / local state
+.claude/
+
 # Tauri
 apps/desktop/src-tauri/target/
 
