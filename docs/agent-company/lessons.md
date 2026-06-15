@@ -165,3 +165,36 @@ stop repeating mistakes. Newest at the top within each section.
 - GraphVault is **open-core**: client + engine open and auditable, optional paid
   hosted sync proprietary. For a local-first app, data access comes from local
   Markdown + export — closed source would not improve access, only reduce trust.
+## Crypto / WebCrypto
+
+### `Uint8Array<ArrayBufferLike>` vs `BufferSource` in TypeScript strict WebCrypto types
+
+- **Symptom:** TypeScript strict mode rejects `Uint8Array` slices (from
+  `.subarray()`) as PBKDF2 `salt` or AES-GCM `iv`/`additionalData` parameters
+  because the DOM `BufferSource` type requires `Uint8Array<ArrayBuffer>` (not
+  `ArrayBufferLike`), and `.subarray()` returns `Uint8Array<ArrayBufferLike>`.
+- **Root cause:** `ArrayBufferLike = ArrayBuffer | SharedArrayBuffer`, and the
+  WebCrypto DOM types conservatively require the non-shared `ArrayBuffer` variant.
+- **Fix / rule:** allocate crypto buffers with `new Uint8Array(new ArrayBuffer(n))`
+  (not `new Uint8Array(n)`) so the type is `Uint8Array<ArrayBuffer>`. For slices of
+  incoming data, use `new Uint8Array(data.buffer, offset, length)` and cast if needed,
+  or copy with `data.slice(start, end)` (returns owned `ArrayBuffer` typed result).
+
+### AES-GCM `decryptVault` must pass an owned `ArrayBuffer` for ciphertext
+
+- **Symptom:** `subtle().decrypt(..., ciphertextSlice)` where `ciphertextSlice`
+  is a `subarray` view fails TypeScript strict checks and may fail at runtime in
+  some environments when the backing buffer is shared.
+- **Fix / rule:** pass `buffer.slice(byteOffset, byteOffset + byteLength)` to
+  WebCrypto decrypt/encrypt when you have a view into a larger buffer, to ensure
+  the operation sees an independent, fully-owned `ArrayBuffer`.
+
+### Worktree build: build workspace packages before building the consuming app
+
+- **Symptom:** `pnpm build` in an isolated worktree web app fails with
+  "Can't resolve '@graphvault/shared'" because the workspace package symlinks
+  exist but `dist/` has not been populated yet.
+- **Fix / rule:** in a worktree, build dependency packages explicitly first
+  (`pnpm build` in each of `packages/shared`, `packages/engine`, `packages/sync-core`)
+  before running `pnpm build` in `apps/web`. The root `pnpm -r build` handles this
+  ordering automatically via topological sort.
