@@ -19,7 +19,6 @@
 # See docs/deployment.md for the full 5-minute deploy walkthrough.
 
 services:
-
   # ---------------------------------------------------------------------------
   # server — override: drop direct port exposure; enable proxy-trust and HTTPS.
   # ---------------------------------------------------------------------------
@@ -31,9 +30,9 @@ services:
     environment:
       # Tell Fastify to trust X-Forwarded-For / X-Forwarded-Proto from Caddy so
       # rate-limiting keys on real client IPs, not the proxy address.
-      GRAPHVAULT_TRUST_PROXY: "true"
+      GRAPHVAULT_TRUST_PROXY: 'true'
       # Reject plain-HTTP requests (belt-and-suspenders; Caddy never sends them).
-      GRAPHVAULT_REQUIRE_HTTPS: "true"
+      GRAPHVAULT_REQUIRE_HTTPS: 'true'
 
   # ---------------------------------------------------------------------------
   # caddy — TLS-terminating reverse proxy.
@@ -45,9 +44,9 @@ services:
       server:
         condition: service_healthy
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"    # HTTP/3 (QUIC)
+      - '80:80'
+      - '443:443'
+      - '443:443/udp' # HTTP/3 (QUIC)
     volumes:
       # Caddyfile configuration (read-only inside the container).
       - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
@@ -61,7 +60,7 @@ services:
       DOMAIN: ${DOMAIN:-notes.example.com}
       ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
     healthcheck:
-      test: ["CMD", "caddy", "version"]
+      test: ['CMD', 'caddy', 'version']
       interval: 30s
       timeout: 5s
       retries: 3

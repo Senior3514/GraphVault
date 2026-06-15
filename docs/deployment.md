@@ -50,13 +50,13 @@ $EDITOR .env
 
 Set at minimum these five variables:
 
-| Variable | Example value | Notes |
-|---|---|---|
-| `DOMAIN` | `notes.example.com` | No `https://` prefix. Must resolve to this host. |
-| `ACME_EMAIL` | `you@example.com` | Let's Encrypt registration address. |
-| `POSTGRES_PASSWORD` | `$(openssl rand -hex 24)` | Change from the default. |
-| `GRAPHVAULT_CORS_ORIGIN` | `https://notes.example.com` | Your web client's origin. |
-| `GRAPHVAULT_ENCRYPTION_KEY` | _(see below)_ | Base64 32-byte AES key. |
+| Variable                    | Example value               | Notes                                            |
+| --------------------------- | --------------------------- | ------------------------------------------------ |
+| `DOMAIN`                    | `notes.example.com`         | No `https://` prefix. Must resolve to this host. |
+| `ACME_EMAIL`                | `you@example.com`           | Let's Encrypt registration address.              |
+| `POSTGRES_PASSWORD`         | `$(openssl rand -hex 24)`   | Change from the default.                         |
+| `GRAPHVAULT_CORS_ORIGIN`    | `https://notes.example.com` | Your web client's origin.                        |
+| `GRAPHVAULT_ENCRYPTION_KEY` | _(see below)_               | Base64 32-byte AES key.                          |
 
 Generate the encryption key:
 
@@ -76,6 +76,7 @@ chmod +x scripts/deploy.sh
 ```
 
 The script:
+
 1. Checks Docker and compose are available.
 2. Creates `.env` from the template if it does not exist (and tells you which
    vars to set).
@@ -92,6 +93,7 @@ chmod +x scripts/verify-deploy.sh
 ```
 
 The script checks:
+
 - DNS resolves.
 - TLS certificate is valid (curl verifies the chain against the system CA bundle).
 - HTTP → HTTPS redirect works on port 80.
@@ -116,7 +118,7 @@ curl -X POST https://notes.example.com/v1/auth/register \
 - [ ] Open the web client, set server URL to `https://$DOMAIN`, sign in.
 - [ ] Create a note, sync, open on a second device — verify round-trip.
 - [ ] `GRAPHVAULT_ENCRYPTION_KEY` is backed up securely (offline or in a
-  password manager).
+      password manager).
 - [ ] Daily backup cron scheduled (see Backups section).
 
 ---
@@ -184,24 +186,24 @@ Logging in again later uses the same shape at `POST /v1/auth/login`.
 Set these in `.env` (read automatically by `docker compose`). Defaults shown are
 the compose/app defaults.
 
-| Variable | Default | Used by | Meaning |
-|---|---|---|---|
-| `POSTGRES_USER` | `graphvault` | db + server | PostgreSQL role; also composed into `DATABASE_URL`. |
-| `POSTGRES_PASSWORD` | _(example)_ | db + server | PostgreSQL password. **Change this.** |
-| `POSTGRES_DB` | `graphvault` | db + server | PostgreSQL database name. |
-| `GRAPHVAULT_HOST` | `0.0.0.0` | server | Listen host inside the container (must be `0.0.0.0` in Docker). |
-| `GRAPHVAULT_PORT` | `4000` | server | Listen port. |
-| `GRAPHVAULT_STORAGE` | `postgres` | server | Storage backend; `postgres` in compose (the app default is `memory`). |
-| `DATABASE_URL` | _(composed)_ | server | Postgres DSN; built from the `POSTGRES_*` vars in compose. |
-| `GRAPHVAULT_DATA_DIR` | `/data` | server | On-disk blob storage; mapped to the `blob-data` volume. |
-| `GRAPHVAULT_CORS_ORIGIN` | `*` | server | Comma-separated allowed origins. Restrict in production. |
-| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864` | server | Max blob upload size in bytes (64 MiB). |
-| `GRAPHVAULT_TRUST_PROXY` | `false` | server | Set `true` when behind a reverse proxy (Caddy/nginx) so rate-limiting keys on real client IPs via `X-Forwarded-For`. Automatically set by `docker-compose.prod.yml`. |
-| `GRAPHVAULT_REQUIRE_HTTPS` | `true` in prod | server | Reject plain-HTTP requests. Automatically enabled by `docker-compose.prod.yml`. |
-| `GRAPHVAULT_ENCRYPTION_KEY` | _(unset)_ | server | **Base64-encoded 32-byte AES-256-GCM key** for at-rest blob encryption AND for WebDAV/S3/AI credential encryption. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. If unset, a process-lifetime key is used for credentials (lost on restart) and blobs are stored as plaintext. **Back this up.** |
-| `GRAPHVAULT_AI_DAILY_CAP` | `200` | server | Per-user/day AI proxy request cap (0 = unlimited). |
-| `DOMAIN` | _(unset)_ | caddy | Public hostname (e.g. `notes.example.com`). Required in production. |
-| `ACME_EMAIL` | _(unset)_ | caddy | Let's Encrypt registration e-mail. Required in production. |
+| Variable                    | Default        | Used by     | Meaning                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POSTGRES_USER`             | `graphvault`   | db + server | PostgreSQL role; also composed into `DATABASE_URL`.                                                                                                                                                                                                                                                                                         |
+| `POSTGRES_PASSWORD`         | _(example)_    | db + server | PostgreSQL password. **Change this.**                                                                                                                                                                                                                                                                                                       |
+| `POSTGRES_DB`               | `graphvault`   | db + server | PostgreSQL database name.                                                                                                                                                                                                                                                                                                                   |
+| `GRAPHVAULT_HOST`           | `0.0.0.0`      | server      | Listen host inside the container (must be `0.0.0.0` in Docker).                                                                                                                                                                                                                                                                             |
+| `GRAPHVAULT_PORT`           | `4000`         | server      | Listen port.                                                                                                                                                                                                                                                                                                                                |
+| `GRAPHVAULT_STORAGE`        | `postgres`     | server      | Storage backend; `postgres` in compose (the app default is `memory`).                                                                                                                                                                                                                                                                       |
+| `DATABASE_URL`              | _(composed)_   | server      | Postgres DSN; built from the `POSTGRES_*` vars in compose.                                                                                                                                                                                                                                                                                  |
+| `GRAPHVAULT_DATA_DIR`       | `/data`        | server      | On-disk blob storage; mapped to the `blob-data` volume.                                                                                                                                                                                                                                                                                     |
+| `GRAPHVAULT_CORS_ORIGIN`    | `*`            | server      | Comma-separated allowed origins. Restrict in production.                                                                                                                                                                                                                                                                                    |
+| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864`     | server      | Max blob upload size in bytes (64 MiB).                                                                                                                                                                                                                                                                                                     |
+| `GRAPHVAULT_TRUST_PROXY`    | `false`        | server      | Set `true` when behind a reverse proxy (Caddy/nginx) so rate-limiting keys on real client IPs via `X-Forwarded-For`. Automatically set by `docker-compose.prod.yml`.                                                                                                                                                                        |
+| `GRAPHVAULT_REQUIRE_HTTPS`  | `true` in prod | server      | Reject plain-HTTP requests. Automatically enabled by `docker-compose.prod.yml`.                                                                                                                                                                                                                                                             |
+| `GRAPHVAULT_ENCRYPTION_KEY` | _(unset)_      | server      | **Base64-encoded 32-byte AES-256-GCM key** for at-rest blob encryption AND for WebDAV/S3/AI credential encryption. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. If unset, a process-lifetime key is used for credentials (lost on restart) and blobs are stored as plaintext. **Back this up.** |
+| `GRAPHVAULT_AI_DAILY_CAP`   | `200`          | server      | Per-user/day AI proxy request cap (0 = unlimited).                                                                                                                                                                                                                                                                                          |
+| `DOMAIN`                    | _(unset)_      | caddy       | Public hostname (e.g. `notes.example.com`). Required in production.                                                                                                                                                                                                                                                                         |
+| `ACME_EMAIL`                | _(unset)_      | caddy       | Let's Encrypt registration e-mail. Required in production.                                                                                                                                                                                                                                                                                  |
 
 > The app itself defaults `GRAPHVAULT_HOST` to `127.0.0.1` and
 > `GRAPHVAULT_STORAGE` to `memory`; the Docker image and compose file override
@@ -333,7 +335,7 @@ before upgrading. Container images are stateless — all durable state lives in 
 - **`server` keeps restarting** — check
   `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs server`.
   A common cause is the DB not being ready; the `depends_on … condition:
-  service_healthy` gate normally prevents this, but a misconfigured
+service_healthy` gate normally prevents this, but a misconfigured
   `DATABASE_URL` will surface here.
 - **Caddy fails to obtain a certificate** — ensure the DNS A record has
   propagated (`dig +short $DOMAIN`) and ports 80/443 are open. Check
