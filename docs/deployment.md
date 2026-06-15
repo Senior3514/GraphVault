@@ -1,0 +1,214 @@
+# GraphVault Deployment
+
+> Status: Milestone 9 / 10. How to run the self-hosted GraphVault server with
+> Docker Compose on a VPS or NAS, create the first user, configure TLS, and back
+> up / restore your data. For the security rationale behind these steps, see
+> [`security-basics.md`](./security-basics.md).
+
+## What you deploy
+
+A `docker compose` stack with two services:
+
+- **`server`** — the `@graphvault/server` sync API, built from
+  `docker/server.Dockerfile`. Speaks plain HTTP on port `4000` and stores blob
+  bytes on a persistent volume.
+- **`db`** — PostgreSQL 16, the durable backend (`GRAPHVAULT_STORAGE=postgres`),
+  on its own named volume.
+
+In production you add a **reverse proxy** (Caddy/nginx) in front to terminate
+TLS. The server is meant to sit behind it, not be exposed directly.
+
+## Prerequisites
+
+- A Linux host with **Docker** and the **Docker Compose plugin** (`docker
+compose version`).
+- A domain name pointing at the host (for TLS), if exposing publicly.
+
+## Quickstart — `docker compose up`
+
+From the repository root:
+
+```bash
+# 1. Create your environment file from the template and edit the secrets.
+cp docker/env.example .env
+$EDITOR .env        # set a strong POSTGRES_PASSWORD, CORS origin, etc.
+
+# 2. Build the image and start the stack in the background.
+docker compose up -d --build
+
+# 3. Watch it come up; the server waits for the DB healthcheck first.
+docker compose ps
+docker compose logs -f server
+
+# 4. Verify the health endpoint (published to loopback by default).
+curl http://127.0.0.1:4000/v1/health
+# { "status": "ok", "apiVersion": "v1", "syncProtocolVersion": 1, "time": ... }
+```
+
+The server container runs `prisma db push` before booting, so the PostgreSQL
+schema is created/updated automatically on first start and on every upgrade (the
+command is idempotent). The repo ships no versioned migrations yet; once they
+exist under `apps/server/prisma/migrations`, switch the compose `command` to
+`prisma migrate deploy`.
+
+## First-user creation
+
+GraphVault has no admin UI for accounts; create the first user by calling the
+registration endpoint directly. Registration is open by design (single user /
+small trusted team), so do it immediately after first boot and restrict access
+at the proxy if needed.
+
+```bash
+curl -X POST http://127.0.0.1:4000/v1/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "email": "you@example.com",
+        "password": "a-long-strong-passphrase",
+        "deviceName": "laptop"
+      }'
+```
+
+The response is an `AuthToken`:
+
+```json
+{
+  "accessToken": "…opaque…",
+  "expiresAt": 1750000000,
+  "userId": "…",
+  "deviceId": "…"
+}
+```
+
+Subsequent requests authenticate with `Authorization: Bearer <accessToken>`.
+Logging in again later uses the same shape at `POST /v1/auth/login`.
+
+## Environment reference
+
+Set these in `.env` (read automatically by `docker compose`). Defaults shown are
+the compose/app defaults.
+
+| Variable                    | Default      | Used by     | Meaning                                                                 |
+| --------------------------- | ------------ | ----------- | ----------------------------------------------------------------------- |
+| `POSTGRES_USER`             | `graphvault` | db + server | PostgreSQL role; also composed into `DATABASE_URL`.                     |
+| `POSTGRES_PASSWORD`         | _(example)_  | db + server | PostgreSQL password. **Change this.**                                   |
+| `POSTGRES_DB`               | `graphvault` | db + server | PostgreSQL database name.                                               |
+| `GRAPHVAULT_HOST`           | `0.0.0.0`    | server      | Listen host inside the container (must be `0.0.0.0` in Docker).         |
+| `GRAPHVAULT_PORT`           | `4000`       | server      | Listen port.                                                            |
+| `GRAPHVAULT_STORAGE`        | `postgres`   | server      | Storage backend; `postgres` in compose (the app default is `memory`).   |
+| `DATABASE_URL`              | _(composed)_ | server      | Postgres DSN; built from the `POSTGRES_*` vars in compose.              |
+| `GRAPHVAULT_DATA_DIR`       | `/data`      | server      | On-disk blob storage; mapped to the `blob-data` volume.                 |
+| `GRAPHVAULT_CORS_ORIGIN`    | `*`          | server      | Comma-separated allowed origins. Restrict in production.                |
+| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864`   | server      | Max blob upload size in bytes (64 MiB).                                 |
+| `GRAPHVAULT_ENCRYPTION_KEY` | _(unset)_    | server      | Optional 32-byte at-rest blob encryption key (hex/base64). Milestone 8. |
+
+> The app itself defaults `GRAPHVAULT_HOST` to `127.0.0.1` and
+> `GRAPHVAULT_STORAGE` to `memory`; the Docker image and compose file override
+> these to `0.0.0.0` and `postgres` for a real deployment.
+
+## Reverse proxy / TLS
+
+Run the server behind a TLS-terminating proxy. `docker-compose.yml` includes a
+commented `proxy` service using **Caddy**, which obtains and renews certificates
+automatically. To enable it:
+
+1. Point your domain's DNS at the host.
+2. Create `docker/Caddyfile`:
+
+   ```caddyfile
+   notes.example.com {
+       reverse_proxy server:4000
+   }
+   ```
+
+3. Uncomment the `proxy` service and the `caddy-data` / `caddy-config` volumes in
+   `docker-compose.yml`.
+4. **Remove the `ports:` block from the `server` service** so only the proxy is
+   publicly reachable; the proxy talks to `server:4000` over the internal Docker
+   network.
+5. `docker compose up -d` and browse to `https://notes.example.com`.
+
+An nginx equivalent (TLS certs managed separately, e.g. with certbot):
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name notes.example.com;
+    # ssl_certificate / ssl_certificate_key ...
+    location / {
+        proxy_pass http://server:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Forward a trustworthy client IP (`X-Forwarded-For`) so server-side rate limiting
+keys on the real client rather than the proxy.
+
+## Backups
+
+Back up **both** the database and the blob directory — see
+[`security-basics.md`](./security-basics.md#backups) for why.
+
+```bash
+# 1. Database: logical dump via the running db container.
+docker compose exec -T db \
+  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  | gzip > graphvault-db-$(date +%F).sql.gz
+
+# 2. Blob bytes: archive the blob-data volume contents.
+docker run --rm \
+  -v graphvault_blob-data:/data:ro \
+  -v "$PWD":/backup \
+  busybox tar czf /backup/graphvault-blobs-$(date +%F).tar.gz -C /data .
+```
+
+> The volume name is `<project>_blob-data`, where `<project>` is the compose
+> project name (defaults to the directory name). Check with
+> `docker volume ls`.
+
+If you set `GRAPHVAULT_ENCRYPTION_KEY`, back it up **separately and securely** —
+the blob archive is unrecoverable without it.
+
+## Restore
+
+```bash
+# Restore the database (stack up, DB reachable, schema applied):
+gunzip -c graphvault-db-2026-06-15.sql.gz \
+  | docker compose exec -T db psql -U "$POSTGRES_USER" "$POSTGRES_DB"
+
+# Restore blob bytes into the volume:
+docker run --rm \
+  -v graphvault_blob-data:/data \
+  -v "$PWD":/backup \
+  busybox sh -c "cd /data && tar xzf /backup/graphvault-blobs-2026-06-15.tar.gz"
+```
+
+Restore the **blobs at or after the DB snapshot**: extra unreferenced blobs are
+harmless, but a database referencing missing blob bytes will dangle. Restart the
+stack afterward (`docker compose restart server`).
+
+## Upgrades
+
+```bash
+git pull
+docker compose build server
+docker compose up -d
+```
+
+Because the server runs `prisma db push` on boot, the database schema is synced
+automatically and idempotently during the restart. Take a fresh DB + blob backup
+before upgrading. Container images are stateless — all durable state lives in the
+`db-data` and `blob-data` volumes — so rebuilding the image never loses data.
+
+## Troubleshooting
+
+- **`server` keeps restarting** — check `docker compose logs server`. A common
+  cause is the DB not being ready; the `depends_on … condition:
+service_healthy` gate normally prevents this, but a misconfigured
+  `DATABASE_URL` will surface here.
+- **Health check fails** — `curl http://127.0.0.1:4000/v1/health` from the host;
+  confirm the `ports:` mapping (or that the proxy is the intended entry point).
+- **CORS errors in the web client** — set `GRAPHVAULT_CORS_ORIGIN` to the web
+  app's exact origin.

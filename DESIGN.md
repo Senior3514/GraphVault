@@ -58,9 +58,25 @@ thinking — not a decorative hairball.
 
 ## Architecture stance
 
-- Keep the **sync core**, **indexer**, and **graph engine** as UI-independent
-  libraries so the desktop app, web app, and future tooling can share them.
+- Keep the **sync core** (`@graphvault/sync-core`), **indexer**, and **graph
+  engine** (`@graphvault/engine`) as UI-independent libraries so the desktop
+  app, web app, and future tooling can share them. The graph engine is the
+  client-side brain behind the hero graph surface.
 - The server stores bytes and revisions; it stays ignorant of note semantics.
   Intelligence (links, graph, search) lives client-side.
 
-See `docs/sync-protocol.md` for the sync design and `CLAUDE.md` for build scope.
+## Security & operations stance
+
+- **Self-hosted by design.** The server is packaged as a small Docker image and
+  a Compose stack (server + PostgreSQL + on-disk blob storage). It speaks plain
+  HTTP and runs **behind a TLS-terminating reverse proxy** (Caddy/nginx).
+- **Defense in depth, plainly.** Argon2id password hashing, opaque
+  device-bound bearer tokens, per-request vault ownership checks, rate limiting,
+  and optional AES-256-GCM at-rest blob encryption — content addressing is over
+  the plaintext, so encryption never changes the wire protocol.
+- **No telemetry, never lose data.** No outbound calls by default; conflicts are
+  preserved as side-by-side copies, never silently overwritten.
+
+See `docs/sync-protocol.md` for the sync design, `docs/security-basics.md` for
+the security model, `docs/deployment.md` for self-hosting, and `CLAUDE.md` for
+build scope.

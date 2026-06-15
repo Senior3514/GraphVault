@@ -1,0 +1,102 @@
+# GraphVault self-hosted deployment.
+#
+# Quickstart:
+#   cp docker/env.example .env       # then edit secrets
+#   docker compose up -d --build
+#   curl http://127.0.0.1:4000/v1/health
+#
+# This brings up the sync server backed by PostgreSQL with durable on-disk
+# storage for blob bytes. See docs/deployment.md for first-user creation,
+# backups, and the reverse-proxy/TLS model.
+#
+# TLS NOTE: the server speaks plain HTTP and is meant to sit BEHIND a
+# TLS-terminating reverse proxy (Caddy or nginx) in production. Do not expose
+# port 4000 directly to the public internet. The commented `proxy` service
+# below is a minimal Caddy example — uncomment and adapt it, then stop
+# publishing the server's port directly. See docs/deployment.md.
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-graphvault}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-graphvault}
+      POSTGRES_DB: ${POSTGRES_DB:-graphvault}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-graphvault} -d ${POSTGRES_DB:-graphvault}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      GRAPHVAULT_HOST: 0.0.0.0
+      GRAPHVAULT_PORT: '4000'
+      # Persisted blob storage lives on the named volume mounted at /data.
+      GRAPHVAULT_DATA_DIR: /data
+      GRAPHVAULT_STORAGE: postgres
+      DATABASE_URL: postgresql://${POSTGRES_USER:-graphvault}:${POSTGRES_PASSWORD:-graphvault}@db:5432/${POSTGRES_DB:-graphvault}
+      # Comma-separated allowed origins for the web client (set to your domain).
+      GRAPHVAULT_CORS_ORIGIN: ${GRAPHVAULT_CORS_ORIGIN:-*}
+      # Max blob upload size in bytes (default 64 MiB).
+      GRAPHVAULT_MAX_BLOB_BYTES: ${GRAPHVAULT_MAX_BLOB_BYTES:-67108864}
+      # Optional at-rest blob encryption (Milestone 8). A 32-byte key, hex- or
+      # base64-encoded. If unset, blobs are stored as plaintext bytes on disk.
+      # Generate one with:  openssl rand -hex 32
+      GRAPHVAULT_ENCRYPTION_KEY: ${GRAPHVAULT_ENCRYPTION_KEY:-}
+    volumes:
+      - blob-data:/data
+    # Sync the Prisma schema into the database before the server boots. The repo
+    # ships no migration files (the schema is the source of truth), so we use
+    # `db push`, which creates/updates tables directly and is idempotent — safe
+    # on every restart. Switch to `migrate deploy` once versioned migrations are
+    # committed under apps/server/prisma/migrations. The `prisma` CLI is a
+    # (dev)dependency of @graphvault/server, so pnpm places it under
+    # apps/server/node_modules.
+    command: >
+      sh -c "node apps/server/node_modules/prisma/build/index.js db push
+      --schema apps/server/prisma/schema.prisma --skip-generate --accept-data-loss
+      && node apps/server/dist/index.js"
+    ports:
+      # Publish only to loopback by default; a reverse proxy should front this.
+      # Drop or change this when the `proxy` service below terminates TLS.
+      - '127.0.0.1:4000:4000'
+
+  # --- Optional TLS-terminating reverse proxy (uncomment to use) ------------
+  # proxy:
+  #   image: caddy:2
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - server
+  #   ports:
+  #     - '80:80'
+  #     - '443:443'
+  #   volumes:
+  #     - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy-data:/data
+  #     - caddy-config:/config
+  # When enabling the proxy, remove the `ports:` block from `server` above so
+  # only the proxy is reachable. A minimal Caddyfile:
+  #
+  #   notes.example.com {
+  #       reverse_proxy server:4000
+  #   }
+
+volumes:
+  db-data:
+  blob-data:
+  # caddy-data:
+  # caddy-config:
