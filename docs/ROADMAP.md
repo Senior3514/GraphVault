@@ -33,7 +33,7 @@
 - ✅ Import from `.zip` / `.json` / `.md`, collision-safe (never overwrites)
 - ✅ Hardened import (zip-slip / size / count guards) + tests
 - ✅ Pluggable storage backend seam: `StorageAdapter` + localStorage + File System Access disk adapter
-- ⬜ Settings UI to pick storage location (folder on disk) + migrate safely
+- ✅ Settings UI to pick storage location (folder on disk) with copy-verify-switch migration
 - ⬜ Drag-and-drop import; "export to folder"
 
 > Decision: **open-core** — auditable client + engine, optional paid hosted sync.
@@ -65,13 +65,13 @@
 
 - ✅ E2E vault encryption library: PBKDF2(310k)+AES-256-GCM, tamper-rejecting, versioned (`lib/crypto`)
 - ✅ Security review of render/XSS + import paths (passed)
-- ⬜ Wire encryption into Settings (passphrase enable + decrypt-on-load flow)
+- ✅ Encryption wired into Settings: `EncryptedVaultStore` decorator + passphrase gate + safe enable/disable
 - ⬜ CSP + Trusted Types audit
 - ⬜ Performance budget: virtualize long lists, debounce indexing, lazy graph
 
-## Milestone 14b — Graph v2 extras ⬜ (deferred — re-do from current base)
+## Milestone 14b — Graph v2 extras ✅
 
-- ⬜ In-graph search (highlight/zoom to matches), drag-to-pin nodes, zoom buttons, 1000+ node perf
+- ✅ In-graph search (`/`, highlight/zoom to matches), drag-to-pin nodes, zoom buttons, 200+ label cap perf
 
 ## Milestone 16 — True local desktop (Tauri) ⬜
 
@@ -79,12 +79,13 @@
 - ⬜ Native file watching; open an existing folder as a vault
 - ⬜ Packaged installers (mac/win/linux)
 
-## Milestone 17 — Polish, onboarding & launch ⬜
+## Milestone 17 — Polish, onboarding & launch 🟡
 
-- ⬜ First-run tour, sample vault, empty states
-- ⬜ Accessibility pass (focus, contrast, keyboard)
-- ⬜ Docs: quickstart, self-hosting, security model, data portability
-- ⬜ "Finished product" QA gauntlet + release
+- ✅ Stunning landing page + dismissible first-run onboarding hints (Cmd-K / `[[` / `#`)
+- ✅ Global UX polish (focus rings, transitions, empty-state utilities, motion-safe animations)
+- ✅ Docs: quickstart, self-hosting, security model, data portability; public-launch README (scrubbed)
+- ⬜ Full accessibility audit (focus order, contrast, screen-reader)
+- ⬜ "Finished product" QA gauntlet + tagged release
 
 ---
 

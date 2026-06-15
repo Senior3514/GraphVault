@@ -222,3 +222,34 @@ stop repeating mistakes. Newest at the top within each section.
   Keep exactly one implementation per slice; defer divergent duplicates.
 - **Data-safety:** never blindly overwrite the editor page (autosave/draft logic
   is where data-loss bugs hide) — adapt props, keep the tested flush logic.
+
+## Wave 2 — named parallel team (Vera/Cipher/Axis/Quill)
+
+### Fix for stale-base worktrees: reset to origin HEAD before coding
+- **Rule that worked:** instruct every parallel agent to FIRST run
+  `git fetch origin && git reset --hard origin/<branch>` and verify
+  `git log --oneline -3`. All four wave-2 slices then branched from the true
+  HEAD and cherry-picked in with ZERO conflicts (vs wave-1, where stale v0 bases
+  forced manual 3-way merges).
+
+### Cherry-pick the feature commit, not the agent's lessons commit
+- Agents that committed `docs/agent-company/lessons.md` separately create a
+  guaranteed conflict (the integrator's lessons.md has diverged). Cherry-pick
+  only the feature SHA; fold the agents' reported lessons in centrally (here).
+
+### Encryption wiring data-safety (Cipher)
+- `EncryptedVaultStore` writes ciphertext only AFTER a successful `encryptVault`;
+  a wrong passphrase on load rejects without touching storage (verified by a
+  byte-for-byte "original unmodified" test). Storage migration is copy → verify
+  (path+content+mtime+ctime) → activate; the source is never auto-cleared.
+- `isEncrypted()` checks raw magic bytes, not the Base64 form — detect stored
+  encrypted values via a try/catch envelope decode, not `isEncrypted(b64)`.
+
+### Graph v2 without regressing v1 (Axis)
+- Read per-frame state (hover/search/selection/pins) from refs inside a stable
+  `nodeCanvasObject` so hover/search never rebuilds the layout; v1's kind-colour
+  + shadow glow stayed intact. `delete node.fx` (not `= null`) to unpin under TS strict.
+
+### Docs scrub (Quill)
+- Grep public docs for the owner's account/repo slug before release; use generic
+  "your fork" wording in setup docs, keep the real GitHub link only in app code.
