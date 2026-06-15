@@ -20,7 +20,7 @@
  */
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 /**
@@ -75,6 +75,7 @@ function useFocusTrap(
   }, [active, containerRef, restoreRef]);
 }
 
+import { AddButton } from './AddButton';
 import { BackupHistory } from './BackupHistory';
 import { CommandPalette } from './CommandPalette';
 import { NavIcon } from './NavIcon';
@@ -103,6 +104,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
 }
 
 function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   // Mobile drawer open state (only relevant on small screens)
@@ -251,6 +254,15 @@ function AppShell({ children }: { children: React.ReactNode }) {
         <AssistantPanel />
       </Suspense>
       <AssistantButton />
+      {/* Mobile FAB: fast-capture "+ Add" in the thumb zone.
+          Mounted only on the vault route where note-creation is meaningful.
+          The FAB is hidden on desktop (md:hidden inside AddButton). */}
+      {pathname === '/vault' && (
+        <AddButton
+          variant="fab"
+          onNoteCreated={(path) => router.push(`/vault?note=${encodeURIComponent(path)}`)}
+        />
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { AddButton } from '../../components/AddButton';
 import { BacklinksPanel } from '../../components/BacklinksPanel';
 import { MarkdownEditor } from '../../components/MarkdownEditor';
 import { MarkdownPreview } from '../../components/MarkdownPreview';
@@ -296,17 +297,6 @@ export default function VaultPage() {
   );
 
   // ---- Toolbar actions ------------------------------------------------------
-  const handleNew = () => {
-    const name = window.prompt('New note path (e.g. notes/idea):');
-    if (!name) return;
-    try {
-      const created = vault.createNote(name);
-      openPath(created.path);
-    } catch (err) {
-      setError(err instanceof VaultError ? err.message : 'Could not create note.');
-    }
-  };
-
   const handleRename = () => {
     if (!activeTab?.notePath) return;
     const next = window.prompt('Rename / move note to:', activeTab.notePath.replace(/\.md$/i, ''));
@@ -371,13 +361,7 @@ export default function VaultPage() {
         <span className="text-xs text-neutral-500">
           {vault.notes.length} {vault.notes.length === 1 ? 'note' : 'notes'}
         </span>
-        <button
-          type="button"
-          onClick={handleNew}
-          className="rounded bg-neutral-800 px-2 py-0.5 text-xs text-neutral-200 hover:bg-neutral-700"
-        >
-          + New
-        </button>
+        <AddButton variant="inline" onNoteCreated={openPath} />
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-1 pb-3">
         <NoteTree
