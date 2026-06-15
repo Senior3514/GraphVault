@@ -4,6 +4,10 @@
  * Settings: configure the sync server URL and inspect / reset the local vault.
  * The server URL is persisted (Settings overrides the env default) and used by
  * the API client and the sync-status health check.
+ *
+ * New sections (M8 / security milestone):
+ *  - Storage location: active adapter + switch to File System Access API.
+ *  - Vault encryption: enable/disable AES-256-GCM at-rest encryption.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -18,6 +22,13 @@ import {
   type ImportEntry,
 } from '../../lib/vault/portability';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
+import {
+  FileSystemAdapter,
+  fileSystemAdapter,
+  getActiveAdapter,
+  listAdapters,
+} from '../../lib/vault/store';
+import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
 
 /** Trigger a browser download of `data` under `filename`. */
 function downloadBlob(data: BlobPart, filename: string, type: string) {
@@ -159,11 +170,18 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* Storage location                                                    */}
+      {/* ------------------------------------------------------------------ */}
+      <StorageSection />
+
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Vault</h2>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
-          <dt>Storage</dt>
-          <dd className="text-neutral-200">Browser (localStorage)</dd>
+          <dt>Encryption</dt>
+          <dd className="text-neutral-200">
+            {vault.encryptionEnabled ? 'On (AES-256-GCM)' : 'Off'}
+          </dd>
           <dt>Notes</dt>
           <dd className="text-neutral-200">{vault.ready ? vault.notes.length : '—'}</dd>
           <dt>Total content</dt>
@@ -183,6 +201,11 @@ export default function SettingsPage() {
           Reset vault to samples
         </button>
       </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Vault encryption                                                    */}
+      {/* ------------------------------------------------------------------ */}
+      <EncryptionSection />
 
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Import &amp; export</h2>
@@ -247,5 +270,377 @@ export default function SettingsPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Storage section (choose location)
+// ---------------------------------------------------------------------------
+
+function StorageSection() {
+  const [activeId, setActiveId] = useState<string>(() => {
+    try {
+      return getActiveAdapter().id;
+    } catch {
+      return 'localStorage';
+    }
+  });
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err' | 'warn'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const fsApiAvailable = FileSystemAdapter.isApiAvailable();
+  const adapters = listAdapters();
+  const vault = useVaultContext();
+
+  const switchToFileSystem = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      // FileSystemAdapter.create() requires a user gesture — this click handler
+      // qualifies. It shows the directory picker.
+      const newAdapter = await FileSystemAdapter.create();
+
+      // Migrate notes: copy → verify → activate.
+      const source = getActiveAdapter();
+      const result = await migrateAdapter(source, newAdapter);
+
+      // Install the new adapter as active.
+      fileSystemAdapter.setDirectory(
+        // Access the underlying directory handle via the adapter's internal
+        // property. We cast via unknown to keep the private API contained.
+        (
+          newAdapter as unknown as {
+            directory: Parameters<typeof fileSystemAdapter.setDirectory>[0];
+          }
+        ).directory!,
+      );
+
+      setActiveId('fileSystem');
+      setMsg({
+        kind: 'ok',
+        text: `Moved ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to "${result.to}". Source (${result.from}) preserved as backup — clear it manually when satisfied.`,
+      });
+
+      // Reload vault notes from the new adapter.
+      await vault.resetVault();
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setMsg({ kind: 'warn', text: 'Folder selection cancelled.' });
+      } else {
+        setMsg({
+          kind: 'err',
+          text: err instanceof Error ? err.message : 'Failed to switch storage location.',
+        });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const switchToLocalStorage = () => {
+    // Deactivate the FS adapter by clearing its handle.
+    fileSystemAdapter.setDirectory(
+      null as unknown as Parameters<typeof fileSystemAdapter.setDirectory>[0],
+    );
+    setActiveId('localStorage');
+    setMsg({ kind: 'ok', text: 'Switched back to browser storage (localStorage).' });
+  };
+
+  const activeLabel =
+    adapters.find((a) => a.id === activeId)?.label ?? 'Browser storage (localStorage)';
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <h2 className="text-sm font-semibold text-neutral-200">Storage location</h2>
+      <p className="mt-1 text-xs text-neutral-500">
+        Choose where your notes are stored. Switching migrates all notes safely (copy, verify,
+        activate) — no data is deleted automatically.
+      </p>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+        <dt>Active backend</dt>
+        <dd className="text-neutral-200">{activeLabel}</dd>
+      </dl>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {fsApiAvailable ? (
+          <>
+            <button
+              type="button"
+              disabled={activeId === 'fileSystem' || busy}
+              onClick={() => void switchToFileSystem()}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            >
+              {busy ? 'Migrating…' : 'Use local folder (File System)'}
+            </button>
+            <button
+              type="button"
+              disabled={activeId === 'localStorage' || busy}
+              onClick={switchToLocalStorage}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            >
+              Use browser storage
+            </button>
+          </>
+        ) : (
+          <p className="text-xs text-neutral-500">
+            File System Access API is not available in this browser (requires Chrome / Edge 86+).
+            Notes are stored in browser localStorage.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-2 min-h-4 text-xs">
+        {msg && (
+          <span
+            className={
+              msg.kind === 'ok'
+                ? 'text-emerald-400'
+                : msg.kind === 'warn'
+                  ? 'text-amber-400'
+                  : 'text-red-400'
+            }
+          >
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Encryption section
+// ---------------------------------------------------------------------------
+
+type EncryptionStep = 'idle' | 'enable-form' | 'disable-form' | 'busy';
+
+function EncryptionSection() {
+  const vault = useVaultContext();
+  const [step, setStep] = useState<EncryptionStep>('idle');
+  const [passphrase, setPassphrase] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const isEnabled = vault.encryptionEnabled;
+
+  const handleEnable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+
+    if (!passphrase) {
+      setMsg({ kind: 'err', text: 'Please enter a passphrase.' });
+      return;
+    }
+    if (passphrase !== confirm) {
+      setMsg({ kind: 'err', text: 'Passphrases do not match.' });
+      return;
+    }
+
+    setStep('busy');
+    try {
+      const count = await vault.enableEncryption(passphrase);
+      setMsg({
+        kind: 'ok',
+        text: `Encryption enabled. ${count} note${count !== 1 ? 's' : ''} encrypted with AES-256-GCM.`,
+      });
+      setStep('idle');
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to enable encryption.',
+      });
+      setStep('enable-form');
+    } finally {
+      setPassphrase('');
+      setConfirm('');
+    }
+  };
+
+  const handleDisable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+
+    if (!passphrase) {
+      setMsg({ kind: 'err', text: 'Enter your current passphrase to disable encryption.' });
+      return;
+    }
+
+    setStep('busy');
+    try {
+      await vault.disableEncryption(passphrase);
+      setMsg({ kind: 'ok', text: 'Encryption disabled. Notes are now stored as plaintext.' });
+      setStep('idle');
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text:
+          err instanceof Error ? err.message : 'Failed to disable encryption. Wrong passphrase?',
+      });
+      setStep('disable-form');
+    } finally {
+      setPassphrase('');
+    }
+  };
+
+  const cancel = () => {
+    setStep('idle');
+    setPassphrase('');
+    setConfirm('');
+    setMsg(null);
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <h2 className="text-sm font-semibold text-neutral-200">Vault encryption</h2>
+      <p className="mt-1 text-xs text-neutral-500">
+        Encrypt your notes at rest in the browser using AES-256-GCM. The passphrase is never stored
+        — you will need it on every session.
+      </p>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+        <dt>Status</dt>
+        <dd className={isEnabled ? 'text-emerald-400' : 'text-neutral-200'}>
+          {isEnabled ? 'Enabled (AES-256-GCM)' : 'Disabled (plaintext)'}
+        </dd>
+      </dl>
+
+      {step === 'idle' && (
+        <div className="mt-3">
+          {isEnabled ? (
+            <button
+              type="button"
+              onClick={() => {
+                setStep('disable-form');
+                setMsg(null);
+              }}
+              className="rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-1.5 text-sm text-amber-300 hover:bg-amber-950/60"
+            >
+              Disable encryption
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setStep('enable-form');
+                setMsg(null);
+              }}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
+            >
+              Enable encryption
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Enable form */}
+      {(step === 'enable-form' || (step === 'busy' && !isEnabled)) && (
+        <form onSubmit={(e) => void handleEnable(e)} className="mt-4 space-y-3" noValidate>
+          {/* Unmissable warning */}
+          <div className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-300">
+            <strong>Warning:</strong> if you lose this passphrase, your notes cannot be recovered.
+            There is no reset or recovery mechanism. Back up your notes (export) before enabling
+            encryption.
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="enc-pass">
+              Passphrase
+            </label>
+            <input
+              id="enc-pass"
+              type="password"
+              autoComplete="new-password"
+              value={passphrase}
+              onChange={(e) => setPassphrase(e.target.value)}
+              disabled={step === 'busy'}
+              placeholder="Choose a strong passphrase…"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+            />
+          </div>
+          <div>
+            <label
+              className="mb-1 block text-xs font-medium text-neutral-400"
+              htmlFor="enc-confirm"
+            >
+              Confirm passphrase
+            </label>
+            <input
+              id="enc-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              disabled={step === 'busy'}
+              placeholder="Repeat passphrase…"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={step === 'busy' || !passphrase || !confirm}
+              className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+            >
+              {step === 'busy' ? 'Encrypting…' : 'Encrypt vault'}
+            </button>
+            <button
+              type="button"
+              onClick={cancel}
+              disabled={step === 'busy'}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Disable form */}
+      {(step === 'disable-form' || (step === 'busy' && isEnabled)) && (
+        <form onSubmit={(e) => void handleDisable(e)} className="mt-4 space-y-3" noValidate>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="dis-pass">
+              Current passphrase
+            </label>
+            <input
+              id="dis-pass"
+              type="password"
+              autoComplete="current-password"
+              value={passphrase}
+              onChange={(e) => setPassphrase(e.target.value)}
+              disabled={step === 'busy'}
+              placeholder="Enter your current passphrase…"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={step === 'busy' || !passphrase}
+              className="rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-1.5 text-sm text-amber-300 hover:bg-amber-950/60 disabled:opacity-40"
+            >
+              {step === 'busy' ? 'Decrypting…' : 'Disable encryption'}
+            </button>
+            <button
+              type="button"
+              onClick={cancel}
+              disabled={step === 'busy'}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="mt-2 min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </section>
   );
 }
