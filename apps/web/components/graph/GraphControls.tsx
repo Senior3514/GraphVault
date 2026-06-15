@@ -12,6 +12,8 @@ import { colorForKey } from '../../lib/graph/model';
 import { PHYSICS_BOUNDS, type GraphPhysics } from '../../lib/graph/physics';
 import type { ColorMode } from '../../lib/graph/model';
 import type { FilterAction, GraphFilters, GraphMode } from '../../lib/graph/filters';
+import { GraphTimeline } from './GraphTimeline';
+import type { TimelineState } from '../../lib/graph/timeline';
 
 export interface GraphControlsProps {
   mode: GraphMode;
@@ -36,6 +38,10 @@ export interface GraphControlsProps {
   availableTags: string[];
   availableFolders: string[];
   availableLinkTypes: string[];
+
+  /** Timeline slider state. `null` = no timestamped nodes, hide the control. */
+  timeline: TimelineState | null;
+  onTimelineChange: (patch: Partial<TimelineState>) => void;
 }
 
 export function GraphControls({
@@ -56,6 +62,8 @@ export function GraphControls({
   availableTags,
   availableFolders,
   availableLinkTypes,
+  timeline,
+  onTimelineChange,
 }: GraphControlsProps) {
   return (
     // On mobile the aside is rendered inside a slide-up drawer by the page,
@@ -226,6 +234,13 @@ export function GraphControls({
       >
         Reset filters
       </button>
+
+      {timeline && (
+        <>
+          <Divider />
+          <GraphTimeline state={timeline} onChange={onTimelineChange} />
+        </>
+      )}
     </aside>
   );
 }

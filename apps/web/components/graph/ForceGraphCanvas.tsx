@@ -62,6 +62,12 @@ export interface ForceGraphCanvasProps {
    */
   searchIds?: Set<string> | null;
   /**
+   * Set of node IDs visible in the current timeline window. When non-null,
+   * nodes not in this set are faded to indicate they are outside the selected
+   * time range. Null = timeline not active.
+   */
+  timelineIds?: Set<string> | null;
+  /**
    * Called when the set of pinned node IDs changes. The page uses this to show
    * the "Unpin all" control and to expose the pin state to the imperative handle.
    */
@@ -136,6 +142,7 @@ export default function ForceGraphCanvas({
   onSelect,
   onOpen,
   searchIds,
+  timelineIds,
   onPinnedChange,
 }: ForceGraphCanvasProps) {
   const [containerRef, size] = useElementSize();
@@ -312,6 +319,8 @@ export default function ForceGraphCanvas({
   focusRef.current = focus;
   const searchIdsRef = useRef(searchIds);
   searchIdsRef.current = searchIds;
+  const timelineIdsRef = useRef(timelineIds);
+  timelineIdsRef.current = timelineIds;
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
 
@@ -328,13 +337,25 @@ export default function ForceGraphCanvas({
       const isFocused = currentFocus !== null && currentFocus.set.has(n.id);
       const isPinned = pinnedRef.current.has(n.id);
       const isPlaceholder = n.category !== 'note';
+      const currentTimelineIds = timelineIdsRef.current;
 
-      // Dimming logic: search overrides hover/focus dimming when active.
+      // Dimming logic:
+      // 1. Timeline: if active, nodes outside the window are faded first.
+      // 2. Search: if active, overrides hover dimming (non-matches dim).
+      // 3. Hover/focus: non-neighbours dim when a node is hovered/selected.
+      // Focus (hover/selected neighbours) always overrides timeline dimming so
+      // the user can still explore by clicking even with the slider on.
+      const timelineDimmed =
+        currentTimelineIds !== null &&
+        currentTimelineIds !== undefined &&
+        !currentTimelineIds.has(n.id) &&
+        !isFocused;
+
       let dimmed: boolean;
       if (currentSearchIds !== null && currentSearchIds !== undefined) {
-        dimmed = !currentSearchIds.has(n.id) && !isFocused;
+        dimmed = (!currentSearchIds.has(n.id) && !isFocused) || timelineDimmed;
       } else {
-        dimmed = currentFocus !== null && !isFocused;
+        dimmed = (currentFocus !== null && !isFocused) || timelineDimmed;
       }
 
       // Performance: suppress label rendering in dense graphs unless important.
@@ -417,9 +438,10 @@ export default function ForceGraphCanvas({
       }
       ctx.globalAlpha = 1;
     },
-    // focusRef, searchIdsRef, selectedIdRef and pinnedRef are intentionally
-    // read via refs so this callback can be stable — it only needs to rebuild
-    // when the label threshold, density flag, or reduced-motion preference changes.
+    // focusRef, searchIdsRef, timelineIdsRef, selectedIdRef and pinnedRef are
+    // intentionally read via refs so this callback can be stable — it only
+    // needs to rebuild when the label threshold, density flag, or
+    // reduced-motion preference changes.
     [physics.labelThreshold, denseGraph, reducedMotion],
   );
 

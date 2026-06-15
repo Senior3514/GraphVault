@@ -293,3 +293,34 @@ stop repeating mistakes. Newest at the top within each section.
   `window === globalThis` in browsers). Augment DOM types with
   `declare global { interface Window { … } }` — never re-declare a DOM interface
   partially (creates a conflicting parallel type).
+
+## Wave 4 — time-slider (Nova)
+
+### Additive overlay vs hard-filter for timeline scrubbing
+
+- **Symptom concern:** removing nodes from the force layout while scrubbing
+  causes constant layout thrash — nodes re-enter at random positions every time
+  the window moves, making the animation disorienting.
+- **Root cause / rule:** the time-slider must operate as a *dimming overlay* (like
+  `searchIds`) rather than a hard filter that changes `payload.nodes`. The graph
+  layout stays completely stable; only canvas alpha changes. This means
+  `timelineIds: Set<string> | null` travels the same path as `searchIds` —
+  computed from index nodes, passed through a ref inside `nodeCanvasObject`, and
+  combined with hover/search dimming. Never rebuild `payload` or `model` on
+  timeline scrub.
+
+### Dual-range slider with two overlapping `<input type=range>` inputs
+
+- **Approach:** render two `<input type=range>` stacked via `position: absolute`
+  and `opacity: 0` so the browser owns hit-testing on each thumb. Position custom
+  visual thumbs absolutely at the computed `left: X%`. Swap z-index dynamically
+  when the start handle is past the midpoint so the "end" handle stays on top
+  and the two never get stuck. This is CSS-only, zero extra deps.
+
+### Animation loop with a ref to avoid stale closures
+
+- **Rule:** `setInterval` closures capture the state at the time the interval is
+  created. For an animation that reads ever-changing state, keep a `stateRef`
+  that is updated on every render; the interval reads `stateRef.current`. This
+  avoids needing to re-register the interval on every state change (which would
+  reset the cadence and create micro-gaps in the animation).

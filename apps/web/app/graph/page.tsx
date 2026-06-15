@@ -30,7 +30,7 @@
 
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
   buildIndex,
@@ -51,6 +51,11 @@ import { buildRenderModel, distinctSorted, notesToInputs } from '../../lib/graph
 import type { ColorMode } from '../../lib/graph/model';
 import { clampPhysics, DEFAULT_PHYSICS, type GraphPhysics } from '../../lib/graph/physics';
 import { matchNodes } from '../../lib/graph/search';
+import {
+  buildTimelineState,
+  timelineVisibleIds,
+  type TimelineState,
+} from '../../lib/graph/timeline';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 
 // Canvas/DOM-only renderer: never server-rendered.
@@ -74,6 +79,7 @@ export default function GraphPage() {
   const [physics, setPhysics] = useState<GraphPhysics>(DEFAULT_PHYSICS);
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [timeline, setTimeline] = useState<TimelineState | null>(null);
 
   // Mobile drawer states
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
@@ -84,6 +90,39 @@ export default function GraphPage() {
   // unrelated re-renders (hover, selection) don't trigger a reparse.
   const index = useMemo(() => buildIndex(notesToInputs(vault.notes)), [vault.notes]);
   const totalNodes = index.nodes.size;
+
+  // Rebuild the timeline domain whenever the set of notes changes. We preserve
+  // the existing window and enabled/playing state where possible so scrubbing
+  // isn't disrupted by a background vault update.
+  useEffect(() => {
+    const nodes = [...index.nodes.values()];
+    const fresh = buildTimelineState(nodes);
+    if (!fresh) {
+      setTimeline(null);
+      return;
+    }
+    setTimeline((prev) => {
+      if (!prev) return fresh;
+      // Keep user's window if it still falls within the (potentially wider) new domain.
+      const windowStart = Math.max(fresh.domainStart, Math.min(prev.windowStart, fresh.domainEnd));
+      const windowEnd = Math.max(windowStart, Math.min(prev.windowEnd, fresh.domainEnd));
+      return {
+        ...fresh,
+        windowStart,
+        windowEnd,
+        enabled: prev.enabled,
+        playing: false, // stop animation on vault change
+      };
+    });
+  }, [index]);
+
+  // Compute the set of node IDs visible in the timeline window. Used to dim
+  // out-of-window nodes on the canvas, similar to the search highlight.
+  const timelineIds = useMemo(() => {
+    if (!timeline) return null;
+    const nodes = [...index.nodes.values()];
+    return timelineVisibleIds(nodes, timeline.windowStart, timeline.windowEnd, timeline.enabled);
+  }, [index, timeline]);
 
   // Facets available for the filter controls, derived from the full index.
   const facets = useMemo(() => {
@@ -167,6 +206,10 @@ export default function GraphPage() {
     setPhysics((prev) => clampPhysics(prev, patch));
   };
 
+  const handleTimelineChange = useCallback((patch: Partial<TimelineState>) => {
+    setTimeline((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
   const handlePinnedChange = useCallback((pinned: Set<string>) => {
     setPinnedIds(new Set(pinned));
   }, []);
@@ -214,6 +257,8 @@ export default function GraphPage() {
       availableTags={facets.tags}
       availableFolders={facets.folders}
       availableLinkTypes={facets.linkTypes}
+      timeline={timeline}
+      onTimelineChange={handleTimelineChange}
     />
   );
 
@@ -285,6 +330,8 @@ export default function GraphPage() {
               availableTags={facets.tags}
               availableFolders={facets.folders}
               availableLinkTypes={facets.linkTypes}
+              timeline={timeline}
+              onTimelineChange={handleTimelineChange}
             />
           </div>
         </>
@@ -336,6 +383,7 @@ export default function GraphPage() {
                 onSelect={handleSelect}
                 onOpen={(node) => node.path && openNote(node.path)}
                 searchIds={searchIds}
+                timelineIds={timelineIds}
                 onPinnedChange={handlePinnedChange}
               />
               <GraphLegend
