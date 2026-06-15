@@ -21,6 +21,8 @@ pnpm-debug.log*
 
 # Server runtime data
 storage/
+# …but keep the web client's storage-adapter source (not runtime data).
+!apps/web/lib/vault/storage/
 *.sqlite
 *.sqlite-journal
 *.db

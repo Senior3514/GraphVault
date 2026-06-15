@@ -135,3 +135,12 @@ body {
 .markdown-preview input[type='checkbox'] {
   @apply mr-1.5 align-middle;
 }
+
+/* Hide scrollbars on horizontally-scrolling strips (e.g. the editor tab bar). */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

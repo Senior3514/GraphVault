@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { computeBacklinks, type Backlink } from './links';
 import { NoteSearchIndex, type SearchResult } from './search';
-import { LocalStorageVaultStore } from './store';
+import { AdapterVaultStore } from './store';
 import { aggregateTags, notesWithTag as notesWithTagOp, type TagCount } from './tags';
 import type { IndexedNote, Note, NotePath } from './types';
 import {
@@ -27,7 +27,7 @@ import {
   type ImportSummary,
 } from './vault';
 
-const store = new LocalStorageVaultStore();
+const store = new AdapterVaultStore();
 
 export interface UseVault {
   ready: boolean;
