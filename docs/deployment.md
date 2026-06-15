@@ -7,26 +7,123 @@
 
 ## What you deploy
 
-A `docker compose` stack with two services:
+A `docker compose` stack with three services in production:
 
 - **`server`** — the `@graphvault/server` sync API, built from
-  `docker/server.Dockerfile`. Speaks plain HTTP on port `4000` and stores blob
-  bytes on a persistent volume.
+  `docker/server.Dockerfile`. Speaks plain HTTP on port `4000` internally and
+  stores blob bytes on a persistent volume.
 - **`db`** — PostgreSQL 16, the durable backend (`GRAPHVAULT_STORAGE=postgres`),
   on its own named volume.
+- **`caddy`** — Caddy 2 reverse proxy (production only). Obtains and renews
+  Let's Encrypt TLS certificates automatically. The only process reachable from
+  the internet (ports 80 and 443). The server is never exposed directly.
 
-In production you add a **reverse proxy** (Caddy/nginx) in front to terminate
-TLS. The server is meant to sit behind it, not be exposed directly.
+---
 
-## Prerequisites
+## Deploy to a VPS in 5 minutes
 
-- A Linux host with **Docker** and the **Docker Compose plugin** (`docker
-compose version`).
-- A domain name pointing at the host (for TLS), if exposing publicly.
+### Prerequisites
 
-## Quickstart — `docker compose up`
+- A Linux host with **Docker** (20.10+) and the **Docker Compose plugin v2**
+  (`docker compose version`).
+- A **domain name** with an **A record** pointing at the host (e.g.
+  `notes.example.com → 1.2.3.4`). Let the record propagate before running the
+  deploy script.
+- Ports **80** and **443** open in the host firewall (`ufw allow 80/tcp` and
+  `ufw allow 443/tcp`).
 
-From the repository root:
+### Step 1 — Clone the repository
+
+```bash
+git clone https://github.com/your-org/graphvault.git
+cd graphvault
+```
+
+### Step 2 — Configure `.env`
+
+```bash
+# The deploy script creates .env from docker/env.example on first run,
+# but you can do it manually and edit before deploying:
+cp docker/env.example .env
+$EDITOR .env
+```
+
+Set at minimum these five variables:
+
+| Variable | Example value | Notes |
+|---|---|---|
+| `DOMAIN` | `notes.example.com` | No `https://` prefix. Must resolve to this host. |
+| `ACME_EMAIL` | `you@example.com` | Let's Encrypt registration address. |
+| `POSTGRES_PASSWORD` | `$(openssl rand -hex 24)` | Change from the default. |
+| `GRAPHVAULT_CORS_ORIGIN` | `https://notes.example.com` | Your web client's origin. |
+| `GRAPHVAULT_ENCRYPTION_KEY` | _(see below)_ | Base64 32-byte AES key. |
+
+Generate the encryption key:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+**Back up `GRAPHVAULT_ENCRYPTION_KEY` separately** (password manager, offline
+copy). Losing it makes WebDAV/S3/AI credentials and encrypted blobs
+unrecoverable — there is no recovery path.
+
+### Step 3 — Deploy
+
+```bash
+chmod +x scripts/deploy.sh
+./scripts/deploy.sh
+```
+
+The script:
+1. Checks Docker and compose are available.
+2. Creates `.env` from the template if it does not exist (and tells you which
+   vars to set).
+3. Validates that `DOMAIN`, `ACME_EMAIL`, and `POSTGRES_PASSWORD` are set.
+4. Runs `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`.
+5. Waits for the server health check to pass.
+6. Prints `https://$DOMAIN/v1/health` and the registration command.
+
+### Step 4 — Verify
+
+```bash
+chmod +x scripts/verify-deploy.sh
+./scripts/verify-deploy.sh
+```
+
+The script checks:
+- DNS resolves.
+- TLS certificate is valid (curl verifies the chain against the system CA bundle).
+- HTTP → HTTPS redirect works on port 80.
+- `/v1/health` returns `{"status":"ok"}`.
+- `/v1/server-info` returns a JSON object.
+- Security headers are present (HSTS, X-Frame-Options, CSP, etc.).
+
+### Step 5 — Register the first user
+
+```bash
+curl -X POST https://notes.example.com/v1/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"a-long-strong-passphrase","deviceName":"laptop"}'
+```
+
+### Manual verification checklist
+
+- [ ] DNS A record for `$DOMAIN` points at the host.
+- [ ] Firewall allows ports 80 and 443.
+- [ ] `./scripts/verify-deploy.sh` — all checks green.
+- [ ] First user registered (endpoint above).
+- [ ] Open the web client, set server URL to `https://$DOMAIN`, sign in.
+- [ ] Create a note, sync, open on a second device — verify round-trip.
+- [ ] `GRAPHVAULT_ENCRYPTION_KEY` is backed up securely (offline or in a
+  password manager).
+- [ ] Daily backup cron scheduled (see Backups section).
+
+---
+
+## Quickstart — local / dev (`docker compose up`)
+
+From the repository root (no TLS, loopback only):
 
 ```bash
 # 1. Create your environment file from the template and edit the secrets.
@@ -87,19 +184,24 @@ Logging in again later uses the same shape at `POST /v1/auth/login`.
 Set these in `.env` (read automatically by `docker compose`). Defaults shown are
 the compose/app defaults.
 
-| Variable                    | Default      | Used by     | Meaning                                                                 |
-| --------------------------- | ------------ | ----------- | ----------------------------------------------------------------------- |
-| `POSTGRES_USER`             | `graphvault` | db + server | PostgreSQL role; also composed into `DATABASE_URL`.                     |
-| `POSTGRES_PASSWORD`         | _(example)_  | db + server | PostgreSQL password. **Change this.**                                   |
-| `POSTGRES_DB`               | `graphvault` | db + server | PostgreSQL database name.                                               |
-| `GRAPHVAULT_HOST`           | `0.0.0.0`    | server      | Listen host inside the container (must be `0.0.0.0` in Docker).         |
-| `GRAPHVAULT_PORT`           | `4000`       | server      | Listen port.                                                            |
-| `GRAPHVAULT_STORAGE`        | `postgres`   | server      | Storage backend; `postgres` in compose (the app default is `memory`).   |
-| `DATABASE_URL`              | _(composed)_ | server      | Postgres DSN; built from the `POSTGRES_*` vars in compose.              |
-| `GRAPHVAULT_DATA_DIR`       | `/data`      | server      | On-disk blob storage; mapped to the `blob-data` volume.                 |
-| `GRAPHVAULT_CORS_ORIGIN`    | `*`          | server      | Comma-separated allowed origins. Restrict in production.                |
-| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864`   | server      | Max blob upload size in bytes (64 MiB).                                 |
-| `GRAPHVAULT_ENCRYPTION_KEY` | _(unset)_    | server      | Optional 32-byte at-rest blob encryption key (hex/base64). Milestone 8. |
+| Variable | Default | Used by | Meaning |
+|---|---|---|---|
+| `POSTGRES_USER` | `graphvault` | db + server | PostgreSQL role; also composed into `DATABASE_URL`. |
+| `POSTGRES_PASSWORD` | _(example)_ | db + server | PostgreSQL password. **Change this.** |
+| `POSTGRES_DB` | `graphvault` | db + server | PostgreSQL database name. |
+| `GRAPHVAULT_HOST` | `0.0.0.0` | server | Listen host inside the container (must be `0.0.0.0` in Docker). |
+| `GRAPHVAULT_PORT` | `4000` | server | Listen port. |
+| `GRAPHVAULT_STORAGE` | `postgres` | server | Storage backend; `postgres` in compose (the app default is `memory`). |
+| `DATABASE_URL` | _(composed)_ | server | Postgres DSN; built from the `POSTGRES_*` vars in compose. |
+| `GRAPHVAULT_DATA_DIR` | `/data` | server | On-disk blob storage; mapped to the `blob-data` volume. |
+| `GRAPHVAULT_CORS_ORIGIN` | `*` | server | Comma-separated allowed origins. Restrict in production. |
+| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864` | server | Max blob upload size in bytes (64 MiB). |
+| `GRAPHVAULT_TRUST_PROXY` | `false` | server | Set `true` when behind a reverse proxy (Caddy/nginx) so rate-limiting keys on real client IPs via `X-Forwarded-For`. Automatically set by `docker-compose.prod.yml`. |
+| `GRAPHVAULT_REQUIRE_HTTPS` | `true` in prod | server | Reject plain-HTTP requests. Automatically enabled by `docker-compose.prod.yml`. |
+| `GRAPHVAULT_ENCRYPTION_KEY` | _(unset)_ | server | **Base64-encoded 32-byte AES-256-GCM key** for at-rest blob encryption AND for WebDAV/S3/AI credential encryption. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. If unset, a process-lifetime key is used for credentials (lost on restart) and blobs are stored as plaintext. **Back this up.** |
+| `GRAPHVAULT_AI_DAILY_CAP` | `200` | server | Per-user/day AI proxy request cap (0 = unlimited). |
+| `DOMAIN` | _(unset)_ | caddy | Public hostname (e.g. `notes.example.com`). Required in production. |
+| `ACME_EMAIL` | _(unset)_ | caddy | Let's Encrypt registration e-mail. Required in production. |
 
 > The app itself defaults `GRAPHVAULT_HOST` to `127.0.0.1` and
 > `GRAPHVAULT_STORAGE` to `memory`; the Docker image and compose file override
@@ -107,44 +209,55 @@ the compose/app defaults.
 
 ## Reverse proxy / TLS
 
-Run the server behind a TLS-terminating proxy. `docker-compose.yml` includes a
-commented `proxy` service using **Caddy**, which obtains and renews certificates
-automatically. To enable it:
+The production compose overlay (`docker-compose.prod.yml`) runs Caddy in front
+of the server. Caddy:
 
-1. Point your domain's DNS at the host.
-2. Create `docker/Caddyfile`:
+- Obtains and renews Let's Encrypt certificates automatically (no certbot cron).
+- Terminates TLS and proxies to `server:4000` over the internal Docker network.
+- Sets all security headers (`HSTS`, `X-Frame-Options`, `CSP`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`).
+- Forwards `X-Forwarded-For` / `X-Forwarded-Proto` so the server sees real
+  client IPs for rate limiting.
 
-   ```caddyfile
-   notes.example.com {
-       reverse_proxy server:4000
-   }
-   ```
+The configuration lives in `docker/Caddyfile`. It reads `{env.DOMAIN}` and
+`{env.ACME_EMAIL}` from the container environment (injected by compose).
 
-3. Uncomment the `proxy` service and the `caddy-data` / `caddy-config` volumes in
-   `docker-compose.yml`.
-4. **Remove the `ports:` block from the `server` service** so only the proxy is
-   publicly reachable; the proxy talks to `server:4000` over the internal Docker
-   network.
-5. `docker compose up -d` and browse to `https://notes.example.com`.
+### nginx alternative
 
-An nginx equivalent (TLS certs managed separately, e.g. with certbot):
+If you prefer nginx (TLS certs managed separately, e.g. with certbot):
 
 ```nginx
 server {
     listen 443 ssl;
     server_name notes.example.com;
-    # ssl_certificate / ssl_certificate_key ...
+    ssl_certificate     /etc/letsencrypt/live/notes.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/notes.example.com/privkey.pem;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https:; media-src 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()" always;
+
     location / {
-        proxy_pass http://server:4000;
+        proxy_pass http://127.0.0.1:4000;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+
+server {
+    listen 80;
+    server_name notes.example.com;
+    return 301 https://$host$request_uri;
+}
 ```
 
-Forward a trustworthy client IP (`X-Forwarded-For`) so server-side rate limiting
-keys on the real client rather than the proxy.
+Set `GRAPHVAULT_TRUST_PROXY=true` and `GRAPHVAULT_REQUIRE_HTTPS=true` in `.env`
+when using nginx.
 
 ## Backups
 
@@ -171,6 +284,19 @@ docker run --rm \
 If you set `GRAPHVAULT_ENCRYPTION_KEY`, back it up **separately and securely** —
 the blob archive is unrecoverable without it.
 
+### Automating backups (cron)
+
+```cron
+# /etc/cron.d/graphvault — daily backup at 02:00 UTC
+0 2 * * * root cd /opt/graphvault && \
+  docker compose exec -T db pg_dump -U graphvault graphvault | \
+  gzip > /var/backups/graphvault-db-$(date +\%F).sql.gz && \
+  docker run --rm -v graphvault_blob-data:/data:ro -v /var/backups:/backup \
+  busybox tar czf /backup/graphvault-blobs-$(date +\%F).tar.gz -C /data .
+```
+
+Keep at least 7 days of backups offsite. Test a restore periodically.
+
 ## Restore
 
 ```bash
@@ -193,8 +319,8 @@ stack afterward (`docker compose restart server`).
 
 ```bash
 git pull
-docker compose build server
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build server
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 Because the server runs `prisma db push` on boot, the database schema is synced
@@ -204,14 +330,23 @@ before upgrading. Container images are stateless — all durable state lives in 
 
 ## Troubleshooting
 
-- **`server` keeps restarting** — check `docker compose logs server`. A common
-  cause is the DB not being ready; the `depends_on … condition:
-service_healthy` gate normally prevents this, but a misconfigured
+- **`server` keeps restarting** — check
+  `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs server`.
+  A common cause is the DB not being ready; the `depends_on … condition:
+  service_healthy` gate normally prevents this, but a misconfigured
   `DATABASE_URL` will surface here.
-- **Health check fails** — `curl http://127.0.0.1:4000/v1/health` from the host;
-  confirm the `ports:` mapping (or that the proxy is the intended entry point).
+- **Caddy fails to obtain a certificate** — ensure the DNS A record has
+  propagated (`dig +short $DOMAIN`) and ports 80/443 are open. Check
+  `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs caddy`.
+  Let's Encrypt has rate limits; staging certs can be tested by adding
+  `acme_ca https://acme-staging-v02.api.letsencrypt.org/directory` inside
+  the `tls` block of `docker/Caddyfile`.
+- **Health check fails** — `curl https://$DOMAIN/v1/health`; confirm Caddy is
+  running and the `server` container is healthy.
 - **CORS errors in the web client** — set `GRAPHVAULT_CORS_ORIGIN` to the web
-  app's exact origin.
+  app's exact origin (`https://notes.example.com`).
+- **WebDAV/S3/AI credentials lost on restart** — set `GRAPHVAULT_ENCRYPTION_KEY`
+  so credentials are encrypted with a durable key, not a process-lifetime key.
 
 ## Web app (Vercel)
 
