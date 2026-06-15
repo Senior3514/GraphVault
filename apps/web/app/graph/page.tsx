@@ -70,6 +70,7 @@ import {
 import { buildClusterColors, type ClusterColorInfo } from '../../lib/graph/clusters';
 import { computeGroupColors, loadGroups, saveGroups, type NodeGroup } from '../../lib/graph/groups';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
+import { buildSnapshot, generateEmbedUrl } from '../../lib/embed/snapshot';
 
 // Canvas/DOM-only renderer: never server-rendered.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
@@ -453,6 +454,8 @@ export default function GraphPage() {
                 {groups.length} {groups.length === 1 ? 'group' : 'groups'}
               </span>
             )}
+            {/* M20: Share / Embed graph button */}
+            <ShareButton nodes={payload.nodes} edges={payload.edges} />
             <NodeCount shown={shownNodes} total={totalNodes} truncated={payload.truncated} />
           </div>
         </header>
@@ -630,6 +633,214 @@ function ControlsIcon() {
       aria-hidden="true"
     >
       <path strokeLinecap="round" d="M2 4h12M4 8h8M6 12h4" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// M20: Share / Embed graph affordance
+// ---------------------------------------------------------------------------
+
+/**
+ * A button + popover that generates a copyable `/embed?s=…` URL and an
+ * `<iframe>` snippet from the current graph payload (filtered nodes + edges).
+ *
+ * Only nodes and edge topology travel in the URL — NO note content. The
+ * snapshot module enforces this invariant (see lib/embed/snapshot.ts).
+ */
+function ShareButton({
+  nodes,
+  edges,
+}: {
+  nodes: import('@graphvault/engine').GraphNode[];
+  edges: import('@graphvault/engine').GraphEdge[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [embedUrl, setEmbedUrl] = useState('');
+  const [iframeSnippet, setIframeSnippet] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState('');
+  const [copied, setCopied] = useState<'url' | 'iframe' | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Close on Escape or outside click.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onClick = (e: MouseEvent) => {
+      if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onClick);
+    };
+  }, [open]);
+
+  const handleOpen = useCallback(async () => {
+    setOpen(true);
+    if (embedUrl) return; // already generated for this payload instance
+    setGenerating(true);
+    setGenError('');
+    try {
+      const snapshot = buildSnapshot(nodes, edges);
+      const base = typeof window !== 'undefined' ? window.location.origin : '';
+      const result = await generateEmbedUrl(snapshot, base);
+      setEmbedUrl(result.url);
+      setIframeSnippet(result.iframe);
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : 'Failed to generate embed URL.');
+    } finally {
+      setGenerating(false);
+    }
+  }, [nodes, edges, embedUrl]);
+
+  // Re-generate when nodes/edges change (payload changes).
+  // Reset cached URL so next open regenerates.
+  useEffect(() => {
+    setEmbedUrl('');
+    setIframeSnippet('');
+    setCopied(null);
+  }, [nodes, edges]);
+
+  const copy = useCallback(
+    (which: 'url' | 'iframe') => {
+      const text = which === 'url' ? embedUrl : iframeSnippet;
+      if (!text) return;
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          setCopied(which);
+          setTimeout(() => setCopied(null), 2000);
+        })
+        .catch(() => {
+          /* clipboard unavailable */
+        });
+    },
+    [embedUrl, iframeSnippet],
+  );
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={handleOpen}
+        aria-label="Share or embed this graph"
+        title="Share / Embed graph"
+        className="hidden items-center gap-1.5 rounded-md border border-neutral-800 px-2 py-1 text-xs text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200 sm:flex"
+      >
+        <ShareIcon />
+        <span className="hidden md:inline">Share</span>
+      </button>
+
+      {open && (
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Share or embed graph"
+          className="absolute right-0 top-full z-50 mt-2 w-80 rounded-lg border border-neutral-800 bg-neutral-950 p-4 shadow-2xl"
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xs font-semibold text-neutral-300">Share / Embed graph</h2>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="flex h-6 w-6 items-center justify-center rounded text-neutral-600 hover:text-neutral-400"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+
+          <p className="mb-3 text-[11px] leading-relaxed text-neutral-600">
+            Shares <strong className="text-neutral-500">titles and links only</strong> — note
+            content is never included. Recipients see a read-only, interactive graph.
+          </p>
+
+          {generating && (
+            <p className="text-[11px] text-neutral-600">Generating snapshot&hellip;</p>
+          )}
+          {genError && <p className="text-[11px] text-red-400">{genError}</p>}
+
+          {!generating && !genError && embedUrl && (
+            <div className="space-y-3">
+              {/* Direct URL */}
+              <div>
+                <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-neutral-600">
+                  Direct link
+                </label>
+                <div className="flex gap-1">
+                  <input
+                    readOnly
+                    value={embedUrl}
+                    className="min-w-0 flex-1 rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-400 focus:outline-none"
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => copy('url')}
+                    className="shrink-0 rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+                  >
+                    {copied === 'url' ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              {/* iframe snippet */}
+              <div>
+                <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-neutral-600">
+                  Embed (iframe)
+                </label>
+                <div className="flex gap-1">
+                  <input
+                    readOnly
+                    value={iframeSnippet}
+                    className="min-w-0 flex-1 rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-400 focus:outline-none"
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => copy('iframe')}
+                    className="shrink-0 rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+                  >
+                    {copied === 'iframe' ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-neutral-700">
+                Note: embedding on third-party sites requires relaxing the{' '}
+                <code className="text-neutral-600">frame-ancestors</code> CSP directive in{' '}
+                <code className="text-neutral-600">vercel.json</code>.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-3.5 w-3.5"
+      aria-hidden="true"
+    >
+      <circle cx="12.5" cy="3.5" r="1.5" />
+      <circle cx="12.5" cy="12.5" r="1.5" />
+      <circle cx="3.5" cy="8" r="1.5" />
+      <path strokeLinecap="round" d="M5 8h4M10.9 4.2L5.1 7.1M10.9 11.8L5.1 8.9" />
     </svg>
   );
 }
