@@ -25,6 +25,7 @@ apps/
   desktop/   Tauri/Electron wrapper around the web client (placeholder)
 packages/
   shared/    Shared types, zod validation, and utilities (incl. sync wire types)
+  engine/    Graph engine: markdown parsing, link/tag index, graph queries
   sync-core/ Sync protocol logic (added in a later milestone)
 docs/
   sync-protocol.md   Canonical sync protocol spec
@@ -73,19 +74,23 @@ cp apps/web/.env.example apps/web/.env.local
 
 ## Milestones
 
-| #   | Milestone                       | Status        |
-| --- | ------------------------------- | ------------- |
-| 0   | Repo bootstrap                  | ✅ done       |
-| 1   | Sync protocol design            | ✅ draft spec |
-| 2   | Server scaffold (auth + health) | ⏳ next       |
-| 3   | Web + Desktop scaffold          | ⏳            |
-| 4   | Local vault + markdown editing  | ⏳            |
-| 5   | Sync end-to-end                 | ⏳            |
-| 6   | Graph engine (indexing + API)   | ⏳            |
-| 7   | Graph UI v1                     | ⏳            |
-| 8   | Security & settings             | ⏳            |
-| 9   | Docker & packaging              | ⏳            |
-| 10  | Docs                            | ⏳            |
+| #   | Milestone                      | Status        |
+| --- | ------------------------------ | ------------- |
+| 0   | Repo bootstrap                 | ✅ done       |
+| 1   | Sync protocol design           | ✅ draft spec |
+| 2   | Server scaffold (auth + sync)  | ✅ done       |
+| 3   | Web scaffold                   | ✅ web done   |
+| 4   | Local vault + markdown editing | ✅ done       |
+| 5   | Sync end-to-end                | ⏳ next       |
+| 6   | Graph engine (indexing + API)  | ✅ done       |
+| 7   | Graph UI v1                    | ⏳            |
+| 8   | Security & settings            | ⏳            |
+| 9   | Docker & packaging             | ⏳            |
+| 10  | Docs                           | ⏳            |
+
+> Desktop (Tauri) shell and the graph UI consuming `@graphvault/engine` remain
+> for later milestones. The web vault persists to the browser store today; real
+> `.md` filesystem access arrives with the desktop shell.
 
 See [`docs/sync-protocol.md`](docs/sync-protocol.md) for the sync design and
 [`CLAUDE.md`](CLAUDE.md) for project scope rules.
