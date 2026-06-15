@@ -191,7 +191,7 @@ export function WorkspaceLayout({
               type="button"
               onClick={() => setMobilePane(id)}
               aria-label={label}
-              aria-pressed={mobilePane === id}
+              aria-current={mobilePane === id ? 'true' : undefined}
               className={[
                 'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
                 mobilePane === id ? 'text-sky-400' : 'text-neutral-500 hover:text-neutral-300',

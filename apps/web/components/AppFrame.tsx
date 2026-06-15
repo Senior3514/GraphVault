@@ -23,6 +23,58 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
+/**
+ * Traps keyboard focus inside `containerRef` while `active` is true.
+ * Returns focus to `restoreRef` when deactivated.
+ */
+function useFocusTrap(
+  containerRef: React.RefObject<HTMLElement | null>,
+  active: boolean,
+  restoreRef?: React.RefObject<HTMLElement | null>,
+) {
+  useEffect(() => {
+    if (!active || !containerRef.current) return;
+    const container = containerRef.current;
+
+    // Focus the first focusable element when the trap activates.
+    const focusable = container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusable.length > 0) {
+      focusable[0].focus();
+    }
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const all = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.closest('[hidden]') && el.offsetParent !== null);
+      if (all.length === 0) return;
+      const first = all[0];
+      const last = all[all.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      // Restore focus when trap deactivates.
+      restoreRef?.current?.focus?.();
+    };
+  }, [active, containerRef, restoreRef]);
+}
+
 import { BackupHistory } from './BackupHistory';
 import { CommandPalette } from './CommandPalette';
 import { NavIcon } from './NavIcon';
@@ -55,6 +107,25 @@ function AppShell({ children }: { children: React.ReactNode }) {
   // Mobile drawer open state (only relevant on small screens)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
+  // Track the element focused before the drawer opened so we can restore it.
+  const drawerRestoreFocusRef = useRef<HTMLElement | null>(null);
+
+  // Capture the focused element before opening the drawer.
+  const openDrawer = useCallback(() => {
+    drawerRestoreFocusRef.current = document.activeElement as HTMLElement | null;
+    setDrawerOpen(true);
+  }, []);
+
+  // Restore focus to the element that was active before the drawer opened.
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+    // Focus restore is handled by useFocusTrap cleanup, but we keep an
+    // explicit fallback here for programmatic closes (e.g. after nav).
+    requestAnimationFrame(() => drawerRestoreFocusRef.current?.focus?.());
+  }, []);
+
+  // Focus trap for the mobile drawer.
+  useFocusTrap(drawerRef, drawerOpen, drawerRestoreFocusRef);
 
   // Restore the persisted collapse preference after mount (avoids SSR mismatch).
   useEffect(() => {
@@ -94,11 +165,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!drawerOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDrawerOpen(false);
+      if (e.key === 'Escape') closeDrawer();
     };
     const onClick = (e: MouseEvent) => {
       if (drawerRef.current && !drawerRef.current.contains(e.target as Node)) {
-        setDrawerOpen(false);
+        closeDrawer();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -107,7 +178,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('mousedown', onClick);
     };
-  }, [drawerOpen]);
+  }, [drawerOpen, closeDrawer]);
 
   return (
     // Outer shell: full viewport, no overflow, respects safe-area insets.
@@ -120,7 +191,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       {/* ------------------------------------------------------------------ */}
       {/* Mobile top bar (visible only below md breakpoint)                   */}
       {/* ------------------------------------------------------------------ */}
-      <MobileTopBar onMenuOpen={() => setDrawerOpen(true)} />
+      <MobileTopBar onMenuOpen={openDrawer} />
 
       {/* ------------------------------------------------------------------ */}
       {/* Main content row: desktop sidebar + page content                    */}
@@ -131,8 +202,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
           <Sidebar collapsed={hydrated && collapsed} onToggle={toggleCollapsed} />
         </div>
 
-        {/* Page content */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+        {/* Page content — `id` is the skip-link target from layout.tsx */}
+        <div id="main-content" className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {children}
+        </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -144,21 +217,17 @@ function AppShell({ children }: { children: React.ReactNode }) {
           <div
             aria-hidden="true"
             className="absolute inset-0 z-40 bg-neutral-950/70 backdrop-blur-sm md:hidden"
-            onClick={() => setDrawerOpen(false)}
+            onClick={closeDrawer}
           />
           {/* Drawer panel */}
           <div
             ref={drawerRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Navigation"
+            aria-label="Navigation menu"
             className="absolute inset-y-0 left-0 z-50 flex w-64 flex-col md:hidden motion-safe:animate-slide-up"
           >
-            <Sidebar
-              collapsed={false}
-              onToggle={() => setDrawerOpen(false)}
-              mobileDrawerClose={() => setDrawerOpen(false)}
-            />
+            <Sidebar collapsed={false} onToggle={closeDrawer} mobileDrawerClose={closeDrawer} />
           </div>
         </>
       )}

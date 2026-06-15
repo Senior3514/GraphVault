@@ -108,8 +108,9 @@ export function TabBar({
               <button
                 type="button"
                 onClick={() => onActivate(tab.id)}
-                className="flex min-w-0 items-center gap-1.5 py-2 pl-3 pr-1 text-xs focus:outline-none"
+                className="flex min-w-0 items-center gap-1.5 py-2 pl-3 pr-1 text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-sky-500"
                 title={tab.notePath ?? 'Untitled'}
+                aria-label={`${tab.title || 'Untitled'}${tab.dirty ? ', unsaved changes' : ''}`}
               >
                 {/* Dirty dot */}
                 {tab.dirty && (

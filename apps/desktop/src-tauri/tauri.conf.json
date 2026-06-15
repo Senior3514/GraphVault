@@ -9,7 +9,7 @@
     "beforeDevCommand": "pnpm --filter @graphvault/web dev",
     "devUrl": "http://localhost:3000",
 
-    "beforeBuildCommand": "pnpm run build:web",
+    "beforeBuildCommand": "pnpm -w run build:web",
     "frontendDist": "../../apps/web/out"
   },
 

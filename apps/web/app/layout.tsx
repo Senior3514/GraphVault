@@ -95,6 +95,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         {/*
+         * Skip-to-content link: first focusable element in the page so that
+         * keyboard users can bypass the navigation rail and jump directly to the
+         * main content area. Visually hidden until focused (via .skip-link in
+         * globals.css). The `#main-content` anchor is placed on the page
+         * content container inside AppFrame.
+         */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        {/*
          * ServiceWorkerRegistrar is a tiny 'use client' component that calls
          * navigator.serviceWorker.register('/sw.js') on mount. It renders
          * nothing — purely a side-effect. Keeping it separate avoids making

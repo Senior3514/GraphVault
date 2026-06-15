@@ -100,7 +100,7 @@ backend the user chooses. Client-side where possible; credential-bearing
 providers go through the self-hosted server (keys never touch the browser).
 
 - ✅ Seam + localStorage + File System Access (disk) + Tauri (native disk)
-- ⬜ WebDAV adapter (Nextcloud / self-hosted — broad coverage, no OAuth)
+- ✅ WebDAV adapter (Nextcloud / any) via self-hosted server proxy — creds never in browser
 - ⬜ S3-compatible adapter (AWS S3 / MinIO / Backblaze / R2) via server-proxied creds
 - ⬜ Azure Blob + Google Cloud Storage adapters (server-proxied)
 - ⬜ Google Drive + OneDrive (OAuth, app-folder scope; tokens server-side)
@@ -134,8 +134,8 @@ device unless the user enables a provider.
   tags / "organize this" — confirm-before-send, output sanitised via DOMPurify
 - ✅ Clear in-UI privacy notice + per-action consent; no telemetry; keys in
   sessionStorage, redacted from errors, never logged; button hidden when off
-- ⬜ Graph intelligence: AI-suggested clusters / related-notes / gap-finding as
-  overlays on the graph (clusters helper already shipped — see graph graphics)
+- ✅ Graph intelligence: AI-named clusters, related-notes, gap-finding overlays
+  (titles + topology only; off by default; confirm-before-send)
 
 ## Milestone 22 — Connectors (email & everything, privacy-graded) 🟡
 

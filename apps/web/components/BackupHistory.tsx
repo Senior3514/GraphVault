@@ -18,7 +18,7 @@
  * We remind the user to also export or enable sync.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { getBackupStore, type SnapshotMeta } from '../lib/vault/backups';
 import { useVaultContext } from '../lib/vault/VaultProvider';
@@ -69,6 +69,7 @@ export function BackupHistory() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const headingId = useId();
 
   // -------------------------------------------------------------------------
   // Load snapshots whenever the modal opens
@@ -108,20 +109,46 @@ export function BackupHistory() {
     void loadSnapshots();
   }, [open, loadSnapshots]);
 
-  // Escape to close
+  // Focus trap: keep Tab / Shift+Tab inside the dialog while open.
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
+    if (!open || !dialogRef.current) return;
+    const dialog = dialogRef.current;
+
+    // Focus the dialog itself on open so screen readers announce it.
+    dialog.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         close();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first || document.activeElement === dialog) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, [open, close]);
 
-  // Outside-click to close
+  // Outside-click to close (scrim area).
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
@@ -205,14 +232,17 @@ export function BackupHistory() {
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Version history / Restore backup"
-        className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-neutral-700/80 bg-neutral-900/95 shadow-2xl shadow-black/50 ring-1 ring-white/5 motion-safe:animate-[paletteIn_140ms_ease-out]"
+        aria-labelledby={headingId}
+        tabIndex={-1}
+        className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-neutral-700/80 bg-neutral-900/95 shadow-2xl shadow-black/50 ring-1 ring-white/5 motion-safe:animate-[paletteIn_140ms_ease-out] focus:outline-none"
         style={{ maxHeight: '80vh' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 px-5 py-3.5">
           <div>
-            <h2 className="text-sm font-semibold text-neutral-100">Version history</h2>
+            <h2 id={headingId} className="text-sm font-semibold text-neutral-100">
+              Version history
+            </h2>
             <p className="mt-0.5 text-xs text-neutral-500">
               Backups are stored locally in your browser (IndexedDB). For extra durability, also
               export your vault or enable sync.
@@ -228,12 +258,19 @@ export function BackupHistory() {
           </button>
         </div>
 
-        {/* Feedback banner */}
-        {feedback && (
-          <div className="border-b border-neutral-800 bg-sky-900/20 px-5 py-2.5 text-xs text-sky-300">
-            {feedback}
-          </div>
-        )}
+        {/* Feedback banner — aria-live so screen readers announce the result. */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={
+            feedback
+              ? 'border-b border-neutral-800 bg-sky-900/20 px-5 py-2.5 text-xs text-sky-300'
+              : 'sr-only'
+          }
+        >
+          {feedback ?? ''}
+        </div>
 
         {/* Snapshot list */}
         <div className="flex-1 overflow-auto">

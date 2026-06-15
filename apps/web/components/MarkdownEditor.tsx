@@ -13,7 +13,15 @@
  * except on an explicit insert, so it can never drop the user's keystrokes.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 
 import type { IndexedNote } from '../lib/vault/types';
 
@@ -70,6 +78,8 @@ export function MarkdownEditor({ value, notes, tags, onChange }: MarkdownEditorP
   const ref = useRef<HTMLTextAreaElement>(null);
   const [active, setActive] = useState<ActiveToken | null>(null);
   const [highlight, setHighlight] = useState(0);
+  const textareaId = useId();
+  const listboxId = useId();
 
   const suggestions = useMemo(() => {
     if (!active) return [];
@@ -156,12 +166,26 @@ export function MarkdownEditor({ value, notes, tags, onChange }: MarkdownEditorP
 
   const popupLabel = active?.kind === 'tag' ? 'Insert tag' : 'Link to note';
 
+  const hasPopup = active !== null && suggestions.length > 0;
+
   return (
     <div className="relative h-full">
+      {/* Visually-hidden label gives the textarea an accessible name. */}
+      <label htmlFor={textareaId} className="sr-only">
+        Markdown editor
+      </label>
       <textarea
         ref={ref}
+        id={textareaId}
         value={value}
         spellCheck={false}
+        role="textbox"
+        aria-multiline="true"
+        aria-label="Markdown editor"
+        aria-autocomplete={hasPopup ? 'list' : 'none'}
+        aria-expanded={hasPopup}
+        aria-controls={hasPopup ? listboxId : undefined}
+        aria-activedescendant={hasPopup ? `suggestion-${highlight}` : undefined}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         onKeyUp={refreshActive}
@@ -170,13 +194,21 @@ export function MarkdownEditor({ value, notes, tags, onChange }: MarkdownEditorP
         className="h-full w-full resize-none bg-transparent px-6 py-5 font-mono text-sm leading-relaxed text-neutral-200 outline-none placeholder:text-neutral-600"
         placeholder="Start writing… use [[ to link notes and # to tag."
       />
-      {active && suggestions.length > 0 && (
-        <ul className="absolute left-6 top-16 z-10 w-72 overflow-hidden rounded-md border border-neutral-700 bg-neutral-900 shadow-xl motion-safe:animate-[fadeIn_100ms_ease-out]">
-          <li className="border-b border-neutral-800 px-3 py-1 text-xs text-neutral-500">
+      {hasPopup && (
+        <ul
+          id={listboxId}
+          role="listbox"
+          aria-label={popupLabel}
+          className="absolute left-6 top-16 z-10 w-72 overflow-hidden rounded-md border border-neutral-700 bg-neutral-900 shadow-xl motion-safe:animate-[fadeIn_100ms_ease-out]"
+        >
+          <li
+            role="presentation"
+            className="border-b border-neutral-800 px-3 py-1 text-xs text-neutral-500"
+          >
             {popupLabel}
           </li>
           {suggestions.map((choice, i) => (
-            <li key={choice}>
+            <li key={choice} role="option" aria-selected={i === highlight} id={`suggestion-${i}`}>
               <button
                 type="button"
                 // onMouseDown beats the textarea's onBlur so the insert lands.

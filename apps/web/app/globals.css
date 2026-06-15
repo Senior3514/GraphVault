@@ -49,6 +49,34 @@ button,
   @apply outline-none ring-2 ring-sky-500/60 ring-offset-1 ring-offset-neutral-950;
 }
 
+/* ============================================================================
+   Skip-to-content link — visually hidden until focused by keyboard.
+   Placed as the first child of <body> / root layout for screen-reader and
+   keyboard users to jump past the navigation rail directly to main content.
+   ============================================================================ */
+.skip-link {
+  @apply sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200];
+  @apply focus:rounded-md focus:bg-sky-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-neutral-950;
+  @apply focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-sky-500;
+}
+
+/* ============================================================================
+   Live region for async/status announcements (e.g. save status, restore result).
+   Visually hidden but read by screen readers.
+   ============================================================================ */
+.sr-live {
+  @apply sr-only;
+}
+
+/* ============================================================================
+   Ensure `aria-pressed` buttons have a visible indicator even when
+   focus-visible is not applicable (mouse users switching split modes).
+   ============================================================================ */
+[aria-pressed='true'] {
+  /* No visual override needed — components handle active state via className.
+     This rule is a named hook so future token changes stay in one place. */
+}
+
 /* Lightweight motion primitives used by the palette / popups. Gated to
    motion-safe utilities at call sites, but also fully disabled here for users
    who prefer reduced motion. */

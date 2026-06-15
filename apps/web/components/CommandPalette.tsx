@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -66,6 +67,7 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const inputLabelId = useId();
 
   const close = useCallback(() => {
     setOpen(false);
@@ -354,10 +356,15 @@ export function CommandPalette() {
           <span aria-hidden="true" className="text-neutral-500">
             ⌕
           </span>
+          {/* Visually-hidden label so the combobox has an accessible name. */}
+          <label id={inputLabelId} className="sr-only">
+            Search notes or run a command
+          </label>
           <input
             ref={inputRef}
             type="text"
             role="combobox"
+            aria-labelledby={inputLabelId}
             aria-expanded="true"
             aria-controls="command-palette-list"
             aria-activedescendant={items[highlight] ? `cmd-${highlight}` : undefined}
@@ -376,6 +383,13 @@ export function CommandPalette() {
           </kbd>
         </div>
 
+        {/* Live region: announces result count to screen readers on each query change. */}
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {items.length === 0
+            ? 'No matches'
+            : `${items.length} result${items.length === 1 ? '' : 's'}`}
+        </div>
+
         <ul
           ref={listRef}
           id="command-palette-list"
@@ -384,7 +398,13 @@ export function CommandPalette() {
           className="max-h-80 overflow-auto p-1.5"
         >
           {items.length === 0 ? (
-            <li className="px-3 py-6 text-center text-sm text-neutral-500">No matches</li>
+            <li
+              role="option"
+              aria-selected={false}
+              className="px-3 py-6 text-center text-sm text-neutral-500"
+            >
+              No matches
+            </li>
           ) : (
             items.map((item, i) => {
               const active = i === highlight;
