@@ -49,8 +49,11 @@ const CSP = [
   "img-src 'self' data:",
   // No external font CDNs — all typography is system / Tailwind stack.
   "font-src 'self'",
-  // Fetch/XHR may go to the self-hosted sync server (same origin in production).
-  "connect-src 'self'",
+  // Fetch/XHR may go to the user-configured self-hosted sync server, typically a
+  // different origin (a VPS, or 127.0.0.1 in dev). It can't be enumerated at
+  // build time; allow https: (and http: for local dev). Production servers MUST
+  // use TLS. Mitigations: Argon2id + bearer tokens, token in sessionStorage.
+  "connect-src 'self' https: http:",
   // No audio or video resources.
   "media-src 'none'",
   // No <object>, <embed>, or Flash.

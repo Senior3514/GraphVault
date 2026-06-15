@@ -6,17 +6,26 @@
  * `NEXT_PUBLIC_GRAPHVAULT_SERVER_URL` (see `.env.example`) but can be overridden
  * at runtime from Settings.
  *
- * Only the endpoints needed for Milestones 3-4 are implemented for real: the
- * health check and auth register/login. The remaining sync endpoints land with
- * the sync engine (Milestone 5).
+ * Endpoints implemented:
+ *   - GET  /v1/health
+ *   - POST /v1/auth/register
+ *   - POST /v1/auth/login
+ *   - GET  /v1/vaults          (list vaults for the authenticated user)
+ *   - POST /v1/vaults          (register a new vault)
+ *
+ * Sync endpoints (changes, push, blobs) are implemented in lib/sync/remoteApi.ts
+ * because they are consumed by the sync engine adapter rather than the UI layer.
  */
 
 import {
   apiErrorSchema,
   authTokenSchema,
+  registerVaultResponseSchema,
   type AuthToken,
   type LoginRequest,
   type RegisterRequest,
+  type RegisterVaultResponse,
+  type VaultRef,
 } from '@graphvault/shared';
 
 export const DEFAULT_SERVER_URL =
@@ -117,6 +126,24 @@ export class GraphVaultClient {
       body: JSON.stringify(body),
     });
     return authTokenSchema.parse(data);
+  }
+
+  /** GET /v1/vaults — list all vaults owned by the authenticated user. */
+  async listVaults(): Promise<VaultRef[]> {
+    return this.request<VaultRef[]>('/v1/vaults', {
+      method: 'GET',
+      headers: this.headers(false),
+    });
+  }
+
+  /** POST /v1/vaults — register a new vault for the authenticated user. */
+  async registerVault(name: string): Promise<RegisterVaultResponse> {
+    const data = await this.request<unknown>('/v1/vaults', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ name }),
+    });
+    return registerVaultResponseSchema.parse(data);
   }
 }
 

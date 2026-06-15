@@ -13,7 +13,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { GraphVaultClient } from '../../lib/api/client';
+import { useAuth } from '../../lib/api/useAuth';
 import { useServerSettings } from '../../lib/api/useServerSettings';
+import { loadSyncMeta, saveSyncMeta } from '../../lib/sync';
 import {
   buildVaultZip,
   exportNotesToJson,
@@ -53,6 +55,7 @@ function stamp(): string {
 export default function SettingsPage() {
   const { serverUrl, setServerUrl, loaded } = useServerSettings();
   const vault = useVaultContext();
+  const auth = useAuth();
   const [draftUrl, setDraftUrl] = useState('');
   const [saved, setSaved] = useState(false);
   const [test, setTest] = useState<string | null>(null);
@@ -244,6 +247,12 @@ export default function SettingsPage() {
           {test && <span className="text-neutral-400">{test}</span>}
         </div>
       </section>
+
+      {/* Account / authentication */}
+      <AuthSection auth={auth} serverUrl={serverUrl} />
+
+      {/* Vault registration (only once signed in) */}
+      {auth.isSignedIn && <VaultRegistrationSection auth={auth} serverUrl={serverUrl} />}
 
       {/* ------------------------------------------------------------------ */}
       {/* Storage location                                                    */}
@@ -762,6 +771,380 @@ function EncryptionSection() {
           </span>
         )}
       </div>
+    </section>
+  );
+}
+
+// ---- Sync auth + vault registration (from sync wiring) ----
+function Msg({ kind, text }: { kind: 'ok' | 'err' | 'info'; text: string }) {
+  const cls =
+    kind === 'ok' ? 'text-emerald-400' : kind === 'err' ? 'text-red-400' : 'text-neutral-400';
+  return <span className={`text-xs ${cls}`}>{text}</span>;
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
+type AuthForm = 'none' | 'login' | 'register';
+
+function AuthSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serverUrl: string }) {
+  const [form, setForm] = useState<AuthForm>('none');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const clearForm = useCallback(() => {
+    setEmail('');
+    setPassword('');
+    setMsg(null);
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent, mode: 'login' | 'register') => {
+    e.preventDefault();
+    if (!email || !password) {
+      setMsg({ kind: 'err', text: 'Email and password are required.' });
+      return;
+    }
+    if (!serverUrl) {
+      setMsg({ kind: 'err', text: 'Save a server URL first.' });
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      if (mode === 'login') {
+        await auth.login({ email, password, serverUrl });
+      } else {
+        await auth.register({ email, password, serverUrl });
+      }
+      setMsg({
+        kind: 'ok',
+        text: mode === 'login' ? 'Signed in.' : 'Account created and signed in.',
+      });
+      clearForm();
+      setForm('none');
+    } catch (err) {
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Request failed.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLogout = () => {
+    auth.logout();
+    setMsg(null);
+    setForm('none');
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <h2 className="text-sm font-semibold text-neutral-200">Account</h2>
+
+      {auth.isSignedIn ? (
+        <div className="mt-3 space-y-2">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+            <dt>Status</dt>
+            <dd className="text-emerald-400">Signed in</dd>
+            <dt>User ID</dt>
+            <dd className="truncate text-neutral-200">{auth.userId}</dd>
+            <dt>Device ID</dt>
+            <dd className="truncate text-neutral-200">{auth.deviceId}</dd>
+          </dl>
+          <p className="text-xs text-neutral-500">
+            Token is stored in sessionStorage and cleared when the tab closes. Sign in again on each
+            session to sync.
+          </p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-2 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700"
+          >
+            Sign out
+          </button>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <p className="text-xs text-neutral-500">
+            Sign in or create an account on your server to enable sync. Your password is only sent
+            to the server URL configured above over a secure connection. The token is stored in
+            sessionStorage (cleared on tab close) — never in a cookie or logged anywhere.
+          </p>
+
+          {form === 'none' && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setForm('login');
+                  clearForm();
+                }}
+                className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white"
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setForm('register');
+                  clearForm();
+                }}
+                className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
+              >
+                Create account
+              </button>
+            </div>
+          )}
+
+          {(form === 'login' || form === 'register') && (
+            <form
+              onSubmit={(e) => void handleSubmit(e, form)}
+              className="mt-3 space-y-3"
+              noValidate
+            >
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="auth-email"
+                >
+                  Email
+                </label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={busy}
+                  placeholder="you@example.com"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="auth-password"
+                >
+                  Password
+                  {form === 'register' && (
+                    <span className="ml-1 text-neutral-600">(min. 10 characters)</span>
+                  )}
+                </label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={form === 'login' ? 'current-password' : 'new-password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={busy}
+                  placeholder={form === 'register' ? 'Choose a strong password…' : 'Your password…'}
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={busy || !email || !password}
+                  className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+                >
+                  {busy
+                    ? form === 'login'
+                      ? 'Signing in…'
+                      : 'Creating account…'
+                    : form === 'login'
+                      ? 'Sign in'
+                      : 'Create account'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm('none');
+                    clearForm();
+                  }}
+                  disabled={busy}
+                  className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {msg && (
+            <div className="mt-2">
+              <Msg kind={msg.kind} text={msg.text} />
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Vault registration section
+// ---------------------------------------------------------------------------
+
+function VaultRegistrationSection({
+  auth,
+  serverUrl,
+}: {
+  auth: ReturnType<typeof useAuth>;
+  serverUrl: string;
+}) {
+  const [vaults, setVaults] = useState<{ id: string; name: string }[] | null>(null);
+  const [loadingVaults, setLoadingVaults] = useState(false);
+  const [newVaultName, setNewVaultName] = useState('');
+  const [registering, setRegistering] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
+  const [activeVaultId, setActiveVaultId] = useState<string | null>(null);
+  const didLoad = useRef(false);
+
+  // Load the current selected vault from syncMeta.
+  useEffect(() => {
+    const meta = loadSyncMeta();
+    setActiveVaultId(meta.vaultId ?? null);
+  }, []);
+
+  // Fetch the user's vaults from the server.
+  const fetchVaults = useCallback(async () => {
+    if (!auth.token) return;
+    setLoadingVaults(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      const list = await client.listVaults();
+      setVaults(list);
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: `Could not load vaults: ${err instanceof Error ? err.message : 'request failed'}`,
+      });
+      setVaults([]);
+    } finally {
+      setLoadingVaults(false);
+    }
+  }, [auth.token, serverUrl]);
+
+  // Load vaults once on first render when signed in.
+  useEffect(() => {
+    if (!didLoad.current && auth.isSignedIn && auth.token) {
+      didLoad.current = true;
+      void fetchVaults();
+    }
+  }, [auth.isSignedIn, auth.token, fetchVaults]);
+
+  const registerVault = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newVaultName.trim();
+    if (!name) return;
+    if (!auth.token) return;
+    setRegistering(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      const result = await client.registerVault(name);
+      // Persist the vault id to syncMeta so useSync picks it up.
+      const meta = loadSyncMeta();
+      saveSyncMeta({ ...meta, vaultId: result.vaultId });
+      setActiveVaultId(result.vaultId);
+      setMsg({ kind: 'ok', text: `Vault "${result.name}" registered (id: ${result.vaultId}).` });
+      setNewVaultName('');
+      // Refresh the vault list.
+      await fetchVaults();
+    } catch (err) {
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Registration failed.' });
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const adoptVault = (id: string) => {
+    const meta = loadSyncMeta();
+    saveSyncMeta({ ...meta, vaultId: id });
+    setActiveVaultId(id);
+    setMsg({ kind: 'ok', text: 'Vault adopted. "Sync now" on the Sync Status page to sync.' });
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-neutral-200">Server vault</h2>
+        <button
+          type="button"
+          onClick={() => void fetchVaults()}
+          disabled={loadingVaults}
+          className="text-xs text-neutral-500 hover:text-neutral-300 disabled:opacity-50"
+        >
+          {loadingVaults ? 'Loading…' : 'Refresh'}
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-neutral-500">
+        A server vault holds your notes on the server. Register a new one or adopt an existing vault
+        to start syncing. The active vault is stored locally and persists across sessions.
+      </p>
+
+      {activeVaultId && (
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+          <dt>Active vault</dt>
+          <dd className="truncate text-emerald-400">{activeVaultId}</dd>
+        </dl>
+      )}
+
+      {/* Existing vaults list */}
+      {vaults !== null && vaults.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {vaults.map((v) => (
+            <li
+              key={v.id}
+              className="flex items-center justify-between rounded border border-neutral-800 bg-neutral-950/30 px-3 py-2 text-xs"
+            >
+              <div>
+                <span className="text-neutral-200">{v.name}</span>
+                <span className="ml-2 truncate text-neutral-600">{v.id}</span>
+              </div>
+              {v.id === activeVaultId ? (
+                <span className="text-emerald-500">Active</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => adoptVault(v.id)}
+                  className="text-neutral-400 hover:text-neutral-200"
+                >
+                  Use this
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {vaults !== null && vaults.length === 0 && !msg && (
+        <p className="mt-2 text-xs text-neutral-500">
+          No vaults on this server yet. Register one below.
+        </p>
+      )}
+
+      {/* Register new vault */}
+      <form onSubmit={(e) => void registerVault(e)} className="mt-4 flex gap-2">
+        <input
+          type="text"
+          value={newVaultName}
+          onChange={(e) => setNewVaultName(e.target.value)}
+          placeholder="My vault"
+          disabled={registering}
+          className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+        />
+        <button
+          type="submit"
+          disabled={registering || !newVaultName.trim()}
+          className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+        >
+          {registering ? 'Registering…' : 'Register vault'}
+        </button>
+      </form>
+
+      <div className="mt-2 min-h-4">{msg && <Msg kind={msg.kind} text={msg.text} />}</div>
     </section>
   );
 }
