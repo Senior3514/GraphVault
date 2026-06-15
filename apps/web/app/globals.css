@@ -9,3 +9,67 @@
 body {
   @apply bg-neutral-950 text-neutral-100 antialiased;
 }
+
+/* Rendered Markdown preview. Tailwind's preflight resets element styles, so we
+   restore readable typography for the preview pane only. */
+.markdown-preview {
+  @apply text-neutral-200;
+}
+.markdown-preview h1 {
+  @apply mb-4 mt-6 text-2xl font-bold text-neutral-50 first:mt-0;
+}
+.markdown-preview h2 {
+  @apply mb-3 mt-6 text-xl font-semibold text-neutral-100;
+}
+.markdown-preview h3 {
+  @apply mb-2 mt-5 text-lg font-semibold text-neutral-100;
+}
+.markdown-preview p {
+  @apply my-3 leading-relaxed;
+}
+.markdown-preview ul {
+  @apply my-3 list-disc space-y-1 pl-6;
+}
+.markdown-preview ol {
+  @apply my-3 list-decimal space-y-1 pl-6;
+}
+.markdown-preview a {
+  @apply text-sky-400 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-300;
+}
+.markdown-preview a.wikilink {
+  @apply cursor-pointer rounded-sm px-0.5 no-underline;
+}
+.markdown-preview a.wikilink--resolved {
+  @apply bg-sky-950/40 text-sky-300 hover:bg-sky-900/40;
+}
+.markdown-preview a.wikilink--unresolved {
+  @apply text-amber-400/80 hover:text-amber-300;
+}
+.markdown-preview code {
+  @apply rounded bg-neutral-800 px-1 py-0.5 font-mono text-[0.85em] text-neutral-200;
+}
+.markdown-preview pre {
+  @apply my-4 overflow-auto rounded-lg border border-neutral-800 bg-neutral-900 p-4;
+}
+.markdown-preview pre code {
+  @apply bg-transparent p-0;
+}
+.markdown-preview blockquote {
+  @apply my-4 border-l-2 border-neutral-700 pl-4 italic text-neutral-400;
+}
+.markdown-preview hr {
+  @apply my-6 border-neutral-800;
+}
+.markdown-preview table {
+  @apply my-4 w-full border-collapse text-sm;
+}
+.markdown-preview th,
+.markdown-preview td {
+  @apply border border-neutral-800 px-3 py-1.5 text-left;
+}
+.markdown-preview strong {
+  @apply font-semibold text-neutral-100;
+}
+.markdown-preview input[type='checkbox'] {
+  @apply mr-1.5 align-middle;
+}
