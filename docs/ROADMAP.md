@@ -88,6 +88,35 @@
 - ⬜ Full accessibility audit (focus order, contrast, screen-reader)
 - ⬜ "Finished product" QA gauntlet + tagged release
 
+## Milestone 18 — Universal storage providers (your data, literally anywhere) 🟡
+
+Extend the `StorageAdapter` seam so a vault of plain `.md` files can live on any
+backend the user chooses. Client-side where possible; credential-bearing
+providers go through the self-hosted server (keys never touch the browser).
+
+- ✅ Seam + localStorage + File System Access (disk) + Tauri (native disk)
+- ⬜ WebDAV adapter (Nextcloud / self-hosted — broad coverage, no OAuth)
+- ⬜ S3-compatible adapter (AWS S3 / MinIO / Backblaze / R2) via server-proxied creds
+- ⬜ Azure Blob + Google Cloud Storage adapters (server-proxied)
+- ⬜ Google Drive + OneDrive (OAuth, app-folder scope; tokens server-side)
+- ⬜ Settings provider picker with safe copy-verify-switch migration (reuse existing)
+
+## Milestone 19 — Browser extension (web-clipper → note) 🟡
+
+- 🟡 MV3 extension: clip page/selection → Markdown → save (download / open in app)
+- ⬜ Post directly to the self-hosted sync server (once auth lands end-to-end)
+- ⬜ Chrome / Edge / Firefox store packaging
+
+## Milestone 20 — Embed everywhere / integrations ⬜
+
+Make GraphVault the most _usable_ knowledge tool — it goes where you are.
+
+- ⬜ One-click importers from Obsidian / Notion / Roam / Logseq / plain folders
+- ⬜ Embeddable read-only graph widget (`<iframe>` / web component) for sharing
+- ⬜ Public shareable graph snapshots (opt-in, no account)
+- ⬜ CLI + local HTTP API for power users / automation
+- ⬜ URL scheme + share targets (clip from any app)
+
 ---
 
 ## Open question to resolve with the owner
