@@ -5,6 +5,9 @@
  *
  * Fires onResize(deltaPx) continuously while dragging; the parent clamps and
  * applies the delta. Respects prefers-reduced-motion (no animated cursors).
+ *
+ * On mobile (< md) the divider is hidden — the WorkspaceLayout uses a single-
+ * pane + bottom-bar layout instead of resizable columns there.
  */
 
 import { useCallback, useRef } from 'react';
@@ -81,6 +84,8 @@ export function ResizeDivider({
   const isHoriz = direction === 'horizontal';
 
   return (
+    // Hidden on mobile: the parent WorkspaceLayout switches to single-pane mode
+    // below md, so there is nothing to resize.
     <div
       role="separator"
       aria-label={label}

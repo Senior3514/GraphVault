@@ -67,7 +67,8 @@ export function GraphSearch({ query, matchCount, onQueryChange }: GraphSearchPro
         onKeyDown={handleKeyDown}
         placeholder="Search nodes… (/)"
         aria-label="Search graph nodes"
-        className="w-44 bg-transparent text-xs text-neutral-200 placeholder-neutral-600 outline-none"
+        // w-28 on very small screens, w-44 on sm+ to stay within viewport
+        className="w-28 bg-transparent text-xs text-neutral-200 placeholder-neutral-600 outline-none sm:w-44"
         spellCheck={false}
       />
       {active && (

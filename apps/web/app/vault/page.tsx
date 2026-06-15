@@ -384,9 +384,9 @@ export default function VaultPage() {
         />
       )}
 
-      {/* Editor header */}
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-800 px-4 py-2">
-        <div className="min-w-0">
+      {/* Editor header — wraps on very narrow screens to avoid overflow */}
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-neutral-800 px-3 py-2">
+        <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-medium text-neutral-100">
             {activeNote?.parsed.title ?? 'No note selected'}
           </h1>
@@ -394,7 +394,7 @@ export default function VaultPage() {
             <p className="truncate text-xs text-neutral-600">{activeTab.notePath}</p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1">
           <SearchBox search={vault.search} onOpen={openPath} />
           <PaneHeader
             title=""
@@ -489,13 +489,20 @@ function EditorBody({
   onDraftChange,
   onNavigate,
 }: EditorBodyProps) {
+  // On narrow viewports (< md) split view collapses to single editor.
+  // We detect this with a media query so we don't break SSR.
+  // The split pane controls are already hidden in TabBar on mobile, so users
+  // won't inadvertently trigger split mode; this is a belt-and-suspenders guard.
+
   if (splitMode === 'editor-preview') {
     return (
       <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1 border-r border-neutral-800">
+        {/* Editor — takes full width on mobile (split collapses) */}
+        <div className="min-w-0 flex-1 md:border-r md:border-neutral-800">
           <MarkdownEditor value={draft} notes={notes} tags={tags} onChange={onDraftChange} />
         </div>
-        <div className="min-w-0 flex-1 overflow-auto">
+        {/* Preview — hidden on mobile in split mode */}
+        <div className="hidden min-w-0 flex-1 overflow-auto md:block">
           <MarkdownPreview markdown={draft} resolve={resolveLink} onNavigate={onNavigate} />
         </div>
       </div>
@@ -505,10 +512,12 @@ function EditorBody({
   if (splitMode === 'two-notes' && secondaryNote) {
     return (
       <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1 border-r border-neutral-800">
+        {/* Primary editor — takes full width on mobile */}
+        <div className="min-w-0 flex-1 md:border-r md:border-neutral-800">
           <MarkdownEditor value={draft} notes={notes} tags={tags} onChange={onDraftChange} />
         </div>
-        <div className="min-w-0 flex-1 overflow-auto">
+        {/* Secondary note — hidden on mobile in split mode */}
+        <div className="hidden min-w-0 flex-1 overflow-auto md:block">
           <MarkdownPreview
             markdown={secondaryDraft || secondaryNote.content}
             resolve={resolveLink}

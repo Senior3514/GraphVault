@@ -42,7 +42,7 @@ export default function LandingPage() {
         {/* NAV                                                               */}
         {/* ================================================================ */}
         <header className="sticky top-0 z-40 border-b border-neutral-900/80 bg-neutral-950/80 backdrop-blur-md">
-          <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
             <Link
               href="/"
               className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-neutral-100 transition-opacity hover:opacity-80"
@@ -51,7 +51,7 @@ export default function LandingPage() {
               <span>GraphVault</span>
             </Link>
 
-            <div className="flex items-center gap-5 text-sm">
+            <div className="flex items-center gap-3 text-sm sm:gap-5">
               <Link
                 href="/graph"
                 className="hidden text-neutral-400 transition-colors hover:text-neutral-100 sm:block"
@@ -73,9 +73,10 @@ export default function LandingPage() {
                 <GitHubIcon className="h-4 w-4" />
                 GitHub
               </a>
+              {/* Tap target ≥ 40px via min-h-[40px] */}
               <Link
                 href="/vault"
-                className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-neutral-950 shadow-md shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[40px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-neutral-950 shadow-md shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
                 Open the app
               </Link>
@@ -86,7 +87,7 @@ export default function LandingPage() {
         {/* ================================================================ */}
         {/* HERO                                                              */}
         {/* ================================================================ */}
-        <section className="mx-auto grid max-w-6xl gap-10 px-6 pb-10 pt-16 sm:pt-24 lg:grid-cols-[1fr_480px] lg:items-center lg:gap-16">
+        <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-10 pt-14 sm:px-6 sm:pt-24 lg:grid-cols-[1fr_480px] lg:items-center lg:gap-16">
           {/* Left — copy */}
           <div className="motion-safe:animate-slide-up">
             {/* Badge */}
@@ -95,7 +96,7 @@ export default function LandingPage() {
               Local-first · No account needed · No telemetry, ever
             </div>
 
-            <h1 className="text-balance text-5xl font-bold leading-[1.08] tracking-tight sm:text-6xl xl:text-7xl">
+            <h1 className="text-balance text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl sm:text-6xl xl:text-7xl">
               Notes that live{' '}
               <span className="relative whitespace-nowrap">
                 <span className="relative z-10 text-sky-400">on your terms</span>
@@ -138,11 +139,11 @@ export default function LandingPage() {
               </span>
             </p>
 
-            {/* CTAs */}
+            {/* CTAs — min-h-[44px] ensures touch targets meet accessibility guidelines */}
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/vault"
-                className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 font-semibold text-neutral-950 shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 font-semibold text-neutral-950 shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
                 Open the app
                 <ArrowRightIcon className="h-4 w-4" />
@@ -151,7 +152,7 @@ export default function LandingPage() {
                 href="https://github.com/Senior3514/GraphVault"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900/60 px-5 py-2.5 font-medium text-neutral-200 transition-all hover:border-neutral-700 hover:bg-neutral-900 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900/60 px-5 py-2.5 font-medium text-neutral-200 transition-all hover:border-neutral-700 hover:bg-neutral-900 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
                 <GitHubIcon className="h-4 w-4 text-neutral-400" />
                 Star on GitHub
@@ -191,7 +192,7 @@ export default function LandingPage() {
         {/* ================================================================ */}
         {/* FOUR CORE PROMISES                                                */}
         {/* ================================================================ */}
-        <section className="mx-auto max-w-6xl px-6 py-20">
+        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
           <SectionLabel>Core promises</SectionLabel>
           <h2 className="mt-2 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
             Everything you need. Nothing you don&apos;t.
@@ -232,8 +233,8 @@ export default function LandingPage() {
         {/* ================================================================ */}
         {/* FEATURE SHOWCASE — annotated screenshot mockup                    */}
         {/* ================================================================ */}
-        <section className="border-y border-neutral-900 bg-neutral-950/40 py-20">
-          <div className="mx-auto max-w-6xl px-6">
+        <section className="border-y border-neutral-900 bg-neutral-950/40 py-16 sm:py-20">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionLabel>The vault</SectionLabel>
             <h2 className="mt-2 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
               A full Markdown workspace — in your browser.
@@ -290,7 +291,7 @@ export default function LandingPage() {
         {/* ================================================================ */}
         {/* GRAPH SECTION                                                     */}
         {/* ================================================================ */}
-        <section className="mx-auto max-w-6xl px-6 py-20">
+        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
           <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
             <div>
               <SectionLabel>The graph</SectionLabel>
@@ -336,15 +337,17 @@ export default function LandingPage() {
         {/* ================================================================ */}
         {/* COMPARISON                                                        */}
         {/* ================================================================ */}
-        <section className="border-t border-neutral-900 bg-neutral-950/50 py-20">
-          <div className="mx-auto max-w-4xl px-6">
+        <section className="border-t border-neutral-900 bg-neutral-950/50 py-16 sm:py-20">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6">
             <SectionLabel centered>Why GraphVault</SectionLabel>
             <h2 className="mt-2 text-center text-balance text-3xl font-bold tracking-tight sm:text-4xl">
               All the power. None of the friction.
             </h2>
 
+            {/* Desktop: 3-column table; Mobile: stacked cards per feature */}
             <div className="mt-12 overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/40">
-              <div className="grid grid-cols-3 border-b border-neutral-800 text-xs font-semibold uppercase tracking-wide">
+              {/* Table header — only shown on sm+ */}
+              <div className="hidden grid-cols-3 border-b border-neutral-800 text-xs font-semibold uppercase tracking-wide sm:grid">
                 <div className="px-5 py-3 text-neutral-500">Feature</div>
                 <div className="border-l border-neutral-800 px-5 py-3 text-neutral-500">Others</div>
                 <div className="border-l border-neutral-800 bg-sky-500/5 px-5 py-3 text-sky-400">
@@ -360,13 +363,36 @@ export default function LandingPage() {
                 ['Telemetry', 'Usually on by default', 'Off, unconditionally'],
                 ['Export', 'Sometimes locked', 'One-click Markdown ZIP'],
               ].map(([feat, them, us]) => (
-                <div key={feat} className="grid grid-cols-3 border-t border-neutral-800/60 text-sm">
-                  <div className="px-5 py-3.5 text-neutral-400">{feat}</div>
-                  <div className="border-l border-neutral-800 px-5 py-3.5 text-neutral-600">
-                    {them}
+                <div key={feat} className="border-t border-neutral-800/60">
+                  {/* Desktop row */}
+                  <div className="hidden grid-cols-3 text-sm sm:grid">
+                    <div className="px-5 py-3.5 text-neutral-400">{feat}</div>
+                    <div className="border-l border-neutral-800 px-5 py-3.5 text-neutral-600">
+                      {them}
+                    </div>
+                    <div className="border-l border-neutral-800 bg-sky-500/5 px-5 py-3.5 font-medium text-neutral-200">
+                      {us}
+                    </div>
                   </div>
-                  <div className="border-l border-neutral-800 bg-sky-500/5 px-5 py-3.5 font-medium text-neutral-200">
-                    {us}
+                  {/* Mobile stacked card */}
+                  <div className="px-4 py-3 sm:hidden">
+                    <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      {feat}
+                    </div>
+                    <div className="flex flex-col gap-1 text-sm">
+                      <div className="flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0 text-[10px] uppercase tracking-wide text-neutral-600 w-16">
+                          Others
+                        </span>
+                        <span className="text-neutral-600">{them}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-sky-400 w-16">
+                          GV
+                        </span>
+                        <span className="font-medium text-neutral-200">{us}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -377,8 +403,8 @@ export default function LandingPage() {
         {/* ================================================================ */}
         {/* GITHUB STAR CTA                                                   */}
         {/* ================================================================ */}
-        <section className="mx-auto max-w-6xl px-6 py-20">
-          <div className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 px-8 py-14 text-center shadow-2xl shadow-black/40">
+        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <div className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 px-6 py-12 text-center shadow-2xl shadow-black/40 sm:px-8 sm:py-14">
             {/* Decorative glow */}
             <div
               aria-hidden="true"
@@ -417,14 +443,14 @@ export default function LandingPage() {
                   href="https://github.com/Senior3514/GraphVault"
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg bg-neutral-100 px-6 py-3 font-semibold text-neutral-950 shadow-lg transition-all hover:bg-white hover:shadow-xl focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-neutral-100 px-6 py-3 font-semibold text-neutral-950 shadow-lg transition-all hover:bg-white hover:shadow-xl focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
                 >
                   <GitHubIcon className="h-5 w-5" />
                   Star on GitHub
                 </a>
                 <Link
                   href="/vault"
-                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-900 px-6 py-3 font-medium text-neutral-100 transition-all hover:border-neutral-600 hover:bg-neutral-800"
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-900 px-6 py-3 font-medium text-neutral-100 transition-all hover:border-neutral-600 hover:bg-neutral-800"
                 >
                   Open the app
                   <ArrowRightIcon className="h-4 w-4" />
@@ -442,7 +468,7 @@ export default function LandingPage() {
         {/* FOOTER                                                            */}
         {/* ================================================================ */}
         <footer className="border-t border-neutral-900">
-          <div className="mx-auto max-w-6xl px-6 py-10">
+          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
             <div className="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center">
               <div>
                 <Link href="/" className="flex items-center gap-2 text-sm font-semibold">

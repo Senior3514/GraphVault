@@ -58,7 +58,10 @@ export function GraphControls({
   availableLinkTypes,
 }: GraphControlsProps) {
   return (
-    <aside className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto border-r border-neutral-800 bg-neutral-950 px-4 py-4">
+    // On mobile the aside is rendered inside a slide-up drawer by the page,
+    // so we remove the fixed w-64 and border constraints and let it fill
+    // the available width. On desktop (md+) the aside regains its rail styles.
+    <aside className="flex w-full shrink-0 flex-col gap-4 overflow-y-auto bg-neutral-950 px-4 py-4 md:w-64 md:border-r md:border-neutral-800">
       <div>
         <Label>View</Label>
         <div className="mt-2 inline-flex rounded-md border border-neutral-800 p-0.5">

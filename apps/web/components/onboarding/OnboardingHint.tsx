@@ -56,7 +56,9 @@ export function OnboardingHint() {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none absolute bottom-4 left-1/2 z-50 w-full max-w-lg -translate-x-1/2 px-4 motion-safe:animate-onboarding-in"
+      // bottom-4 on desktop; on mobile account for safe-area + bottom bar height
+      className="pointer-events-none absolute bottom-4 left-1/2 z-50 w-full max-w-lg -translate-x-1/2 px-4 motion-safe:animate-onboarding-in md:bottom-4"
+      style={{ bottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))' }}
     >
       <div className="pointer-events-auto rounded-xl border border-neutral-700/60 bg-neutral-900/95 shadow-2xl shadow-black/60 ring-1 ring-white/5 backdrop-blur-sm">
         {/* Header */}

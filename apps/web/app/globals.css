@@ -217,3 +217,18 @@ button,
 .card-hover:hover {
   @apply -translate-y-0.5 shadow-lg shadow-black/30;
 }
+
+/* ============================================================================
+   Safe-area utilities — used by fixed/sticky elements near notches / home bars
+   ============================================================================ */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ============================================================================
+   100dvh fallback: use 100svh on browsers that support it for better mobile UX
+   (avoids the address-bar resize jump). Applied in AppFrame via Tailwind class.
+   ============================================================================ */

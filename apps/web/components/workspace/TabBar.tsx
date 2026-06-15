@@ -8,7 +8,13 @@
  * - Dirty indicator (dot) on unsaved tabs.
  * - Close button per tab.
  * - "+" button to open a new blank tab.
- * - Split-mode toggle buttons.
+ * - Split-mode toggle buttons (hidden on narrow/mobile screens where split is
+ *   auto-disabled to save space).
+ *
+ * The tab list scrolls horizontally without overflow — it never causes the
+ * container to grow wider than its parent. The split-mode toggles are
+ * hidden below `md` (the WorkspaceLayout mobile view shows a single pane
+ * anyway, so split is redundant there).
  *
  * Drag reorder uses HTML5 drag-and-drop (no extra deps).
  */
@@ -69,9 +75,10 @@ export function TabBar({
   };
 
   return (
+    // Use `min-w-0` to prevent the flex child from escaping its parent width.
     <div className="flex min-w-0 items-stretch border-b border-neutral-800 bg-neutral-950">
-      {/* Tab list */}
-      <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto scrollbar-none">
+      {/* Tab list — scrolls horizontally; never forces parent wider */}
+      <div className="scrollbar-none flex min-w-0 flex-1 items-stretch overflow-x-auto">
         {tabs.map((tab, idx) => {
           const isActive = tab.id === activeTabId;
           const isSecondary = tab.id === secondaryTabId;
@@ -86,7 +93,7 @@ export function TabBar({
               onDrop={(e) => handleDrop(e, idx)}
               onDragEnd={handleDragEnd}
               className={[
-                'group relative flex min-w-0 shrink-0 cursor-pointer select-none items-center border-r border-neutral-800',
+                'group relative flex shrink-0 cursor-pointer select-none items-center border-r border-neutral-800',
                 isDragOver ? 'bg-neutral-800/60' : '',
                 isActive
                   ? 'bg-neutral-900 text-neutral-100'
@@ -94,7 +101,9 @@ export function TabBar({
                 // Top accent for active tab
                 isActive ? 'shadow-[inset_0_2px_0_0_rgb(14_165_233)]' : '',
               ].join(' ')}
-              style={{ maxWidth: '180px' }}
+              // Cap width so long titles don't push the bar. On very small
+              // screens keep it tighter (120px) so ≥2 tabs fit at once.
+              style={{ maxWidth: 'min(180px, 40vw)' }}
             >
               <button
                 type="button"
@@ -146,8 +155,8 @@ export function TabBar({
         </button>
       </div>
 
-      {/* Split mode controls */}
-      <div className="flex shrink-0 items-center border-l border-neutral-800 px-1 gap-0.5">
+      {/* Split mode controls — hidden on mobile (single-pane mode anyway) */}
+      <div className="hidden shrink-0 items-center gap-0.5 border-l border-neutral-800 px-1 md:flex">
         <SplitButton
           active={splitMode === 'none'}
           onClick={() => onSplitMode('none')}

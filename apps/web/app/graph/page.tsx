@@ -18,6 +18,12 @@
  * - Label suppression at high node counts for performance
  * - Better empty + filtered-zero states
  *
+ * Mobile layout (< md / 768 px):
+ * - The left GraphControls panel collapses to a slide-up drawer toggled by a
+ *   floating button. The NodePanel also slides up from the bottom.
+ * - Overlays (search, zoom) stay within the viewport; the search bar shrinks
+ *   to fit narrow screens.
+ *
  * The heavy canvas renderer is dynamically imported with `ssr: false` so
  * production `next build` stays server-safe.
  */
@@ -68,6 +74,9 @@ export default function GraphPage() {
   const [physics, setPhysics] = useState<GraphPhysics>(DEFAULT_PHYSICS);
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+
+  // Mobile drawer states
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
 
   const canvasRef = useRef<ForceGraphHandle>(null);
 
@@ -186,37 +195,125 @@ export default function GraphPage() {
 
   const shownNodes = payload.nodes.length;
 
-  return (
-    <div className="flex h-full min-h-0">
-      <GraphControls
-        mode={mode}
-        onModeChange={handleModeChange}
-        localDepth={localDepth}
-        onLocalDepthChange={setLocalDepth}
-        canFocusLocal={selectedId !== null}
-        colorMode={colorMode}
-        onColorModeChange={setColorMode}
-        physics={physics}
-        onPhysicsChange={handlePhysicsChange}
-        onResetPhysics={() => setPhysics(DEFAULT_PHYSICS)}
-        onZoomToFit={() => canvasRef.current?.zoomToFit()}
-        onResetView={() => canvasRef.current?.resetView()}
-        filters={filters}
-        dispatch={dispatch}
-        availableTags={facets.tags}
-        availableFolders={facets.folders}
-        availableLinkTypes={facets.linkTypes}
-      />
+  const controlsPanel = (
+    <GraphControls
+      mode={mode}
+      onModeChange={handleModeChange}
+      localDepth={localDepth}
+      onLocalDepthChange={setLocalDepth}
+      canFocusLocal={selectedId !== null}
+      colorMode={colorMode}
+      onColorModeChange={setColorMode}
+      physics={physics}
+      onPhysicsChange={handlePhysicsChange}
+      onResetPhysics={() => setPhysics(DEFAULT_PHYSICS)}
+      onZoomToFit={() => canvasRef.current?.zoomToFit()}
+      onResetView={() => canvasRef.current?.resetView()}
+      filters={filters}
+      dispatch={dispatch}
+      availableTags={facets.tags}
+      availableFolders={facets.folders}
+      availableLinkTypes={facets.linkTypes}
+    />
+  );
 
+  return (
+    <div className="flex h-full min-h-0 flex-col md:flex-row">
+      {/* ================================================================ */}
+      {/* DESKTOP: left rail controls (always visible ≥ md)                */}
+      {/* ================================================================ */}
+      <div className="hidden md:flex">{controlsPanel}</div>
+
+      {/* ================================================================ */}
+      {/* MOBILE: slide-up controls drawer (< md)                          */}
+      {/* ================================================================ */}
+      {mobileControlsOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 z-30 bg-neutral-950/70 backdrop-blur-sm md:hidden"
+            onClick={() => setMobileControlsOpen(false)}
+          />
+          {/* Drawer slides up from bottom */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Graph controls"
+            className="absolute bottom-0 left-0 right-0 z-40 max-h-[80dvh] overflow-y-auto rounded-t-2xl border-t border-neutral-800 bg-neutral-950 md:hidden motion-safe:animate-slide-up"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center py-2">
+              <div className="h-1 w-10 rounded-full bg-neutral-700" aria-hidden="true" />
+            </div>
+            <div className="flex items-center justify-between border-b border-neutral-800 px-4 pb-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Graph controls
+              </span>
+              <button
+                type="button"
+                onClick={() => setMobileControlsOpen(false)}
+                aria-label="Close controls"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            {/* Controls content rendered without the aside outer wrapper */}
+            <GraphControls
+              mode={mode}
+              onModeChange={handleModeChange}
+              localDepth={localDepth}
+              onLocalDepthChange={setLocalDepth}
+              canFocusLocal={selectedId !== null}
+              colorMode={colorMode}
+              onColorModeChange={setColorMode}
+              physics={physics}
+              onPhysicsChange={handlePhysicsChange}
+              onResetPhysics={() => setPhysics(DEFAULT_PHYSICS)}
+              onZoomToFit={() => {
+                canvasRef.current?.zoomToFit();
+                setMobileControlsOpen(false);
+              }}
+              onResetView={() => {
+                canvasRef.current?.resetView();
+                setMobileControlsOpen(false);
+              }}
+              filters={filters}
+              dispatch={dispatch}
+              availableTags={facets.tags}
+              availableFolders={facets.folders}
+              availableLinkTypes={facets.linkTypes}
+            />
+          </div>
+        </>
+      )}
+
+      {/* ================================================================ */}
+      {/* Canvas area                                                       */}
+      {/* ================================================================ */}
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-neutral-800 bg-neutral-950 px-4 py-2.5">
-          <div>
-            <h1 className="text-sm font-semibold text-neutral-100">Graph</h1>
-            <p className="text-xs text-neutral-500">
-              {mode === 'local' && selectedNode
-                ? `Local · ${selectedNode.title} · depth ${localDepth}`
-                : 'Global'}
-            </p>
+        {/* Header */}
+        <header className="flex shrink-0 items-center justify-between border-b border-neutral-800 bg-neutral-950 px-3 py-2.5 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            {/* Mobile controls toggle button */}
+            <button
+              type="button"
+              onClick={() => setMobileControlsOpen(true)}
+              aria-label="Open graph controls"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-800 text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200 md:hidden"
+            >
+              <ControlsIcon />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-sm font-semibold text-neutral-100">Graph</h1>
+              <p className="truncate text-xs text-neutral-500">
+                {mode === 'local' && selectedNode
+                  ? `Local · ${selectedNode.title} · depth ${localDepth}`
+                  : 'Global'}
+              </p>
+            </div>
           </div>
           <NodeCount shown={shownNodes} total={totalNodes} truncated={payload.truncated} />
         </header>
@@ -247,7 +344,7 @@ export default function GraphPage() {
                 tags={facets.tags}
               />
               {/* Floating overlay controls: search (top-right) and zoom (bottom-right). */}
-              <div className="pointer-events-none absolute inset-0 flex flex-col p-3">
+              <div className="pointer-events-none absolute inset-0 flex flex-col p-2 sm:p-3">
                 {/* Top-right: search bar */}
                 <div className="flex justify-end">
                   <GraphSearch
@@ -272,15 +369,49 @@ export default function GraphPage() {
         </div>
       </div>
 
+      {/* ================================================================ */}
+      {/* Node panel — desktop: right side panel; mobile: bottom drawer     */}
+      {/* ================================================================ */}
       {selectedNode && (
-        <NodePanel
-          node={selectedNode}
-          index={index}
-          isLocalFocus={mode === 'local'}
-          onFocusLocal={handleFocusLocal}
-          onSelect={handleSelect}
-          onOpen={openNote}
-        />
+        <>
+          {/* Desktop node panel */}
+          <div className="hidden md:flex">
+            <NodePanel
+              node={selectedNode}
+              index={index}
+              isLocalFocus={mode === 'local'}
+              onFocusLocal={handleFocusLocal}
+              onSelect={handleSelect}
+              onOpen={openNote}
+            />
+          </div>
+          {/* Mobile node panel — slides up from bottom */}
+          <div
+            className="absolute bottom-0 left-0 right-0 z-20 max-h-[55dvh] overflow-y-auto rounded-t-2xl border-t border-neutral-800 bg-neutral-950 shadow-2xl md:hidden"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
+            {/* Drag handle + close */}
+            <div className="flex items-center justify-between px-4 py-2">
+              <div className="h-1 w-10 rounded-full bg-neutral-700" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => handleSelect(null)}
+                aria-label="Close node panel"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            <NodePanel
+              node={selectedNode}
+              index={index}
+              isLocalFocus={mode === 'local'}
+              onFocusLocal={handleFocusLocal}
+              onSelect={handleSelect}
+              onOpen={openNote}
+            />
+          </div>
+        </>
       )}
     </div>
   );
@@ -296,13 +427,14 @@ function NodeCount({
   truncated: boolean;
 }) {
   return (
-    <div className="text-right text-xs">
+    <div className="shrink-0 text-right text-xs">
       <span className="text-neutral-300">
-        {truncated || shown < total ? `Showing ${shown} of ${total}` : `${total}`} nodes
+        {truncated || shown < total ? `${shown}/${total}` : `${total}`}
+        <span className="hidden sm:inline"> nodes</span>
       </span>
       {truncated && (
-        <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300">
-          capped at {DEFAULT_NODE_CAP}
+        <span className="ml-1.5 hidden rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300 sm:inline">
+          cap {DEFAULT_NODE_CAP}
         </span>
       )}
     </div>
@@ -326,5 +458,35 @@ function EmptyState({ message, hint }: { message: string; hint?: string }) {
       <p className="text-sm text-neutral-500">{message}</p>
       {hint && <p className="text-xs text-neutral-700">{hint}</p>}
     </div>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" d="M4 4l8 8M12 4l-8 8" />
+    </svg>
+  );
+}
+
+function ControlsIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" d="M2 4h12M4 8h8M6 12h4" />
+    </svg>
   );
 }

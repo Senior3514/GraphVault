@@ -6,6 +6,9 @@
  * Collapsible to an icon rail (state owned by {@link AppFrame}, persisted +
  * toggleable with Cmd/Ctrl+B). Each nav item shows an icon glyph so it stays
  * legible when collapsed; a Cmd-K affordance opens the command palette.
+ *
+ * Mobile: rendered inside a slide-over drawer managed by AppFrame. When
+ * `mobileDrawerClose` is provided, nav-link clicks dismiss the drawer.
  */
 
 import Link from 'next/link';
@@ -30,9 +33,11 @@ const NAV: NavItem[] = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle(): void;
+  /** When provided (mobile drawer context), called after each nav-link tap to close the drawer. */
+  mobileDrawerClose?: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileDrawerClose }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -50,8 +55,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           'flex items-center gap-2 px-3 py-4',
           collapsed ? 'justify-center' : 'justify-between',
         ].join(' ')}
+        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
       >
-        <Link href="/vault" className="flex min-w-0 items-center gap-2" title="GraphVault">
+        <Link
+          href="/vault"
+          className="flex min-w-0 items-center gap-2"
+          title="GraphVault"
+          onClick={mobileDrawerClose}
+        >
           <NavIcon glyph="graph" className="h-6 w-6 shrink-0 text-sky-400" />
           {!collapsed && (
             <span className="min-w-0">
@@ -65,9 +76,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {!collapsed && (
           <button
             type="button"
-            onClick={onToggle}
-            aria-label="Collapse sidebar"
-            title="Collapse sidebar (Cmd/Ctrl+B)"
+            onClick={mobileDrawerClose ?? onToggle}
+            aria-label={mobileDrawerClose ? 'Close navigation' : 'Collapse sidebar'}
+            title={mobileDrawerClose ? 'Close navigation' : 'Collapse sidebar (Cmd/Ctrl+B)'}
             className="rounded-md p-1 text-neutral-500 transition-colors hover:bg-neutral-900 hover:text-neutral-300"
           >
             <ChevronIcon className="h-4 w-4" />
@@ -84,8 +95,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 href={item.href}
                 title={collapsed ? `${item.label} — ${item.hint}` : undefined}
                 aria-current={active ? 'page' : undefined}
+                onClick={mobileDrawerClose}
                 className={[
-                  'group flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors motion-reduce:transition-none',
+                  // min-h ensures ≥ 44px touch target
+                  'group flex min-h-[44px] items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors motion-reduce:transition-none',
                   collapsed ? 'justify-center' : '',
                   active
                     ? 'bg-neutral-800/80 text-neutral-100'
@@ -111,7 +124,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         })}
       </ul>
 
-      <div className="space-y-2 border-t border-neutral-800/80 p-2">
+      <div
+        className="space-y-2 border-t border-neutral-800/80 p-2"
+        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+      >
         <CommandHint collapsed={collapsed} />
         {collapsed ? (
           <button
@@ -149,7 +165,7 @@ function CommandHint({ collapsed }: { collapsed: boolean }) {
       title="Command palette (Cmd/Ctrl+K)"
       aria-label="Open command palette"
       className={[
-        'flex w-full items-center gap-2 rounded-md border border-neutral-800 bg-neutral-900/60 text-sm text-neutral-400 transition-colors hover:border-neutral-700 hover:text-neutral-200',
+        'flex min-h-[44px] w-full items-center gap-2 rounded-md border border-neutral-800 bg-neutral-900/60 text-sm text-neutral-400 transition-colors hover:border-neutral-700 hover:text-neutral-200',
         collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-1.5',
       ].join(' ')}
     >
