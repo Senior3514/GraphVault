@@ -13,6 +13,7 @@ import { registerVaultRoutes } from './routes/vaults.js';
 import { registerBlobRoutes } from './routes/blobs.js';
 import { registerWebDavRoutes } from './routes/webdav.js';
 import { registerS3Routes } from './routes/s3.js';
+import { registerClipRoutes } from './routes/clip.js';
 import type { Storage } from './store/types.js';
 
 export interface AppOptions {
@@ -178,6 +179,9 @@ export async function buildApp(
 
   // --- Milestone 18: S3-compatible storage proxy ---
   registerS3Routes(app, services);
+
+  // --- Milestone 22: URL web-clipper (server-side fetch + HTML→Markdown) ---
+  registerClipRoutes(app, services);
 
   return app;
 }

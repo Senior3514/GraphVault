@@ -92,6 +92,8 @@
 - ✅ Docs: quickstart, self-hosting, security model, data portability; public-launch README (scrubbed); one-command install table
 - ✅ Accessibility pass: focus traps + restoration, skip-link, ARIA + live regions, WCAG AA
 - ✅ QA gauntlet + review (data-loss / privacy / security CLEAR; 2 fixes applied)
+- ⬜ Light/dark theming via design tokens (system preference + persisted override)
+- ⬜ "+ to add files" primary action: bottom-thumb FAB (mobile) + file-tree header (desktop)
 - ⬜ Tagged v0.1.0 release → native installers via CI
 
 ## Milestone 18 — Universal storage providers (your data, literally anywhere) 🟡
@@ -102,7 +104,7 @@ providers go through the self-hosted server (keys never touch the browser).
 
 - ✅ Seam + localStorage + File System Access (disk) + Tauri (native disk)
 - ✅ WebDAV adapter (Nextcloud / any) via self-hosted server proxy — creds never in browser
-- ⬜ S3-compatible adapter (AWS S3 / MinIO / Backblaze / R2) via server-proxied creds
+- ✅ S3-compatible adapter (AWS S3 / MinIO / Backblaze / R2) via server proxy (from-scratch SigV4)
 - ⬜ Azure Blob + Google Cloud Storage adapters (server-proxied)
 - ⬜ Google Drive + OneDrive (OAuth, app-folder scope; tokens server-side)
 - ⬜ Settings provider picker with safe copy-verify-switch migration (reuse existing)
@@ -122,7 +124,7 @@ Make GraphVault the most _usable_ knowledge tool — it goes where you are.
 - ✅ Embeddable read-only graph (`/embed?s=…`, privacy-safe snapshot) + Share button
 - ⬜ Public shareable graph snapshots (opt-in, no account)
 - ✅ CLI (`@graphvault/cli`: list / search / stats / graph) — local HTTP API ⬜
-- ⬜ URL scheme + share targets (clip from any app)
+- ✅ URL scheme (`web+graphvault:`) + PWA share_target (`/share`) — clip from any app
 
 ## Milestone 21 — AI assistant (privacy-first, opt-in) 🟡
 
@@ -138,6 +140,10 @@ device unless the user enables a provider.
   sessionStorage, redacted from errors, never logged; button hidden when off
 - ✅ Graph intelligence: AI-named clusters, related-notes, gap-finding overlays
   (titles + topology only; off by default; confirm-before-send)
+- ⬜ **Server-side AI proxy (BFF)** — keys live on the user's self-hosted server
+  (encrypted), never the browser; **OpenRouter** as default gateway (400+ models)
+  - per-key spend caps. (Research-backed: client-stored secrets are extractable.)
+- ⬜ MCP server — expose the vault to external agents (Claude) for interoperability
 
 ## Milestone 22 — Connectors (email & everything, privacy-graded) 🟡
 
