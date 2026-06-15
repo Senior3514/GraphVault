@@ -78,6 +78,28 @@ stop repeating mistakes. Newest at the top within each section.
   commit `pnpm-lock.yaml`. The orchestrator runs one `pnpm install` after
   integrating all branches so the lockfile reflects the union of dependencies.
 
+### A cross-package web dependency must be wired in centrally
+
+- **Symptom:** the sync agent built `@graphvault/sync-core` and imported it from
+  `apps/web`, but (correctly) could not edit `apps/web/package.json` (owned by
+  another agent that round). It used a local `node_modules` symlink to build.
+- **Fix / rule:** when an agent's package is consumed by an app it doesn't own,
+  the **integrator** adds the `workspace:*` dependency to the consumer's
+  `package.json` and the root `tsconfig.json` project reference, then runs the
+  unified `pnpm install`. Capture this as an explicit integration step.
+
+### `git show --stat` "Bin 0 -> N bytes" means a stray NUL byte
+
+- **Symptom:** a `.ts` source file appeared as `Bin 0 -> 4924 bytes` in
+  `--stat`; git treated it as binary.
+- **Root cause:** a single stray `\0` (NUL) byte got introduced during agent
+  editing (has happened more than once). Git's text/binary heuristic then flags
+  the whole file.
+- **Fix / rule:** during integration, scan new/edited source for NUL bytes and
+  strip them (`tr -d '\000'`). A quick check: any source file shown as `Bin` in
+  `git show --stat` is suspect. Verify with `file <path>` (should be "ASCII
+  text", not "data").
+
 ## Server & security
 
 ### Device-bound tokens reject mismatched `deviceId` (this is correct)
