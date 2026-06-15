@@ -67,10 +67,24 @@ import {
   timelineVisibleIds,
   type TimelineState,
 } from '../../lib/graph/timeline';
-import { buildClusterColors, type ClusterColorInfo } from '../../lib/graph/clusters';
+import {
+  buildClusterColors,
+  clusterTitlesForAI,
+  type ClusterColorInfo,
+} from '../../lib/graph/clusters';
 import { computeGroupColors, loadGroups, saveGroups, type NodeGroup } from '../../lib/graph/groups';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import { buildSnapshot, generateEmbedUrl } from '../../lib/embed/snapshot';
+// M21: AI graph intelligence — privacy-first, off by default.
+import { loadAISettings } from '../../lib/ai/settings';
+import type { AISettings } from '../../lib/ai/types';
+import { chat } from '../../lib/ai/providers';
+import {
+  buildClusterNamePrompt,
+  parseClusterNames,
+  buildGraphSendContext,
+  MAX_CLUSTERS_TO_NAME,
+} from '../../lib/ai/graph-prompts';
 
 // Canvas/DOM-only renderer: never server-rendered.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
@@ -101,6 +115,25 @@ export default function GraphPage() {
 
   // v4: User-defined colour groups — initialised from localStorage on first render.
   const [groups, setGroups] = useState<NodeGroup[]>(() => loadGroups());
+
+  // M21: AI settings — loaded from sessionStorage (off by default; cleared on tab close).
+  // Re-read on mount; no live sync needed because settings change via the Settings page.
+  const [aiSettings, setAiSettings] = useState<AISettings>(() => loadAISettings());
+  const aiEnabled = aiSettings.kind !== 'off';
+
+  // M21: AI cluster names — string[] indexed to match the visual cluster legend order.
+  const [aiClusterNames, setAiClusterNames] = useState<string[]>([]);
+  const [clusterNamingState, setClusterNamingState] = useState<
+    'idle' | 'confirming' | 'loading' | 'error'
+  >('idle');
+  const [clusterNamingError, setClusterNamingError] = useState('');
+
+  // Re-read AI settings when the page receives focus (user may have changed settings).
+  useEffect(() => {
+    const onFocus = () => setAiSettings(loadAISettings());
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   // Mobile drawer states
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
@@ -194,6 +227,13 @@ export default function GraphPage() {
     return buildClusterColors(payload.nodes, payload.edges);
   }, [colorMode, payload]);
 
+  // M21: Reset AI cluster names when cluster info changes (payload changed, names are stale).
+  useEffect(() => {
+    setAiClusterNames([]);
+    setClusterNamingState('idle');
+    setClusterNamingError('');
+  }, [clusterInfo]);
+
   // v4: Compute group colours. We need render-ready nodes to call matchesQuery
   // (which checks tagKey and path), so we first build the render model without
   // group colours, then compute the group map, then rebuild with the map.
@@ -276,6 +316,29 @@ export default function GraphPage() {
   const handlePinnedChange = useCallback((pinned: Set<string>) => {
     setPinnedIds(new Set(pinned));
   }, []);
+
+  // M21: AI cluster naming handler.
+  const handleNameClusters = useCallback(async () => {
+    if (!clusterInfo) return;
+    setClusterNamingState('loading');
+    setClusterNamingError('');
+    try {
+      const clusterInputs = clusterTitlesForAI(
+        payload.nodes,
+        clusterInfo.result,
+        clusterInfo.colorMap,
+        MAX_CLUSTERS_TO_NAME,
+      );
+      const msgs = buildClusterNamePrompt(clusterInputs);
+      const raw = await chat(aiSettings, msgs);
+      const names = parseClusterNames(raw, clusterInputs.length);
+      setAiClusterNames(names);
+      setClusterNamingState('idle');
+    } catch (err) {
+      setClusterNamingError(err instanceof Error ? err.message : 'AI request failed.');
+      setClusterNamingState('error');
+    }
+  }, [clusterInfo, payload.nodes, aiSettings]);
 
   const handleUnpinAll = useCallback(() => {
     // We can't directly mutate the force-graph nodes from outside the canvas.
@@ -454,6 +517,30 @@ export default function GraphPage() {
                 {groups.length} {groups.length === 1 ? 'group' : 'groups'}
               </span>
             )}
+            {/* M21: AI cluster naming button — only visible when cluster mode is active + AI on */}
+            {aiEnabled && colorMode === 'cluster' && clusterInfo && (
+              <AiClusterNamingButton
+                state={clusterNamingState}
+                errorMsg={clusterNamingError}
+                clusterCount={
+                  clusterTitlesForAI(
+                    payload.nodes,
+                    clusterInfo.result,
+                    clusterInfo.colorMap,
+                    MAX_CLUSTERS_TO_NAME,
+                  ).length
+                }
+                onConfirm={() => setClusterNamingState('confirming')}
+                onRun={handleNameClusters}
+                onCancel={() => setClusterNamingState('idle')}
+                onDismissError={() => setClusterNamingState('idle')}
+                onClear={() => {
+                  setAiClusterNames([]);
+                  setClusterNamingState('idle');
+                }}
+                hasNames={aiClusterNames.length > 0}
+              />
+            )}
             {/* M20: Share / Embed graph button */}
             <ShareButton nodes={payload.nodes} edges={payload.edges} />
             <NodeCount shown={shownNodes} total={totalNodes} truncated={payload.truncated} />
@@ -488,6 +575,7 @@ export default function GraphPage() {
                 tags={facets.tags}
                 clusterInfo={clusterInfo}
                 groups={groups}
+                aiClusterNames={aiClusterNames.length > 0 ? aiClusterNames : undefined}
               />
               {/* Floating overlay controls: search (top-right) and zoom (bottom-right). */}
               <div className="pointer-events-none absolute inset-0 flex flex-col p-2 sm:p-3">
@@ -529,6 +617,7 @@ export default function GraphPage() {
               onFocusLocal={handleFocusLocal}
               onSelect={handleSelect}
               onOpen={openNote}
+              aiSettings={aiEnabled ? aiSettings : undefined}
             />
           </div>
           {/* Mobile node panel — slides up from bottom */}
@@ -555,6 +644,7 @@ export default function GraphPage() {
               onFocusLocal={handleFocusLocal}
               onSelect={handleSelect}
               onOpen={openNote}
+              aiSettings={aiEnabled ? aiSettings : undefined}
             />
           </div>
         </>
@@ -841,6 +931,170 @@ function ShareIcon() {
       <circle cx="12.5" cy="12.5" r="1.5" />
       <circle cx="3.5" cy="8" r="1.5" />
       <path strokeLinecap="round" d="M5 8h4M10.9 4.2L5.1 7.1M10.9 11.8L5.1 8.9" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// M21: AI cluster naming button + confirm popover
+// ---------------------------------------------------------------------------
+
+/**
+ * A button that triggers AI cluster naming. Shows a confirm popover explaining
+ * what data will be sent before the actual request fires (privacy posture).
+ *
+ * Only visible when AI is enabled and colorMode === 'cluster'.
+ * Privacy: sends only cluster membership titles, never note bodies.
+ */
+function AiClusterNamingButton({
+  state,
+  errorMsg,
+  clusterCount,
+  onConfirm,
+  onRun,
+  onCancel,
+  onDismissError,
+  onClear,
+  hasNames,
+}: {
+  state: 'idle' | 'confirming' | 'loading' | 'error';
+  errorMsg: string;
+  clusterCount: number;
+  onConfirm: () => void;
+  onRun: () => void;
+  onCancel: () => void;
+  onDismissError: () => void;
+  onClear: () => void;
+  hasNames: boolean;
+}) {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  // Sync popover visibility with confirming state.
+  useEffect(() => {
+    setPopoverOpen(state === 'confirming' || state === 'error');
+  }, [state]);
+
+  // Close on Escape or outside click.
+  useEffect(() => {
+    if (!popoverOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+    const onClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        onCancel();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClickOutside);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onClickOutside);
+    };
+  }, [popoverOpen, onCancel]);
+
+  const sendCtx = buildGraphSendContext('cluster-names', { clusterCount });
+
+  return (
+    <div className="relative">
+      {state === 'loading' ? (
+        <span className="hidden items-center gap-1.5 rounded-md border border-violet-800/50 px-2 py-1 text-xs text-violet-400 motion-safe:animate-pulse sm:flex">
+          <SparkleIcon />
+          Naming...
+        </span>
+      ) : hasNames ? (
+        <button
+          type="button"
+          onClick={onClear}
+          title="Clear AI cluster names"
+          className="hidden items-center gap-1.5 rounded-md border border-violet-700/50 bg-violet-950/40 px-2 py-1 text-xs text-violet-300 hover:bg-violet-900/40 sm:flex"
+        >
+          <SparkleIcon />
+          AI named
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onConfirm}
+          title="Name clusters with AI (titles only, no note content)"
+          className="hidden items-center gap-1.5 rounded-md border border-neutral-800 px-2 py-1 text-xs text-neutral-400 hover:border-violet-800/50 hover:bg-violet-950/30 hover:text-violet-300 sm:flex"
+        >
+          <SparkleIcon />
+          <span className="hidden md:inline">Name clusters</span>
+        </button>
+      )}
+
+      {/* Confirm popover */}
+      {popoverOpen && (
+        <div
+          ref={popoverRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Name clusters with AI"
+          className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-neutral-800 bg-neutral-950 p-4 shadow-2xl"
+        >
+          {state === 'confirming' && (
+            <>
+              <h2 className="mb-2 text-xs font-semibold text-neutral-300">Name clusters with AI</h2>
+              <p className="mb-1 text-[11px] leading-relaxed text-neutral-500">
+                <strong className="text-neutral-400">What we will send:</strong>{' '}
+                {sendCtx.description}
+              </p>
+              <p className="mb-3 text-[11px] text-neutral-600">{sendCtx.detail}</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onRun}
+                  className="rounded-md bg-violet-950/70 px-2.5 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-900/70"
+                >
+                  Send
+                </button>
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="rounded-md px-2.5 py-1.5 text-xs text-neutral-600 hover:text-neutral-400"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+          {state === 'error' && (
+            <>
+              <p className="mb-2 text-[11px] text-red-400">{errorMsg}</p>
+              <button
+                type="button"
+                onClick={onDismissError}
+                className="text-[11px] text-neutral-600 underline hover:text-neutral-400"
+              >
+                Dismiss
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-3.5 w-3.5"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8 2v2M8 12v2M2 8h2M12 8h2M4.2 4.2l1.4 1.4M10.4 10.4l1.4 1.4M4.2 11.8l1.4-1.4M10.4 5.6l1.4-1.4"
+      />
     </svg>
   );
 }

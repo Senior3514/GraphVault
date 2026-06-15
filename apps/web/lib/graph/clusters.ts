@@ -225,3 +225,54 @@ export function clusterLegendEntries(
 
   return items;
 }
+
+// ---------------------------------------------------------------------------
+// AI helper: extract title sets per cluster
+// ---------------------------------------------------------------------------
+
+export interface ClusterTitleNode {
+  id: string;
+  title: string;
+}
+
+/**
+ * Build an ordered list of `{ index, titles }` descriptors for each
+ * non-singleton cluster (size >= `CLUSTER_SINGLETON_THRESHOLD`), sorted by
+ * descending cluster size. Used by the AI cluster-naming prompt builder
+ * (`lib/ai/graph-prompts.ts`) which must receive ONLY titles, never bodies.
+ *
+ * @param nodes     - Nodes with an id and title (no bodies).
+ * @param result    - ClusterResult from `computeConnectedComponents`.
+ * @param colorMap  - Color map from `assignClusterColors` (used to filter to
+ *                    non-neutral clusters, matching the visual legend).
+ * @param maxClusters - Cap on the number of clusters returned (default 10).
+ */
+export function clusterTitlesForAI(
+  nodes: readonly ClusterTitleNode[],
+  result: ClusterResult,
+  colorMap: Map<number, string>,
+  maxClusters = 10,
+): Array<{ index: number; titles: string[] }> {
+  // Build nodeId → title map.
+  const titleOf = new Map<string, string>(nodes.map((n) => [n.id, n.title]));
+
+  // Build clusterId → titles array.
+  const clusterTitles = new Map<number, string[]>();
+  for (const [nodeId, clusterId] of result.nodeCluster) {
+    const title = titleOf.get(nodeId);
+    if (!title) continue;
+    if (!clusterTitles.has(clusterId)) clusterTitles.set(clusterId, []);
+    clusterTitles.get(clusterId)!.push(title);
+  }
+
+  // Only include clusters with a non-neutral colour (mirrors the visual legend).
+  const visibleClusters = [...result.clusterSize.entries()]
+    .filter(([cid]) => colorMap.get(cid) !== GRAPH_NEUTRAL)
+    .sort((a, b) => b[1] - a[1]) // largest first
+    .slice(0, maxClusters);
+
+  return visibleClusters.map(([cid], i) => ({
+    index: i,
+    titles: clusterTitles.get(cid) ?? [],
+  }));
+}

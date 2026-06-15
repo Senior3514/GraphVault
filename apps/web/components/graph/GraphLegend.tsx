@@ -33,6 +33,13 @@ export interface GraphLegendProps {
   clusterInfo?: ClusterColorInfo | null;
   /** Active user-defined groups (shown as an overlay legend section). */
   groups?: readonly NodeGroup[];
+  /**
+   * M21 AI: AI-generated cluster names, keyed by the 0-based visual cluster
+   * index (same order as `clusterLegendEntries`). When present and colorMode
+   * is 'cluster', replaces the default "Cluster N (size)" labels with the
+   * AI-generated names.
+   */
+  aiClusterNames?: string[];
 }
 
 export function GraphLegend({
@@ -41,12 +48,13 @@ export function GraphLegend({
   tags,
   clusterInfo,
   groups = [],
+  aiClusterNames,
 }: GraphLegendProps) {
   const baseEntries =
     colorMode === 'type'
       ? legendForType(categories)
       : colorMode === 'cluster'
-        ? legendForClusters(clusterInfo)
+        ? legendForClusters(clusterInfo, aiClusterNames)
         : legendForTags(tags);
 
   const groupItems = groupLegendEntries(groups);
@@ -121,7 +129,10 @@ function legendForTags(tags: string[]): { title: string; items: LegendItem[] } {
   return { title: 'Tags', items };
 }
 
-function legendForClusters(info: ClusterColorInfo | null | undefined): {
+function legendForClusters(
+  info: ClusterColorInfo | null | undefined,
+  aiNames?: string[],
+): {
   title: string;
   items: LegendItem[];
 } {
@@ -129,10 +140,14 @@ function legendForClusters(info: ClusterColorInfo | null | undefined): {
   const entries = clusterLegendEntries(info.result, info.colorMap, 7);
   const items: LegendItem[] = entries.map((e, i) => ({
     key: `cluster-${i}`,
-    label: e.label,
+    // Prefer the AI-generated name when available; fall back to structural label.
+    label: aiNames?.[i] ?? e.label,
     color: e.color,
   }));
-  return { title: 'Clusters', items };
+  return {
+    title: aiNames && aiNames.length > 0 ? 'Clusters (AI-named)' : 'Clusters',
+    items,
+  };
 }
 
 function Swatch({ color, outlined }: { color: string; outlined?: boolean }) {

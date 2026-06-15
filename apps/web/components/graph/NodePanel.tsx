@@ -4,10 +4,31 @@
  * Selection side panel. Shows the selected note's title, tags and backlinks
  * (resolved inbound edges from the engine index) plus controls to open the note
  * in `/vault` or focus a local graph around it.
+ *
+ * M21 AI additions (gated behind aiEnabled — hidden when AI is off):
+ *  - "Suggest related" — surfaces vault notes the AI thinks are related but
+ *    not yet linked. Clicking a suggestion navigates to that note.
+ *  - "Find gaps" — surfaces note titles the AI thinks are MISSING from this
+ *    cluster, useful for surfacing future writing ideas.
+ *
+ * Privacy invariant: these sections are hidden entirely when AI is off.
+ * When shown, only note TITLES and link topology are sent — never bodies.
+ * The "what we'll send" notice is shown before the first request fires.
  */
 
+import { useState } from 'react';
 import { colorForKey } from '../../lib/graph/model';
 import type { GraphEdge, GraphIndex, GraphNode } from '@graphvault/engine';
+import type { AISettings } from '../../lib/ai/types';
+import { chat } from '../../lib/ai/providers';
+import {
+  buildRelatedNotesPrompt,
+  parseRelatedNotes,
+  buildGapFindingPrompt,
+  parseGapSuggestions,
+  buildGraphSendContext,
+  type RelatedNoteSuggestion,
+} from '../../lib/ai/graph-prompts';
 
 export interface NodePanelProps {
   node: GraphNode;
@@ -18,6 +39,8 @@ export interface NodePanelProps {
   onSelect: (id: string) => void;
   /** Open the note in the vault editor (the page owns the URL shape). */
   onOpen: (path: string) => void;
+  /** AI settings — when kind === 'off' the AI sections are hidden entirely. */
+  aiSettings?: AISettings;
 }
 
 export function NodePanel({
@@ -27,9 +50,11 @@ export function NodePanel({
   onFocusLocal,
   onSelect,
   onOpen,
+  aiSettings,
 }: NodePanelProps) {
   const backlinks = index.backlinks.get(node.id) ?? [];
   const outbound = (index.outbound.get(node.id) ?? []).filter((e) => e.resolved);
+  const aiEnabled = aiSettings !== undefined && aiSettings.kind !== 'off';
 
   return (
     // On desktop: aside with fixed width and left border.
@@ -98,9 +123,333 @@ export function NodePanel({
           <EdgeList edges={outbound} index={index} endpoint="target" onSelect={onSelect} />
         )}
       </Section>
+
+      {/* M21: AI sections — only rendered when AI is enabled */}
+      {aiEnabled && aiSettings && (
+        <>
+          <RelatedNotesSection
+            node={node}
+            index={index}
+            aiSettings={aiSettings}
+            onSelect={onSelect}
+          />
+          <GapFindingSection node={node} index={index} aiSettings={aiSettings} />
+        </>
+      )}
     </aside>
   );
 }
+
+// ---------------------------------------------------------------------------
+// M21: Related notes AI section
+// ---------------------------------------------------------------------------
+
+function RelatedNotesSection({
+  node,
+  index,
+  aiSettings,
+  onSelect,
+}: {
+  node: GraphNode;
+  index: GraphIndex;
+  aiSettings: AISettings;
+  onSelect: (id: string) => void;
+}) {
+  const [status, setStatus] = useState<'idle' | 'confirming' | 'loading' | 'done' | 'error'>(
+    'idle',
+  );
+  const [results, setResults] = useState<RelatedNoteSuggestion[]>([]);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  // Gather the data we'll send (titles only, no bodies).
+  const neighbourTitles = [
+    ...(index.backlinks.get(node.id) ?? []),
+    ...(index.outbound.get(node.id) ?? []),
+  ]
+    .filter((e) => e.resolved)
+    .map((e) => {
+      const otherId = e.source === node.id ? e.target : e.source;
+      return index.nodes.get(otherId)?.title;
+    })
+    .filter((t): t is string => Boolean(t));
+
+  const allTitles = [...index.nodes.values()].map((n) => n.title);
+
+  // Build title → id lookup for response parsing.
+  const titleToId = new Map<string, string>();
+  for (const [id, n] of index.nodes) {
+    titleToId.set(n.title.toLowerCase(), id);
+    titleToId.set(n.title, id);
+  }
+
+  const sendCtx = buildGraphSendContext('related-notes', {
+    selectedTitle: node.title,
+    neighbourCount: neighbourTitles.length,
+    totalTitles: allTitles.length,
+  });
+
+  const handleRun = async () => {
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const msgs = buildRelatedNotesPrompt(node.title, neighbourTitles, allTitles);
+      const raw = await chat(aiSettings, msgs);
+      const parsed = parseRelatedNotes(raw, titleToId);
+      setResults(parsed);
+      setStatus('done');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'AI request failed.');
+      setStatus('error');
+    }
+  };
+
+  // Reset when node changes.
+  const handleConfirm = () => setStatus('confirming');
+  const handleCancel = () => setStatus('idle');
+
+  return (
+    <section className="border-b border-neutral-800 px-4 py-3">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        AI: Related notes
+      </h3>
+
+      {status === 'idle' && (
+        <button
+          type="button"
+          onClick={handleConfirm}
+          className="rounded-md bg-violet-950/60 px-2.5 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:bg-violet-900/60 hover:text-violet-200"
+        >
+          Suggest related notes
+        </button>
+      )}
+
+      {status === 'confirming' && (
+        <div className="space-y-2">
+          <p className="text-[11px] leading-relaxed text-neutral-500">
+            <strong className="text-neutral-400">What we&apos;ll send:</strong>{' '}
+            {sendCtx.description}
+          </p>
+          <p className="text-[11px] text-neutral-600">{sendCtx.detail}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleRun}
+              className="rounded-md bg-violet-950/60 px-2.5 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-900/60"
+            >
+              Send
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="rounded-md px-2.5 py-1.5 text-xs text-neutral-600 hover:text-neutral-400"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {status === 'loading' && (
+        <p className="text-[11px] text-neutral-600 motion-safe:animate-pulse">Asking AI&hellip;</p>
+      )}
+
+      {status === 'error' && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-red-400">{errorMsg}</p>
+          <button
+            type="button"
+            onClick={() => setStatus('idle')}
+            className="text-[11px] text-neutral-600 underline hover:text-neutral-400"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {status === 'done' && (
+        <div className="space-y-1">
+          {results.length === 0 ? (
+            <p className="text-[11px] text-neutral-600">No additional related notes found.</p>
+          ) : (
+            <ul className="space-y-2">
+              {results.map((r, i) => (
+                <li key={`related-${i}`} className="space-y-0.5">
+                  {r.nodeId ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelect(r.nodeId!)}
+                      className="w-full truncate text-left text-xs font-medium text-violet-300 underline-offset-2 hover:text-violet-200 hover:underline"
+                    >
+                      {r.title}
+                    </button>
+                  ) : (
+                    <span className="text-xs font-medium text-neutral-500">{r.title}</span>
+                  )}
+                  <p className="text-[11px] leading-relaxed text-neutral-600">{r.reason}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setStatus('idle');
+              setResults([]);
+            }}
+            className="mt-1 text-[11px] text-neutral-700 hover:text-neutral-500"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// M21: Gap finding AI section
+// ---------------------------------------------------------------------------
+
+function GapFindingSection({
+  node,
+  index,
+  aiSettings,
+}: {
+  node: GraphNode;
+  index: GraphIndex;
+  aiSettings: AISettings;
+}) {
+  const [status, setStatus] = useState<'idle' | 'confirming' | 'loading' | 'done' | 'error'>(
+    'idle',
+  );
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const neighbourTitles = [
+    ...(index.backlinks.get(node.id) ?? []),
+    ...(index.outbound.get(node.id) ?? []),
+  ]
+    .filter((e) => e.resolved)
+    .map((e) => {
+      const otherId = e.source === node.id ? e.target : e.source;
+      return index.nodes.get(otherId)?.title;
+    })
+    .filter((t): t is string => Boolean(t));
+
+  const sendCtx = buildGraphSendContext('find-gaps', {
+    selectedTitle: node.title,
+    neighbourCount: neighbourTitles.length,
+  });
+
+  const handleRun = async () => {
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const msgs = buildGapFindingPrompt(node.title, neighbourTitles);
+      const raw = await chat(aiSettings, msgs);
+      const parsed = parseGapSuggestions(raw);
+      setSuggestions(parsed);
+      setStatus('done');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'AI request failed.');
+      setStatus('error');
+    }
+  };
+
+  const handleConfirm = () => setStatus('confirming');
+  const handleCancel = () => setStatus('idle');
+
+  return (
+    <section className="border-b border-neutral-800 px-4 py-3">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        AI: Knowledge gaps
+      </h3>
+
+      {status === 'idle' && (
+        <button
+          type="button"
+          onClick={handleConfirm}
+          className="rounded-md bg-teal-950/60 px-2.5 py-1.5 text-xs font-medium text-teal-300 transition-colors hover:bg-teal-900/60 hover:text-teal-200"
+        >
+          Find gaps
+        </button>
+      )}
+
+      {status === 'confirming' && (
+        <div className="space-y-2">
+          <p className="text-[11px] leading-relaxed text-neutral-500">
+            <strong className="text-neutral-400">What we&apos;ll send:</strong>{' '}
+            {sendCtx.description}
+          </p>
+          <p className="text-[11px] text-neutral-600">{sendCtx.detail}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleRun}
+              className="rounded-md bg-teal-950/60 px-2.5 py-1.5 text-xs font-medium text-teal-300 hover:bg-teal-900/60"
+            >
+              Send
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="rounded-md px-2.5 py-1.5 text-xs text-neutral-600 hover:text-neutral-400"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {status === 'loading' && (
+        <p className="text-[11px] text-neutral-600 motion-safe:animate-pulse">Asking AI&hellip;</p>
+      )}
+
+      {status === 'error' && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-red-400">{errorMsg}</p>
+          <button
+            type="button"
+            onClick={() => setStatus('idle')}
+            className="text-[11px] text-neutral-600 underline hover:text-neutral-400"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {status === 'done' && (
+        <div className="space-y-1">
+          {suggestions.length === 0 ? (
+            <p className="text-[11px] text-neutral-600">No gap suggestions returned.</p>
+          ) : (
+            <ul className="space-y-1">
+              {suggestions.map((title, i) => (
+                <li key={`gap-${i}`} className="text-xs text-teal-200/80">
+                  {i + 1}. {title}
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setStatus('idle');
+              setSuggestions([]);
+            }}
+            className="mt-1 text-[11px] text-neutral-700 hover:text-neutral-500"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared sub-components
+// ---------------------------------------------------------------------------
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
