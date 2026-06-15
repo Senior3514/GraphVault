@@ -42,7 +42,7 @@ import {
 import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
 import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/exportToDirectory';
 import { useAISettings } from '../../components/assistant/useAISettings';
-import type { AISettings, ByokBackend } from '../../lib/ai/types';
+import type { AISettings } from '../../lib/ai/types';
 import { LOCAL_IMPORT_CONNECTORS } from '../../lib/connectors/registry';
 import { emailConnector } from '../../lib/connectors/email';
 import { rssOpmlConnector } from '../../lib/connectors/rssOpml';
@@ -1963,23 +1963,134 @@ function VaultRegistrationSection({
 // AI assistant settings section
 // ---------------------------------------------------------------------------
 
+/**
+ * AI assistant section with three modes:
+ *  - Off (default): no AI, no network.
+ *  - Local (Ollama): notes never leave the machine.
+ *  - Server (BYO-key via server proxy): API key stored on YOUR server encrypted
+ *    at rest. The browser sends only the prompt — never the key.
+ *
+ * The key entry + save form for server mode mirrors the WebDAV / S3 pattern:
+ *  - User enters the key in a form field (masked by default).
+ *  - On submit the key is sent to POST /v1/ai/config over TLS.
+ *  - The server encrypts it at rest with AES-256-GCM + per-user HKDF.
+ *  - GET /v1/ai/config returns only a `keySet: boolean` — never the key value.
+ *  - The key is cleared from the form on submit; it never lives in state longer
+ *    than needed, and is never written to sessionStorage or localStorage.
+ */
 function AIAssistantSection() {
   const { settings, update } = useAISettings();
-  const [showKey, setShowKey] = useState(false);
+  const auth = useAuth();
+  const { serverUrl } = useServerSettings();
+
+  // --- server key management ---
+  const [keyInput, setKeyInput] = useState('');
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [gateway, setGateway] = useState<'openrouter' | 'custom'>('openrouter');
+  const [customBaseUrl, setCustomBaseUrl] = useState('');
+  const [serverAiModel, setServerAiModel] = useState('');
+  const [showKeyForm, setShowKeyForm] = useState(false);
+  const [keyConfigInfo, setKeyConfigInfo] = useState<{
+    keySet: boolean;
+    gateway: string;
+    model?: string;
+    updatedAt: string;
+  } | null>(null);
+  const [loadingKeyConfig, setLoadingKeyConfig] = useState(false);
+  const [keyMsg, setKeyMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [keyBusy, setKeyBusy] = useState(false);
+  const keyConfigLoaded = useRef(false);
+
+  const fetchKeyConfig = useCallback(async () => {
+    if (!auth.token) return;
+    setLoadingKeyConfig(true);
+    setKeyMsg(null);
+    try {
+      const { GraphVaultClient } = await import('../../lib/api/client');
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      const info = await client.getAiConfig();
+      setKeyConfigInfo(info);
+    } catch {
+      setKeyConfigInfo(null);
+    } finally {
+      setLoadingKeyConfig(false);
+    }
+  }, [auth.token, serverUrl]);
+
+  useEffect(() => {
+    if (!keyConfigLoaded.current && auth.isSignedIn && auth.token) {
+      keyConfigLoaded.current = true;
+      void fetchKeyConfig();
+    }
+  }, [auth.isSignedIn, auth.token, fetchKeyConfig]);
+
+  const handleSaveKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.token) return;
+    if (!keyInput.trim()) {
+      setKeyMsg({ kind: 'err', text: 'Please enter an API key.' });
+      return;
+    }
+    if (gateway === 'custom' && !customBaseUrl.trim()) {
+      setKeyMsg({ kind: 'err', text: 'A base URL is required for the custom gateway.' });
+      return;
+    }
+    setKeyBusy(true);
+    setKeyMsg(null);
+    try {
+      const { GraphVaultClient } = await import('../../lib/api/client');
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      await client.saveAiConfig({
+        apiKey: keyInput,
+        gateway,
+        baseUrl: gateway === 'custom' ? customBaseUrl.trim() : undefined,
+        model: serverAiModel.trim() || undefined,
+      });
+      setKeyMsg({
+        kind: 'ok',
+        text: 'API key saved to your server. It is encrypted at rest and never returned to this browser.',
+      });
+      setKeyInput('');
+      setShowKeyForm(false);
+      await fetchKeyConfig();
+    } catch (err) {
+      setKeyMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to save AI key.',
+      });
+    } finally {
+      setKeyBusy(false);
+    }
+  };
+
+  const handleDeleteKey = async () => {
+    if (!auth.token) return;
+    if (
+      !window.confirm(
+        'Remove the AI key from your server? The assistant will stop working until you add a new key.',
+      )
+    )
+      return;
+    setKeyBusy(true);
+    setKeyMsg(null);
+    try {
+      const { GraphVaultClient } = await import('../../lib/api/client');
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      await client.deleteAiConfig();
+      setKeyConfigInfo(null);
+      setKeyMsg({ kind: 'ok', text: 'AI key removed from the server.' });
+    } catch (err) {
+      setKeyMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to remove AI key.',
+      });
+    } finally {
+      setKeyBusy(false);
+    }
+  };
 
   const handleKindChange = (kind: AISettings['kind']) => {
     update({ kind });
-  };
-
-  const handleByokBackendChange = (backend: ByokBackend) => {
-    // When switching to Anthropic, default the model if it looks like an OpenAI model.
-    const modelPatch: Partial<AISettings> = {};
-    if (backend === 'anthropic' && settings.byokModel.startsWith('gpt-')) {
-      modelPatch.byokModel = 'claude-sonnet-4-6';
-    } else if (backend === 'openai-compatible' && settings.byokModel.startsWith('claude-')) {
-      modelPatch.byokModel = 'gpt-4o-mini';
-    }
-    update({ byokBackend: backend, ...modelPatch });
   };
 
   return (
@@ -1989,9 +2100,10 @@ function AIAssistantSection() {
       {/* Unmissable privacy notice */}
       <div className="mt-2 rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-300">
         <strong>Privacy notice:</strong> your notes leave your device only if you enable a cloud
-        provider below. <strong>Local</strong> and <strong>Off</strong> modes keep everything
-        on-device. API keys are stored in sessionStorage only and cleared when the tab closes — they
-        are never logged, synced, or sent anywhere other than the provider you choose.
+        provider. <strong>Local</strong> and <strong>Off</strong> modes keep everything on-device.
+        The <strong>Server</strong> mode proxies your prompt through your self-hosted server — your
+        API key is stored on <em>your server</em>, encrypted at rest, and is never sent to this
+        browser at any point.
       </div>
 
       {/* Provider selector */}
@@ -2011,9 +2123,9 @@ function AIAssistantSection() {
                 desc: 'Calls a localhost OpenAI-compatible endpoint. Notes never leave your machine.',
               },
               {
-                kind: 'byok' as const,
-                label: 'Bring your own key',
-                desc: 'Send requests to your own Anthropic or OpenAI-compatible account.',
+                kind: 'server' as const,
+                label: 'Server (BYO-key, OpenRouter default)',
+                desc: 'Your key lives on your server — the browser only sends the prompt, never a key.',
               },
             ] satisfies { kind: AISettings['kind']; label: string; desc: string }[]
           ).map(({ kind, label, desc }) => (
@@ -2084,113 +2196,257 @@ function AIAssistantSection() {
         </div>
       )}
 
-      {/* BYOK config */}
-      {settings.kind === 'byok' && (
+      {/* Server (BYO-key proxy) config */}
+      {settings.kind === 'server' && (
         <div className="mt-4 space-y-3">
-          {/* Backend selector */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400">Backend</label>
-            <div className="flex gap-3 text-sm">
-              {[
-                { backend: 'anthropic' as ByokBackend, label: 'Anthropic (Claude)' },
-                { backend: 'openai-compatible' as ByokBackend, label: 'OpenAI-compatible' },
-              ].map(({ backend, label }) => (
-                <label
-                  key={backend}
-                  className="flex cursor-pointer items-center gap-1.5 text-neutral-300"
-                >
-                  <input
-                    type="radio"
-                    name="byok-backend"
-                    value={backend}
-                    checked={settings.byokBackend === backend}
-                    onChange={() => handleByokBackendChange(backend)}
-                    className="accent-sky-500"
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
+          {/* Security notice — unmissable */}
+          <div className="rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+            <strong>Your key stays on your server.</strong> The API key you enter below is sent once
+            over TLS to your GraphVault server and stored encrypted with AES-256-GCM. It is never
+            returned to this browser, never stored in the browser, and never logged. The browser
+            sends only chat prompts — your server adds the key for outbound calls.
           </div>
 
-          {/* API key */}
+          {/* Optional model override for local panel */}
           <div>
             <label
               className="mb-1 block text-xs font-medium text-neutral-400"
-              htmlFor="ai-byok-key"
+              htmlFor="ai-server-model"
             >
-              API key
+              Model override{' '}
+              <span className="text-neutral-600">
+                (optional — leave blank to use server default)
+              </span>
             </label>
-            <div className="flex gap-2">
-              <input
-                id="ai-byok-key"
-                type={showKey ? 'text' : 'password'}
-                value={settings.byokKey}
-                onChange={(e) => update({ byokKey: e.target.value })}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder={settings.byokBackend === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
-                className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 font-mono"
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey((s) => !s)}
-                className="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs text-neutral-400 hover:text-neutral-200"
-                aria-label={showKey ? 'Hide key' : 'Show key'}
-              >
-                {showKey ? 'Hide' : 'Show'}
-              </button>
-            </div>
+            <input
+              id="ai-server-model"
+              type="text"
+              value={settings.serverModel}
+              onChange={(e) => update({ serverModel: e.target.value })}
+              placeholder="openai/gpt-4o-mini"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
+            />
             <p className="mt-1 text-xs text-neutral-600">
-              Stored in sessionStorage only — cleared when the tab closes. Never logged.
+              OpenRouter model strings: <code className="text-neutral-500">openai/gpt-4o-mini</code>
+              , <code className="text-neutral-500">anthropic/claude-sonnet-4-5</code>, etc.
             </p>
           </div>
 
-          {/* Endpoint (OpenAI-compatible only) */}
-          {settings.byokBackend === 'openai-compatible' && (
-            <div>
-              <label
-                className="mb-1 block text-xs font-medium text-neutral-400"
-                htmlFor="ai-byok-ep"
-              >
-                Endpoint
-              </label>
-              <input
-                id="ai-byok-ep"
-                type="url"
-                value={settings.byokEndpoint}
-                onChange={(e) => update({ byokEndpoint: e.target.value })}
-                placeholder="https://api.openai.com/v1"
-                className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
-              />
-            </div>
-          )}
+          {/* Key management — sign-in guard */}
+          {!auth.isSignedIn ? (
+            <p className="text-xs text-neutral-500">
+              Sign in to your GraphVault server (Account section above) to configure the AI key.
+            </p>
+          ) : (
+            <>
+              {/* Current key status */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-medium text-neutral-400">Server-side API key</h3>
+                <button
+                  type="button"
+                  onClick={() => void fetchKeyConfig()}
+                  disabled={loadingKeyConfig}
+                  className="text-xs text-neutral-500 hover:text-neutral-300 disabled:opacity-50"
+                >
+                  {loadingKeyConfig ? 'Loading…' : 'Refresh'}
+                </button>
+              </div>
 
-          {/* Model */}
-          <div>
-            <label
-              className="mb-1 block text-xs font-medium text-neutral-400"
-              htmlFor="ai-byok-model"
-            >
-              Model
-            </label>
-            <input
-              id="ai-byok-model"
-              type="text"
-              value={settings.byokModel}
-              onChange={(e) => update({ byokModel: e.target.value })}
-              placeholder={
-                settings.byokBackend === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-4o-mini'
-              }
-              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
-            />
-            {settings.byokBackend === 'anthropic' && (
-              <p className="mt-1 text-xs text-neutral-600">
-                Default: <code className="text-neutral-500">claude-sonnet-4-6</code>. Any model your
-                API key has access to works.
-              </p>
-            )}
-          </div>
+              {keyConfigInfo ? (
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+                  <dt>Status</dt>
+                  <dd className="text-emerald-400">Key configured</dd>
+                  <dt>Gateway</dt>
+                  <dd className="text-neutral-200">
+                    {keyConfigInfo.gateway === 'openrouter' ? 'OpenRouter' : 'Custom'}
+                  </dd>
+                  {keyConfigInfo.model && (
+                    <>
+                      <dt>Default model</dt>
+                      <dd className="truncate text-neutral-200">{keyConfigInfo.model}</dd>
+                    </>
+                  )}
+                  <dt>API key</dt>
+                  <dd className="text-neutral-600 italic">stored encrypted on server</dd>
+                  <dt>Last updated</dt>
+                  <dd className="text-neutral-200">
+                    {new Date(keyConfigInfo.updatedAt).toLocaleString()}
+                  </dd>
+                </dl>
+              ) : (
+                <p className="text-xs text-neutral-500">
+                  No AI key configured on the server yet. Add one below.
+                </p>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowKeyForm((s) => !s);
+                    setKeyMsg(null);
+                    setKeyInput('');
+                  }}
+                  disabled={keyBusy}
+                  className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+                >
+                  {keyConfigInfo ? 'Update key' : 'Add API key'}
+                </button>
+                {keyConfigInfo && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteKey()}
+                    disabled={keyBusy}
+                    className="rounded-md border border-red-900/60 bg-red-950/30 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/60 disabled:opacity-40"
+                  >
+                    Remove key
+                  </button>
+                )}
+              </div>
+
+              {/* Key entry form */}
+              {showKeyForm && (
+                <form onSubmit={(e) => void handleSaveKey(e)} className="mt-3 space-y-3" noValidate>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-neutral-400">
+                      Gateway
+                    </label>
+                    <div className="flex gap-3 text-sm">
+                      {[
+                        {
+                          value: 'openrouter' as const,
+                          label: 'OpenRouter (400+ models, recommended)',
+                        },
+                        { value: 'custom' as const, label: 'Custom base URL' },
+                      ].map(({ value, label }) => (
+                        <label
+                          key={value}
+                          className="flex cursor-pointer items-center gap-1.5 text-neutral-300"
+                        >
+                          <input
+                            type="radio"
+                            name="ai-gateway"
+                            value={value}
+                            checked={gateway === value}
+                            onChange={() => setGateway(value)}
+                            className="accent-sky-500"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {gateway === 'custom' && (
+                    <div>
+                      <label
+                        className="mb-1 block text-xs font-medium text-neutral-400"
+                        htmlFor="ai-custom-url"
+                      >
+                        Base URL
+                      </label>
+                      <input
+                        id="ai-custom-url"
+                        type="url"
+                        value={customBaseUrl}
+                        onChange={(e) => setCustomBaseUrl(e.target.value)}
+                        disabled={keyBusy}
+                        placeholder="https://api.openai.com/v1"
+                        className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                      />
+                      <p className="mt-1 text-xs text-neutral-600">
+                        Any OpenAI-compatible endpoint (Anthropic, OpenAI, Together, etc.)
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <label
+                      className="mb-1 block text-xs font-medium text-neutral-400"
+                      htmlFor="ai-server-default-model"
+                    >
+                      Default model on server <span className="text-neutral-600">(optional)</span>
+                    </label>
+                    <input
+                      id="ai-server-default-model"
+                      type="text"
+                      value={serverAiModel}
+                      onChange={(e) => setServerAiModel(e.target.value)}
+                      disabled={keyBusy}
+                      placeholder={gateway === 'openrouter' ? 'openai/gpt-4o-mini' : 'gpt-4o-mini'}
+                      className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      className="mb-1 block text-xs font-medium text-neutral-400"
+                      htmlFor="ai-key-input"
+                    >
+                      API key
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="ai-key-input"
+                        type={showKeyInput ? 'text' : 'password'}
+                        value={keyInput}
+                        onChange={(e) => setKeyInput(e.target.value)}
+                        autoComplete="new-password"
+                        spellCheck={false}
+                        disabled={keyBusy}
+                        placeholder={gateway === 'openrouter' ? 'sk-or-…' : 'sk-…'}
+                        className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm font-mono text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowKeyInput((s) => !s)}
+                        className="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs text-neutral-400 hover:text-neutral-200"
+                        aria-label={showKeyInput ? 'Hide key' : 'Show key'}
+                      >
+                        {showKeyInput ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-neutral-600">
+                      Sent to your server over TLS and stored encrypted — never returned to this
+                      browser. Your key is stored on <em>your</em> server, not GraphVault&apos;s
+                      infrastructure.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={keyBusy || !keyInput.trim()}
+                      className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+                    >
+                      {keyBusy ? 'Saving…' : 'Save key to server'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowKeyForm(false);
+                        setKeyInput('');
+                        setKeyMsg(null);
+                      }}
+                      disabled={keyBusy}
+                      className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <div className="mt-1 min-h-4 text-xs">
+                {keyMsg && (
+                  <span className={keyMsg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+                    {keyMsg.text}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -2210,7 +2466,7 @@ function AIAssistantSection() {
             ? 'AI is off — no network calls will be made'
             : settings.kind === 'local'
               ? 'Local inference — notes stay on-device'
-              : 'Cloud key — notes sent to your provider'}
+              : 'Server proxy — key on your server, never in this browser'}
         </span>
       </div>
     </section>

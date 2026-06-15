@@ -1,5 +1,6 @@
 import type { FileState } from '@graphvault/shared';
 import type {
+  AiConfigRecord,
   BlobRecord,
   ChangesPage,
   DeviceRecord,
@@ -70,6 +71,14 @@ export class PrismaStorage implements Storage {
    * TODO(M18-follow-up): add Prisma schema migration for `s3_configs`.
    */
   private readonly _s3Configs = new Map<string, S3ConfigRecord>();
+
+  /**
+   * In-process store for AI proxy configs.
+   *
+   * Same trade-off as WebDAV / S3.
+   * TODO(AI-follow-up): add Prisma schema migration for `ai_configs`.
+   */
+  private readonly _aiConfigs = new Map<string, AiConfigRecord>();
 
   async createUser(input: {
     id: string;
@@ -252,6 +261,20 @@ export class PrismaStorage implements Storage {
 
   async deleteS3Config(userId: string): Promise<void> {
     this._s3Configs.delete(userId);
+  }
+
+  // ---- AI proxy config (in-process map; see TODO above) ----
+
+  async getAiConfig(userId: string): Promise<AiConfigRecord | null> {
+    return this._aiConfigs.get(userId) ?? null;
+  }
+
+  async upsertAiConfig(record: AiConfigRecord): Promise<void> {
+    this._aiConfigs.set(record.userId, { ...record });
+  }
+
+  async deleteAiConfig(userId: string): Promise<void> {
+    this._aiConfigs.delete(userId);
   }
 }
 

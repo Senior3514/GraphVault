@@ -90,6 +90,29 @@ export interface S3ConfigRecord {
 }
 
 /**
+ * Persisted AI proxy configuration for a single user.
+ *
+ * The `apiKey` field stores an AES-256-GCM ciphertext (base64). The raw key is
+ * never written to the store; it exists only in decrypted form during an outbound
+ * AI call. All other fields are non-secret and may be shown in the Settings UI.
+ *
+ * gateway:
+ *   - 'openrouter' (default): proxies to https://openrouter.ai/api/v1
+ *   - 'custom': proxies to `baseUrl` (OpenAI-compatible endpoint)
+ */
+export interface AiConfigRecord {
+  userId: string;
+  /** AES-256-GCM encrypted API key, base64-encoded (nonce||tag||ciphertext). */
+  encryptedApiKey: string;
+  gateway: 'openrouter' | 'custom';
+  /** Only set when gateway === 'custom'. */
+  baseUrl?: string;
+  /** Default model string (e.g. "openai/gpt-4o-mini" for OpenRouter). */
+  model?: string;
+  updatedAt: string; // ISO-8601
+}
+
+/**
  * The current state of one file within a vault, plus the version history needed
  * for conflict recovery. `state` is the canonical wire representation.
  */
@@ -154,6 +177,11 @@ export interface Storage {
   getS3Config(userId: string): Promise<S3ConfigRecord | null>;
   upsertS3Config(record: S3ConfigRecord): Promise<void>;
   deleteS3Config(userId: string): Promise<void>;
+
+  // --- AI proxy configuration ---
+  getAiConfig(userId: string): Promise<AiConfigRecord | null>;
+  upsertAiConfig(record: AiConfigRecord): Promise<void>;
+  deleteAiConfig(userId: string): Promise<void>;
 }
 
 export interface ChangesPage {

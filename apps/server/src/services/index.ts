@@ -1,5 +1,6 @@
 import type { Storage } from '../store/types.js';
 import { DiskBlobStore } from '../store/blob-store.js';
+import { AiService } from './ai.js';
 import { AuthService } from './auth.js';
 import { BlobService } from './blob.js';
 import { ClipService } from './clip.js';
@@ -8,6 +9,7 @@ import { SyncService } from './sync.js';
 import { VaultService } from './vault.js';
 import { WebDavService } from './webdav.js';
 
+export { AiService } from './ai.js';
 export { AuthService } from './auth.js';
 export type { AuthContext } from './auth.js';
 export { VaultService } from './vault.js';
@@ -26,12 +28,14 @@ export interface Services {
   webdav: WebDavService;
   s3: S3Service;
   clip: ClipService;
+  ai: AiService;
 }
 
 export function createServices(
   storage: Storage,
   dataDir: string,
   encryptionKey?: Buffer,
+  aiDailyCap?: number,
 ): Services {
   const blobStore = new DiskBlobStore(dataDir, encryptionKey);
   return {
@@ -42,5 +46,6 @@ export function createServices(
     webdav: new WebDavService(storage, encryptionKey),
     s3: new S3Service(storage, encryptionKey),
     clip: new ClipService(),
+    ai: new AiService(storage, encryptionKey, aiDailyCap),
   };
 }

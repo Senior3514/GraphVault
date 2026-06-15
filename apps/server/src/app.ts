@@ -14,6 +14,7 @@ import { registerBlobRoutes } from './routes/blobs.js';
 import { registerWebDavRoutes } from './routes/webdav.js';
 import { registerS3Routes } from './routes/s3.js';
 import { registerClipRoutes } from './routes/clip.js';
+import { registerAiRoutes } from './routes/ai.js';
 import type { Storage } from './store/types.js';
 
 export interface AppOptions {
@@ -106,7 +107,7 @@ export async function buildApp(
     storageHandle = await createStorage(config);
     storage = storageHandle.storage;
   }
-  const services = createServices(storage, config.dataDir, config.encryptionKey);
+  const services = createServices(storage, config.dataDir, config.encryptionKey, config.aiDailyCap);
 
   app.addHook('onClose', async () => {
     if (storageHandle) await storageHandle.close();
@@ -182,6 +183,9 @@ export async function buildApp(
 
   // --- Milestone 22: URL web-clipper (server-side fetch + HTML→Markdown) ---
   registerClipRoutes(app, services);
+
+  // --- AI proxy (BFF): server-side AI key storage + chat proxy ---
+  registerAiRoutes(app, services);
 
   return app;
 }

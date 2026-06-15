@@ -1,5 +1,6 @@
 import type { FileState } from '@graphvault/shared';
 import type {
+  AiConfigRecord,
   BlobRecord,
   ChangesPage,
   DeviceRecord,
@@ -30,6 +31,7 @@ export class InMemoryStorage implements Storage {
   private readonly blobs = new Map<string, BlobRecord>();
   private readonly webdavConfigs = new Map<string, WebDavConfigRecord>();
   private readonly s3Configs = new Map<string, S3ConfigRecord>();
+  private readonly aiConfigs = new Map<string, AiConfigRecord>();
 
   private static now(): string {
     return new Date().toISOString();
@@ -179,5 +181,17 @@ export class InMemoryStorage implements Storage {
 
   async deleteS3Config(userId: string): Promise<void> {
     this.s3Configs.delete(userId);
+  }
+
+  async getAiConfig(userId: string): Promise<AiConfigRecord | null> {
+    return this.aiConfigs.get(userId) ?? null;
+  }
+
+  async upsertAiConfig(record: AiConfigRecord): Promise<void> {
+    this.aiConfigs.set(record.userId, { ...record });
+  }
+
+  async deleteAiConfig(userId: string): Promise<void> {
+    this.aiConfigs.delete(userId);
   }
 }

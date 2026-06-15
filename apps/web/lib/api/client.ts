@@ -28,6 +28,8 @@ import {
   s3ConfigInfoSchema,
   clipRequestSchema,
   clipResponseSchema,
+  aiConfigRequestSchema,
+  aiConfigInfoSchema,
   type AuthToken,
   type LoginRequest,
   type RegisterRequest,
@@ -38,6 +40,8 @@ import {
   type S3ConfigRequest,
   type S3ConfigInfo,
   type ClipResponse,
+  type AiConfigRequest,
+  type AiConfigInfo,
 } from '@graphvault/shared';
 
 export const DEFAULT_SERVER_URL =
@@ -248,6 +252,55 @@ export class GraphVaultClient {
    */
   async deleteS3Config(): Promise<void> {
     await this.request<unknown>('/v1/storage/s3/config', {
+      method: 'DELETE',
+      headers: this.headers(false),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // AI proxy config (BFF / server mode)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * POST /v1/ai/config
+   * Save the AI API key + gateway config on the server (key encrypted at rest).
+   * The client sends the plaintext key once over TLS; it is never returned.
+   * Use OpenRouter (gateway: 'openrouter') for 400+ models with one key, or
+   * gateway: 'custom' + baseUrl for a direct provider endpoint.
+   */
+  async saveAiConfig(config: AiConfigRequest): Promise<void> {
+    aiConfigRequestSchema.parse(config); // validate before sending
+    await this.request<unknown>('/v1/ai/config', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(config),
+    });
+  }
+
+  /**
+   * GET /v1/ai/config
+   * Fetch non-secret config info (keySet, gateway, model, updatedAt — no key).
+   * Returns null if AI is not configured.
+   */
+  async getAiConfig(): Promise<AiConfigInfo | null> {
+    try {
+      const data = await this.request<unknown>('/v1/ai/config', {
+        method: 'GET',
+        headers: this.headers(false),
+      });
+      return aiConfigInfoSchema.parse(data);
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
+  /**
+   * DELETE /v1/ai/config
+   * Remove the AI configuration for the current user.
+   */
+  async deleteAiConfig(): Promise<void> {
+    await this.request<unknown>('/v1/ai/config', {
       method: 'DELETE',
       headers: this.headers(false),
     });
