@@ -1,23 +1,18 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Sidebar } from '../components/Sidebar';
-import { VaultProvider } from '../lib/vault/VaultProvider';
+import { AppFrame } from '../components/AppFrame';
 
 export const metadata: Metadata = {
-  title: 'GraphVault',
-  description: 'Local-first notes. Self-hosted sync. A graph you can think in.',
+  title: 'GraphVault — open and write. No folders, no file access.',
+  description:
+    'A dynamic, cloud-ready notes vault with a graph you can think in. Open the app and start writing — no folders to pick, no file permissions, no setup.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <VaultProvider>
-          <div className="flex h-screen w-screen overflow-hidden">
-            <Sidebar />
-            <div className="flex min-w-0 flex-1 flex-col">{children}</div>
-          </div>
-        </VaultProvider>
+        <AppFrame>{children}</AppFrame>
       </body>
     </html>
   );

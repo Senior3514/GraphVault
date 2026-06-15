@@ -212,3 +212,35 @@ service_healthy` gate normally prevents this, but a misconfigured
   confirm the `ports:` mapping (or that the proxy is the intended entry point).
 - **CORS errors in the web client** — set `GRAPHVAULT_CORS_ORIGIN` to the web
   app's exact origin.
+
+## Web app (Vercel)
+
+The Next.js web client (`apps/web`) deploys to Vercel as a static-rendered app.
+It is **open-and-go**: no folder picker, no file-system permissions — the vault
+is dynamic and ready the moment the page loads. On a static host it persists to
+the browser; set a server URL to add multi-device sync.
+
+### One-time setup
+
+1. In Vercel, **Add New → Project** and import `Senior3514/GraphVault`.
+2. Keep **Root Directory** at the repo root (`./`) and the framework preset as
+   **Other**. The committed root `vercel.json` drives the build:
+   - install: `pnpm install --frozen-lockfile` (resolves the whole workspace),
+   - build: `pnpm run build:web` (builds `@graphvault/shared`,
+     `@graphvault/engine`, and `@graphvault/sync-core`, then the Next app),
+   - output: `apps/web/out` — a fully static export (no server runtime).
+3. _(Optional)_ Add an environment variable
+   `NEXT_PUBLIC_GRAPHVAULT_SERVER_URL = https://your-server.example.com` to point
+   the client at a self-hosted sync server. Omit it for a local-only,
+   browser-persisted vault.
+4. **Deploy.** Vercel gives you `https://<project>.vercel.app` — landing page at
+   `/`, app at `/vault`, `/graph`, `/sync-status`, `/settings`.
+
+### Enabling cloud sync
+
+Static hosting serves the UI only; the sync server is a separate process. To get
+multi-device sync, deploy the server (see the Docker section above) on a host
+that can run Node + PostgreSQL — a VPS, Railway, Render, or Fly.io — put it
+behind TLS, set `GRAPHVAULT_CORS_ORIGIN` to your Vercel origin, and set
+`NEXT_PUBLIC_GRAPHVAULT_SERVER_URL` on the Vercel project to the server URL.
+The Fastify server does not run on Vercel's serverless runtime as-is.

@@ -123,6 +123,27 @@ Put a TLS-terminating reverse proxy (Caddy/nginx) in front before exposing it
 publicly. Full instructions — env reference, TLS, backups, restore, upgrades —
 are in [`docs/deployment.md`](docs/deployment.md).
 
+## Deploy the web app to Vercel
+
+The web client is **open-and-go**: it opens straight into a dynamic vault with
+no folder picker and no file-system permissions. On a static host it persists to
+the browser; point it at a self-hosted server (below) to add multi-device sync.
+
+1. Import `Senior3514/GraphVault` as a new Vercel project (production branch
+   `main`). Keep **Root Directory** at the repo root (`./`) and the framework
+   preset as **Other** — the committed root [`vercel.json`](vercel.json) drives
+   everything: it installs the workspace, runs `pnpm run build:web` (building
+   `@graphvault/shared`, `engine`, and `sync-core` before the Next app), and
+   serves the **static export** from `apps/web/out`.
+2. _(Optional)_ set `NEXT_PUBLIC_GRAPHVAULT_SERVER_URL` to your self-hosted
+   server URL to enable cloud sync. Leave it unset to run as a local-only,
+   browser-persisted vault.
+3. Deploy. You get a public `*.vercel.app` URL with the landing page at `/` and
+   the app at `/vault`, `/graph`, `/sync-status`, and `/settings`. No server
+   runtime is required — it is fully static.
+
+See [`docs/deployment.md`](docs/deployment.md) → "Web app (Vercel)" for details.
+
 ## Documentation
 
 - [`docs/sync-protocol.md`](docs/sync-protocol.md) — canonical sync protocol.
