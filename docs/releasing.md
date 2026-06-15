@@ -68,11 +68,11 @@ without permanently tagging the repository.
 
 ## Installer artefacts
 
-| Platform | Artefact(s) | Notes |
-|---|---|---|
-| macOS | `.dmg` (universal) | Universal binary: arm64 + x86\_64 in one file |
-| Linux | `.AppImage`, `.deb` | AppImage runs on most distros without install |
-| Windows | `.msi`, `.exe` (NSIS) | MSI for managed deployments; NSIS for end-users |
+| Platform | Artefact(s)           | Notes                                           |
+| -------- | --------------------- | ----------------------------------------------- |
+| macOS    | `.dmg` (universal)    | Universal binary: arm64 + x86_64 in one file    |
+| Linux    | `.AppImage`, `.deb`   | AppImage runs on most distros without install   |
+| Windows  | `.msi`, `.exe` (NSIS) | MSI for managed deployments; NSIS for end-users |
 
 Artefacts land in the draft release automatically. The raw files are also
 available in the Actions run summary under "Artifacts" if you need them before
@@ -87,14 +87,14 @@ unsigned installers. Configure them in GitHub → Settings → Secrets → Actio
 
 ### macOS (notarised .dmg)
 
-| Secret | Description |
-|---|---|
-| `APPLE_CERTIFICATE` | Base64-encoded `.p12` Developer ID certificate |
-| `APPLE_CERTIFICATE_PASSWORD` | Passphrase for the `.p12` |
-| `APPLE_SIGNING_IDENTITY` | e.g. `Developer ID Application: Name (TEAM_ID)` |
-| `APPLE_ID` | Apple ID email used for notarisation |
-| `APPLE_PASSWORD` | App-specific password for notarisation |
-| `APPLE_TEAM_ID` | 10-character Apple team ID |
+| Secret                       | Description                                     |
+| ---------------------------- | ----------------------------------------------- |
+| `APPLE_CERTIFICATE`          | Base64-encoded `.p12` Developer ID certificate  |
+| `APPLE_CERTIFICATE_PASSWORD` | Passphrase for the `.p12`                       |
+| `APPLE_SIGNING_IDENTITY`     | e.g. `Developer ID Application: Name (TEAM_ID)` |
+| `APPLE_ID`                   | Apple ID email used for notarisation            |
+| `APPLE_PASSWORD`             | App-specific password for notarisation          |
+| `APPLE_TEAM_ID`              | 10-character Apple team ID                      |
 
 Obtain a **Developer ID Application** certificate from
 [developer.apple.com](https://developer.apple.com/account/resources/certificates/list).
@@ -103,28 +103,28 @@ not your main Apple ID password.
 
 ### Windows (signed .msi / .exe)
 
-| Secret | Description |
-|---|---|
-| `WINDOWS_CERTIFICATE` | Base64-encoded `.pfx` code-signing certificate |
-| `WINDOWS_CERTIFICATE_PASSWORD` | Passphrase for the `.pfx` |
+| Secret                         | Description                                    |
+| ------------------------------ | ---------------------------------------------- |
+| `WINDOWS_CERTIFICATE`          | Base64-encoded `.pfx` code-signing certificate |
+| `WINDOWS_CERTIFICATE_PASSWORD` | Passphrase for the `.pfx`                      |
 
 ### Tauri auto-updater (future)
 
 If `tauri-plugin-updater` is enabled (not yet; see
 `apps/desktop/src-tauri/tauri.conf.json`), also add:
 
-| Secret | Description |
-|---|---|
-| `TAURI_SIGNING_PRIVATE_KEY` | Ed25519 private key (`tauri signer generate`) |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Passphrase for the key |
+| Secret                               | Description                                   |
+| ------------------------------------ | --------------------------------------------- |
+| `TAURI_SIGNING_PRIVATE_KEY`          | Ed25519 private key (`tauri signer generate`) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Passphrase for the key                        |
 
 ---
 
 ## CI vs release — responsibilities
 
-| Workflow | File | Purpose |
-|---|---|---|
-| CI | `.github/workflows/ci.yml` | Every push/PR: typecheck + lint + format + test + `build:web` |
+| Workflow        | File                                    | Purpose                                                             |
+| --------------- | --------------------------------------- | ------------------------------------------------------------------- |
+| CI              | `.github/workflows/ci.yml`              | Every push/PR: typecheck + lint + format + test + `build:web`       |
 | Desktop Release | `.github/workflows/desktop-release.yml` | Every `v*` tag: cross-platform `tauri build` + GitHub Release draft |
 
 The CI workflow must be green before you tag. The release workflow does not

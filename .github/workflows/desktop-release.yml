@@ -32,15 +32,15 @@ name: Desktop Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
     inputs:
       draft:
-        description: "Create release as draft?"
+        description: 'Create release as draft?'
         required: false
-        default: "true"
+        default: 'true'
         type: choice
-        options: ["true", "false"]
+        options: ['true', 'false']
 
 # Only the release-upload step needs write access to contents.
 # Code checkout and build are done with read-only permissions.
@@ -51,20 +51,20 @@ jobs:
   build-tauri:
     name: Build (${{ matrix.platform }})
     permissions:
-      contents: write   # required by tauri-action to upload assets and create the release
+      contents: write # required by tauri-action to upload assets and create the release
     strategy:
-      fail-fast: false  # if one platform fails, others keep going so you get partial artifacts
+      fail-fast: false # if one platform fails, others keep going so you get partial artifacts
       matrix:
         include:
           - platform: macos-latest
-            args: "--target universal-apple-darwin"
+            args: '--target universal-apple-darwin'
           - platform: ubuntu-latest
-            args: ""
+            args: ''
           - platform: windows-latest
-            args: ""
+            args: ''
 
     runs-on: ${{ matrix.platform }}
-    timeout-minutes: 60   # Rust compile on a cold runner can take ~30-40 min
+    timeout-minutes: 60 # Rust compile on a cold runner can take ~30-40 min
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────
@@ -78,8 +78,8 @@ jobs:
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
+          node-version: '22'
+          cache: 'pnpm'
 
       # ── Linux system libraries (Tauri / WebKit2GTK) ───────────────────────
       # See https://tauri.app/start/prerequisites/#linux
@@ -105,7 +105,7 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "apps/desktop/src-tauri -> target"
+          workspaces: 'apps/desktop/src-tauri -> target'
 
       # ── JS install ────────────────────────────────────────────────────────
       - name: Install JS dependencies
@@ -144,7 +144,7 @@ jobs:
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
-          releaseName: "GraphVault ${{ github.ref_name }}"
+          releaseName: 'GraphVault ${{ github.ref_name }}'
           releaseBody: |
             See [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
 

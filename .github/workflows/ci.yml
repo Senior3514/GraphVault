@@ -6,9 +6,9 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ['**']
   pull_request:
-    branches: ["**"]
+    branches: ['**']
 
 # Cancel in-flight runs for the same ref so stale runs don't block merges.
 concurrency:
@@ -34,8 +34,8 @@ jobs:
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
+          node-version: '22'
+          cache: 'pnpm'
 
       # ── Install ───────────────────────────────────────────────────────────
       # --frozen-lockfile ensures the committed lockfile is never silently updated.
