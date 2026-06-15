@@ -6,8 +6,6 @@
  * in `/vault` or focus a local graph around it.
  */
 
-import Link from 'next/link';
-
 import { colorForKey } from '../../lib/graph/model';
 import type { GraphEdge, GraphIndex, GraphNode } from '@graphvault/engine';
 
@@ -18,9 +16,18 @@ export interface NodePanelProps {
   isLocalFocus: boolean;
   onFocusLocal: (id: string) => void;
   onSelect: (id: string) => void;
+  /** Open the note in the vault editor (the page owns the URL shape). */
+  onOpen: (path: string) => void;
 }
 
-export function NodePanel({ node, index, isLocalFocus, onFocusLocal, onSelect }: NodePanelProps) {
+export function NodePanel({
+  node,
+  index,
+  isLocalFocus,
+  onFocusLocal,
+  onSelect,
+  onOpen,
+}: NodePanelProps) {
   const backlinks = index.backlinks.get(node.id) ?? [];
   const outbound = (index.outbound.get(node.id) ?? []).filter((e) => e.resolved);
 
@@ -51,12 +58,13 @@ export function NodePanel({ node, index, isLocalFocus, onFocusLocal, onSelect }:
         )}
 
         <div className="mt-4 flex gap-2">
-          <Link
-            href={`/vault?note=${encodeURIComponent(node.path)}`}
+          <button
+            type="button"
+            onClick={() => onOpen(node.path)}
             className="rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-colors hover:bg-white"
           >
             Open note
-          </Link>
+          </button>
           <button
             type="button"
             onClick={() => onFocusLocal(node.id)}

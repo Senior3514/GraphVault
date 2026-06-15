@@ -2,11 +2,15 @@
 
 /**
  * The left-hand control rail for the graph: mode toggle (global/local), local
- * depth, and the filter controls (tags, folders, link types, updated range)
- * that drive `filterGraph`. Presentational — state lives in the page.
+ * depth, colour mode, the live physics sliders (link distance, repel strength,
+ * centre gravity, label threshold), view buttons (zoom-to-fit / reset), and the
+ * filter controls (tags, folders, link types, updated range) that drive
+ * `filterGraph`. Presentational — state lives in the page.
  */
 
 import { colorForKey } from '../../lib/graph/model';
+import { PHYSICS_BOUNDS, type GraphPhysics } from '../../lib/graph/physics';
+import type { ColorMode } from '../../lib/graph/model';
 import type { FilterAction, GraphFilters, GraphMode } from '../../lib/graph/filters';
 
 export interface GraphControlsProps {
@@ -16,6 +20,15 @@ export interface GraphControlsProps {
   onLocalDepthChange: (depth: number) => void;
   /** True when local mode is selectable (a node is selected). */
   canFocusLocal: boolean;
+
+  colorMode: ColorMode;
+  onColorModeChange: (mode: ColorMode) => void;
+
+  physics: GraphPhysics;
+  onPhysicsChange: (patch: Partial<GraphPhysics>) => void;
+  onResetPhysics: () => void;
+  onZoomToFit: () => void;
+  onResetView: () => void;
 
   filters: GraphFilters;
   dispatch: (action: FilterAction) => void;
@@ -31,6 +44,13 @@ export function GraphControls({
   localDepth,
   onLocalDepthChange,
   canFocusLocal,
+  colorMode,
+  onColorModeChange,
+  physics,
+  onPhysicsChange,
+  onResetPhysics,
+  onZoomToFit,
+  onResetView,
   filters,
   dispatch,
   availableTags,
@@ -42,34 +62,112 @@ export function GraphControls({
       <div>
         <Label>View</Label>
         <div className="mt-2 inline-flex rounded-md border border-neutral-800 p-0.5">
-          <ModeButton active={mode === 'global'} onClick={() => onModeChange('global')}>
+          <SegButton active={mode === 'global'} onClick={() => onModeChange('global')}>
             Global
-          </ModeButton>
-          <ModeButton
+          </SegButton>
+          <SegButton
             active={mode === 'local'}
             disabled={!canFocusLocal}
             onClick={() => onModeChange('local')}
           >
             Local
-          </ModeButton>
+          </SegButton>
         </div>
         {mode === 'local' && (
           <div className="mt-3">
-            <label className="flex items-center justify-between text-xs text-neutral-400">
-              <span>Depth</span>
-              <span className="tabular-nums text-neutral-200">{localDepth}</span>
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={4}
-              step={1}
-              value={localDepth}
-              onChange={(e) => onLocalDepthChange(Number(e.target.value))}
-              className="mt-1 w-full accent-neutral-400"
-            />
+            <SliderRow label="Depth" value={localDepth}>
+              <input
+                type="range"
+                min={1}
+                max={4}
+                step={1}
+                value={localDepth}
+                onChange={(e) => onLocalDepthChange(Number(e.target.value))}
+                className="mt-1 w-full accent-neutral-400"
+              />
+            </SliderRow>
           </div>
         )}
+        <div className="mt-3 flex gap-2">
+          <ActionButton onClick={onZoomToFit}>Zoom to fit</ActionButton>
+          <ActionButton onClick={onResetView}>Reset view</ActionButton>
+        </div>
+      </div>
+
+      <Divider />
+
+      <div>
+        <Label>Colour by</Label>
+        <div className="mt-2 inline-flex rounded-md border border-neutral-800 p-0.5">
+          <SegButton active={colorMode === 'type'} onClick={() => onColorModeChange('type')}>
+            Type
+          </SegButton>
+          <SegButton active={colorMode === 'tag'} onClick={() => onColorModeChange('tag')}>
+            Tag
+          </SegButton>
+        </div>
+      </div>
+
+      <Divider />
+
+      <div>
+        <div className="flex items-center justify-between">
+          <Label>Physics</Label>
+          <button
+            type="button"
+            onClick={onResetPhysics}
+            className="text-[10px] uppercase tracking-wide text-neutral-500 transition-colors hover:text-neutral-300"
+          >
+            Reset
+          </button>
+        </div>
+        <div className="mt-2 space-y-3">
+          <SliderRow label="Link distance" value={physics.linkDistance}>
+            <input
+              type="range"
+              min={PHYSICS_BOUNDS.linkDistance.min}
+              max={PHYSICS_BOUNDS.linkDistance.max}
+              step={PHYSICS_BOUNDS.linkDistance.step}
+              value={physics.linkDistance}
+              onChange={(e) => onPhysicsChange({ linkDistance: Number(e.target.value) })}
+              className="mt-1 w-full accent-neutral-400"
+            />
+          </SliderRow>
+          <SliderRow label="Repel strength" value={-physics.chargeStrength}>
+            {/* Slider runs over positive magnitude; negated back into charge. */}
+            <input
+              type="range"
+              min={-PHYSICS_BOUNDS.chargeStrength.max}
+              max={-PHYSICS_BOUNDS.chargeStrength.min}
+              step={PHYSICS_BOUNDS.chargeStrength.step}
+              value={-physics.chargeStrength}
+              onChange={(e) => onPhysicsChange({ chargeStrength: -Number(e.target.value) })}
+              className="mt-1 w-full accent-neutral-400"
+            />
+          </SliderRow>
+          <SliderRow label="Centre gravity" value={physics.centerGravity.toFixed(2)}>
+            <input
+              type="range"
+              min={PHYSICS_BOUNDS.centerGravity.min}
+              max={PHYSICS_BOUNDS.centerGravity.max}
+              step={PHYSICS_BOUNDS.centerGravity.step}
+              value={physics.centerGravity}
+              onChange={(e) => onPhysicsChange({ centerGravity: Number(e.target.value) })}
+              className="mt-1 w-full accent-neutral-400"
+            />
+          </SliderRow>
+          <SliderRow label="Label threshold" value={physics.labelThreshold.toFixed(1)}>
+            <input
+              type="range"
+              min={PHYSICS_BOUNDS.labelThreshold.min}
+              max={PHYSICS_BOUNDS.labelThreshold.max}
+              step={PHYSICS_BOUNDS.labelThreshold.step}
+              value={physics.labelThreshold}
+              onChange={(e) => onPhysicsChange({ labelThreshold: Number(e.target.value) })}
+              className="mt-1 w-full accent-neutral-400"
+            />
+          </SliderRow>
+        </div>
       </div>
 
       <Divider />
@@ -141,7 +239,27 @@ function Divider() {
   return <hr className="border-neutral-800/80" />;
 }
 
-function ModeButton({
+function SliderRow({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value: number | string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs text-neutral-400">
+        <span>{label}</span>
+        <span className="tabular-nums text-neutral-200">{value}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function SegButton({
   active,
   disabled,
   onClick,
@@ -162,6 +280,18 @@ function ModeButton({
         active ? 'bg-neutral-800 text-neutral-100' : 'text-neutral-400 hover:text-neutral-200',
         disabled ? 'cursor-not-allowed opacity-40 hover:text-neutral-400' : '',
       ].join(' ')}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ActionButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex-1 rounded-md border border-neutral-800 px-2 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-neutral-900 hover:text-neutral-100"
     >
       {children}
     </button>

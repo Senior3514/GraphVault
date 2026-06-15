@@ -1,17 +1,21 @@
 'use client';
 
 /**
- * Graph view (Milestone 7). Builds the `@graphvault/engine` index in the browser
- * from the current vault, then renders a force-directed graph with filters, a
- * global/local mode toggle, and a selection side panel.
+ * Graph view (Milestones 7 + 11 "wow"). Builds the `@graphvault/engine` index
+ * in the browser from the current vault, then renders a force-directed graph
+ * with live physics, colour-by-type (or by-tag), filters, a global/local mode
+ * toggle, hover/selection highlighting, and a selection side panel.
  *
  * The engine index is memoised over the vault notes so we don't re-parse on
- * every interaction; the heavy canvas renderer is dynamically imported with
- * `ssr: false` so production `next build` stays server-safe.
+ * every interaction; the render model (engine payload → nodes/links with
+ * category, colour and degree) is also memoised. The heavy canvas renderer is
+ * dynamically imported with `ssr: false` so production `next build` stays
+ * server-safe.
  */
 
 import dynamic from 'next/dynamic';
-import { useMemo, useReducer, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
   buildIndex,
@@ -24,10 +28,12 @@ import {
 import { GraphControls } from '../../components/graph/GraphControls';
 import { GraphLegend } from '../../components/graph/GraphLegend';
 import { NodePanel } from '../../components/graph/NodePanel';
+import type { ForceGraphHandle } from '../../components/graph/ForceGraphCanvas';
 import { EMPTY_FILTERS, filtersReducer, toCriteria } from '../../lib/graph/filters';
-import { distinctSorted, notesToInputs } from '../../lib/graph/model';
+import { buildRenderModel, distinctSorted, notesToInputs } from '../../lib/graph/model';
+import type { ColorMode } from '../../lib/graph/model';
+import { clampPhysics, DEFAULT_PHYSICS, type GraphPhysics } from '../../lib/graph/physics';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
-import type { GraphNode } from '@graphvault/engine';
 
 // Canvas/DOM-only renderer: never server-rendered.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
@@ -41,10 +47,15 @@ const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraph
 
 export default function GraphPage() {
   const vault = useVaultContext();
+  const router = useRouter();
   const [filters, dispatch] = useReducer(filtersReducer, EMPTY_FILTERS);
   const [mode, setMode] = useState<'global' | 'local'>('global');
   const [localDepth, setLocalDepth] = useState(2);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [colorMode, setColorMode] = useState<ColorMode>('type');
+  const [physics, setPhysics] = useState<GraphPhysics>(DEFAULT_PHYSICS);
+
+  const canvasRef = useRef<ForceGraphHandle>(null);
 
   // Build the engine index from the current vault. Memoised on the raw notes so
   // unrelated re-renders (hover, selection) don't trigger a reparse.
@@ -72,29 +83,35 @@ export default function GraphPage() {
 
   // The payload to render: filtered global graph, or a local neighbourhood
   // around the selected note. Local mode also honours the active filters by
-  // intersecting the two node sets.
+  // intersecting the two node sets. Unresolved edges are included so the render
+  // model can surface attachment / missing-note placeholders.
   const payload: GraphPayload = useMemo(() => {
     const criteria = toCriteria(filters, DEFAULT_NODE_CAP);
+    criteria.includeUnresolved = true;
     const filtered = filterGraph(index, criteria);
     if (mode === 'local' && selectedId) {
       const local = getLocalGraph(index, selectedId, localDepth, {
-        includeUnresolved: false,
+        includeUnresolved: true,
       });
       const allowed = new Set(filtered.nodes.map((n) => n.id));
       const nodes = local.nodes.filter((n) => n.id === selectedId || allowed.has(n.id));
       const present = new Set(nodes.map((n) => n.id));
-      const edges = local.edges.filter((e) => present.has(e.source) && present.has(e.target));
+      const edges = local.edges.filter(
+        (e) => present.has(e.source) && (!e.resolved || present.has(e.target)),
+      );
       return { nodes, edges, truncated: local.truncated };
     }
     return filtered;
   }, [index, filters, mode, selectedId, localDepth]);
 
-  const selectedNode = selectedId ? index.nodes.get(selectedId) : undefined;
+  // Render model: enrich nodes with category/colour/degree and synthesize
+  // placeholder nodes for unresolved targets.
+  const model = useMemo(
+    () => buildRenderModel(payload.nodes, payload.edges, { colorMode, includeUnresolved: true }),
+    [payload, colorMode],
+  );
 
-  // Colour each node by its first tag; the legend mirrors this mapping.
-  const colorKeyForNode = useMemo(() => {
-    return (node: GraphNode) => node.tags[0];
-  }, []);
+  const selectedNode = selectedId ? index.nodes.get(selectedId) : undefined;
 
   const handleModeChange = (next: 'global' | 'local') => {
     if (next === 'local' && !selectedId) return;
@@ -109,6 +126,18 @@ export default function GraphPage() {
   const handleSelect = (id: string | null) => {
     setSelectedId(id);
     if (!id && mode === 'local') setMode('global');
+  };
+
+  // Deep-link a note into the vault editor (single source of the URL shape).
+  const openNote = useCallback(
+    (path: string) => {
+      router.push(`/vault?note=${encodeURIComponent(path)}`);
+    },
+    [router],
+  );
+
+  const handlePhysicsChange = (patch: Partial<GraphPhysics>) => {
+    setPhysics((prev) => clampPhysics(prev, patch));
   };
 
   if (!vault.ready) {
@@ -129,6 +158,13 @@ export default function GraphPage() {
         localDepth={localDepth}
         onLocalDepthChange={setLocalDepth}
         canFocusLocal={selectedId !== null}
+        colorMode={colorMode}
+        onColorModeChange={setColorMode}
+        physics={physics}
+        onPhysicsChange={handlePhysicsChange}
+        onResetPhysics={() => setPhysics(DEFAULT_PHYSICS)}
+        onZoomToFit={() => canvasRef.current?.zoomToFit()}
+        onResetView={() => canvasRef.current?.resetView()}
         filters={filters}
         dispatch={dispatch}
         availableTags={facets.tags}
@@ -161,13 +197,18 @@ export default function GraphPage() {
           ) : (
             <>
               <ForceGraphCanvas
-                nodes={payload.nodes}
-                edges={payload.edges}
+                model={model}
                 selectedId={selectedId}
-                colorKeyForNode={colorKeyForNode}
+                physics={physics}
+                handleRef={canvasRef}
                 onSelect={handleSelect}
+                onOpen={(node) => node.path && openNote(node.path)}
               />
-              <GraphLegend tags={facets.tags} />
+              <GraphLegend
+                colorMode={colorMode}
+                categories={model.presentCategories}
+                tags={facets.tags}
+              />
             </>
           )}
         </div>
@@ -180,6 +221,7 @@ export default function GraphPage() {
           isLocalFocus={mode === 'local'}
           onFocusLocal={handleFocusLocal}
           onSelect={handleSelect}
+          onOpen={openNote}
         />
       )}
     </div>
