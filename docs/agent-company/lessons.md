@@ -456,3 +456,33 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   This means even if two users accidentally share the same `userId`, the
   derived keys for WebDAV and S3 are independent. Versioning (`-v1`) in the
   info string allows future key rotation without breaking existing ciphertexts.
+
+## Web-clipper / SSRF (M22 / Reach)
+
+### SSRF guard: check the IP at every redirect hop, not just the initial URL
+
+- **Rule:** a redirect-chain attack starts with a public URL that redirects to a
+  private address. The SSRF guard must re-run `dns/promises.lookup` on every URL
+  in the redirect chain — use `redirect: 'manual'` in the fetch call and follow
+  redirects manually, re-validating the `Location` header URL before each hop.
+  The guard also blocks bare `localhost`, `*.localhost`, and `.internal` TLD
+  hostnames before DNS lookup (fast path).
+
+### Hand-rolled HTML→Markdown without a DOM: track state with a token stream
+
+- **Rule:** zero-dep HTML→Markdown works by tokenising HTML into text/tag tokens
+  (a simple state machine handling quotes in attributes) then converting them in
+  a single pass with a small state set (`inPre`, list stack, `inBlockquote`,
+  pending-newline counter). This avoids jsdom/cheerio but means the converter is
+  not spec-compliant for pathological inputs — acceptable when the output passes
+  through DOMPurify before browser display. Test by asserting on specific patterns
+  in the output string, not exact equality.
+
+### Unused variables after refactoring: let ESLint guide the cleanup
+
+- **Symptom:** introduced an `inCode` boolean for tracking inline-code state but
+  never needed it to affect other logic — the close tag just emits the backtick
+  symmetrically with the open tag. ESLint `@typescript-eslint/no-unused-vars`
+  caught it.
+- **Rule:** for a converter like this, symmetric open/close tag output is enough
+  for most inline markup. Avoid accumulating state that is only set but never read.

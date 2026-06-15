@@ -432,7 +432,7 @@ export default function SettingsPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Connectors (M22)                                                    */}
       {/* ------------------------------------------------------------------ */}
-      <ConnectorsSection vault={vault} />
+      <ConnectorsSection vault={vault} auth={auth} serverUrl={serverUrl} />
 
       {/* ------------------------------------------------------------------ */}
       {/* App importers (M20)                                                 */}
@@ -2551,10 +2551,175 @@ function EmailImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext>
 }
 
 /**
+ * Web-clipper panel — paste a URL, the server fetches it and converts to Markdown.
+ *
+ * Privacy posture: `server` — the server makes the outbound HTTP request,
+ * sidestepping browser CORS. An SSRF guard on the server blocks private/loopback
+ * addresses. Requires a signed-in GraphVault server session.
+ */
+function WebClipPanel({
+  vault,
+  auth,
+  serverUrl,
+}: {
+  vault: ReturnType<typeof useVaultContext>;
+  auth: ReturnType<typeof useAuth>;
+  serverUrl: string;
+}) {
+  const [urlInput, setUrlInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const handleClip = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const url = urlInput.trim();
+    if (!url) {
+      setMsg({ kind: 'err', text: 'Please enter a URL to clip.' });
+      return;
+    }
+    if (!auth.token) {
+      setMsg({ kind: 'err', text: 'Sign in to your GraphVault server first.' });
+      return;
+    }
+
+    setBusy(true);
+    setMsg(null);
+
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      const result = await client.clipUrl(url);
+
+      // Build a collision-safe vault path for the clipped note.
+      // Path: connectors/webclip/<hostname>/<title>.md
+      let hostname = 'unknown';
+      try {
+        hostname = new URL(result.sourceUrl).hostname.replace(/^www\./, '');
+      } catch {
+        // keep 'unknown'
+      }
+
+      // Sanitise title for use as a filename.
+      const safeTitle =
+        result.title
+          .replace(/[/\\:*?"<>|]/g, '-')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 120) || 'Untitled Page';
+
+      const path = `connectors/webclip/${hostname}/${safeTitle}.md`;
+
+      // Build Markdown content with frontmatter.
+      const now = new Date().toISOString();
+      const content = [
+        '---',
+        `title: ${JSON.stringify(result.title)}`,
+        `source: ${JSON.stringify(result.sourceUrl)}`,
+        `clipped: ${JSON.stringify(now)}`,
+        'tags: [web-clip]',
+        '---',
+        '',
+        `# ${result.title}`,
+        '',
+        `> Clipped from [${result.sourceUrl}](${result.sourceUrl}) on ${now.slice(0, 10)}`,
+        '',
+        result.markdown,
+      ].join('\n');
+
+      const summary = vault.importNotes([{ path, content }]);
+      const parts: string[] = [];
+      if (summary.added) parts.push(`${summary.added} note added`);
+      if (summary.renamed.length) parts.push('kept as copy (already exists)');
+      if (summary.unchanged) parts.push('unchanged (already clipped)');
+
+      setMsg({
+        kind: 'ok',
+        text: `Clipped "${result.title}" — ${parts.join(', ')}.`,
+      });
+      setUrlInput('');
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Clip failed.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="text-xs text-neutral-500">
+        Paste a public URL. Your GraphVault server fetches the page (no CORS issues), extracts the
+        main content, converts it to Markdown, and saves it as a note under{' '}
+        <code className="text-neutral-400">connectors/webclip/</code>. Import is collision-safe.
+      </p>
+
+      {/* Security notice */}
+      <div className="rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+        <strong>Via your server.</strong> The HTTP request goes through your self-hosted GraphVault
+        server, not the browser. Private and loopback addresses (10.x, 192.168.x, 127.x,
+        169.254.169.254) are blocked server-side. The URL is fetched once and is not stored
+        permanently by the server.
+      </div>
+
+      {!auth.isSignedIn ? (
+        <p className="text-xs text-neutral-500">
+          Sign in to your GraphVault server (Account section above) to use the web clipper.
+        </p>
+      ) : (
+        <form onSubmit={(e) => void handleClip(e)} className="space-y-3" noValidate>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="clip-url">
+              URL to clip
+            </label>
+            <input
+              id="clip-url"
+              type="url"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              disabled={busy}
+              placeholder="https://example.com/article"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={busy || !urlInput.trim()}
+            className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+          >
+            {busy ? 'Clipping…' : 'Clip page'}
+          </button>
+        </form>
+      )}
+
+      <div className="min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
  * The full Connectors settings section. Lists all available connectors with
  * their privacy posture, description, and an expand/collapse panel per connector.
+ *
+ * Phase 1: local-only connectors (RSS/OPML, email).
+ * Phase 2: server-posture connectors (web clipper — fetches via the self-hosted
+ *   GraphVault server, no credentials needed beyond a session token).
  */
-function ConnectorsSection({ vault }: { vault: ReturnType<typeof useVaultContext> }) {
+function ConnectorsSection({
+  vault,
+  auth,
+  serverUrl,
+}: {
+  vault: ReturnType<typeof useVaultContext>;
+  auth: ReturnType<typeof useAuth>;
+  serverUrl: string;
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const toggle = (id: string) => setOpenId((prev) => (prev === id ? null : id));
@@ -2567,13 +2732,13 @@ function ConnectorsSection({ vault }: { vault: ReturnType<typeof useVaultContext
       <div className="mt-2 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
         <strong>Privacy model:</strong> connectors are opt-in and off by default. Each connector
         shows its privacy posture before it runs. Phase 1 connectors are{' '}
-        <strong>on-device only</strong> — no network calls, no credentials. Future phases will add
-        server-proxied connectors (live IMAP, Gmail, Outlook) where credentials stay on your
-        self-hosted server and never reach the browser.
+        <strong>on-device only</strong> — no network calls, no credentials. Phase 2 connectors route
+        through your self-hosted GraphVault server — credentials never reach the browser.
       </div>
 
       {/* Connector list */}
       <ul className="mt-4 space-y-3">
+        {/* ---- Phase 1: local-import connectors ---- */}
         {LOCAL_IMPORT_CONNECTORS.filter((c) => c.isAvailable()).map((c) => (
           <li
             key={c.id}
@@ -2610,6 +2775,41 @@ function ConnectorsSection({ vault }: { vault: ReturnType<typeof useVaultContext
             {openId === c.id && c.id === 'email-import' && <EmailImportPanel vault={vault} />}
           </li>
         ))}
+
+        {/* ---- Phase 2: server-posture connector — web clipper ---- */}
+        <li className="rounded-lg border border-neutral-800 bg-neutral-950/30 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-neutral-200">Clip a web page (URL)</span>
+                <PostureBadge posture="server" />
+              </div>
+              <p className="mt-1 text-xs text-neutral-500">
+                Paste a URL and your GraphVault server fetches it, extracts the main content, and
+                creates a Markdown note. No browser CORS — the request goes through your server.
+                Requires a signed-in server session.
+              </p>
+              <p className="mt-1 text-xs text-neutral-600">{PRIVACY_POSTURE_LABELS['server']}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => toggle('web-clip')}
+              className={[
+                'shrink-0 rounded-md px-3 py-1.5 text-sm transition-colors',
+                openId === 'web-clip'
+                  ? 'bg-neutral-700 text-neutral-200 hover:bg-neutral-600'
+                  : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700',
+              ].join(' ')}
+              aria-expanded={openId === 'web-clip'}
+            >
+              {openId === 'web-clip' ? 'Close' : 'Use'}
+            </button>
+          </div>
+
+          {openId === 'web-clip' && (
+            <WebClipPanel vault={vault} auth={auth} serverUrl={serverUrl} />
+          )}
+        </li>
       </ul>
 
       <p className="mt-4 text-xs text-neutral-600">

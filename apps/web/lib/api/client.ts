@@ -12,6 +12,7 @@
  *   - POST /v1/auth/login
  *   - GET  /v1/vaults          (list vaults for the authenticated user)
  *   - POST /v1/vaults          (register a new vault)
+ *   - POST /v1/clip            (server-side URL web-clipper, M22)
  *
  * Sync endpoints (changes, push, blobs) are implemented in lib/sync/remoteApi.ts
  * because they are consumed by the sync engine adapter rather than the UI layer.
@@ -25,6 +26,8 @@ import {
   webdavConfigInfoSchema,
   s3ConfigRequestSchema,
   s3ConfigInfoSchema,
+  clipRequestSchema,
+  clipResponseSchema,
   type AuthToken,
   type LoginRequest,
   type RegisterRequest,
@@ -34,6 +37,7 @@ import {
   type WebDavConfigInfo,
   type S3ConfigRequest,
   type S3ConfigInfo,
+  type ClipResponse,
 } from '@graphvault/shared';
 
 export const DEFAULT_SERVER_URL =
@@ -247,6 +251,32 @@ export class GraphVaultClient {
       method: 'DELETE',
       headers: this.headers(false),
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // URL web-clipper (M22)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * POST /v1/clip
+   *
+   * Ask the server to fetch `url` and convert it to Markdown. The server makes
+   * the outbound HTTP request (no browser CORS issues) and applies an SSRF guard.
+   *
+   * Requires an active bearer token (signed-in session). The response markdown
+   * is untrusted and must pass through DOMPurify before being rendered as HTML.
+   *
+   * @param url  A public http/https URL.
+   * @returns    { title, markdown, sourceUrl }
+   */
+  async clipUrl(url: string): Promise<ClipResponse> {
+    clipRequestSchema.parse({ url }); // client-side validation before sending
+    const data = await this.request<unknown>('/v1/clip', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ url }),
+    });
+    return clipResponseSchema.parse(data);
   }
 }
 
