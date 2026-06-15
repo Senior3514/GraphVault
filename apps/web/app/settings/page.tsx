@@ -10,7 +10,7 @@
  *  - Vault encryption: enable/disable AES-256-GCM at-rest encryption.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { GraphVaultClient } from '../../lib/api/client';
 import { useServerSettings } from '../../lib/api/useServerSettings';
@@ -29,6 +29,7 @@ import {
   listAdapters,
 } from '../../lib/vault/store';
 import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
+import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/exportToDirectory';
 
 /** Trigger a browser download of `data` under `filename`. */
 function downloadBlob(data: BlobPart, filename: string, type: string) {
@@ -80,6 +81,8 @@ export default function SettingsPage() {
 
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [ioMsg, setIoMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [exportingDir, setExportingDir] = useState(false);
 
   const exportZip = () => {
     const zip = buildVaultZip(vault.notes);
@@ -93,30 +96,102 @@ export default function SettingsPage() {
     setIoMsg({ kind: 'ok', text: `Exported ${vault.notes.length} notes as JSON.` });
   };
 
-  const onImportFile = async (file: File) => {
-    setIoMsg(null);
-    try {
-      let entries: ImportEntry[];
-      const lower = file.name.toLowerCase();
-      if (lower.endsWith('.zip')) {
-        entries = await readVaultZip(new Uint8Array(await file.arrayBuffer()));
-      } else if (lower.endsWith('.json')) {
-        entries = parseJsonExport(await file.text());
-      } else {
-        // A single markdown/text file.
-        entries = [{ path: file.name, content: await file.text() }];
-      }
-      if (entries.length === 0) {
-        setIoMsg({ kind: 'err', text: 'No importable notes found in that file.' });
+  /** Import every accepted file from a FileList (used by both picker and DnD). */
+  const importFileList = useCallback(
+    async (files: FileList | File[]) => {
+      setIoMsg(null);
+      const list = Array.from(files).filter((f) => {
+        const n = f.name.toLowerCase();
+        return (
+          n.endsWith('.zip') ||
+          n.endsWith('.json') ||
+          n.endsWith('.md') ||
+          n.endsWith('.markdown') ||
+          n.endsWith('.txt')
+        );
+      });
+      if (list.length === 0) {
+        setIoMsg({ kind: 'err', text: 'No importable files (.zip, .json, .md) found.' });
         return;
       }
-      const s = vault.importNotes(entries);
-      const parts = [`${s.added} added`];
-      if (s.renamed.length) parts.push(`${s.renamed.length} kept as copies (no overwrite)`);
-      if (s.unchanged) parts.push(`${s.unchanged} unchanged`);
+      // Accumulate results across multiple files.
+      let totalAdded = 0;
+      let totalRenamed = 0;
+      let totalUnchanged = 0;
+      const errors: string[] = [];
+      for (const file of list) {
+        try {
+          let entries: ImportEntry[];
+          const lower = file.name.toLowerCase();
+          if (lower.endsWith('.zip')) {
+            entries = await readVaultZip(new Uint8Array(await file.arrayBuffer()));
+          } else if (lower.endsWith('.json')) {
+            entries = parseJsonExport(await file.text());
+          } else {
+            entries = [{ path: file.name, content: await file.text() }];
+          }
+          if (entries.length === 0) continue;
+          const s = vault.importNotes(entries);
+          totalAdded += s.added;
+          totalRenamed += s.renamed.length;
+          totalUnchanged += s.unchanged;
+        } catch (err) {
+          errors.push(`${file.name}: ${err instanceof Error ? err.message : 'Import failed.'}`);
+        }
+      }
+      if (errors.length > 0 && totalAdded === 0 && totalRenamed === 0 && totalUnchanged === 0) {
+        setIoMsg({ kind: 'err', text: errors.join(' ') });
+        return;
+      }
+      const parts = [`${totalAdded} added`];
+      if (totalRenamed) parts.push(`${totalRenamed} kept as copies (no overwrite)`);
+      if (totalUnchanged) parts.push(`${totalUnchanged} unchanged`);
+      if (errors.length) parts.push(`${errors.length} file(s) failed`);
       setIoMsg({ kind: 'ok', text: `Imported: ${parts.join(', ')}.` });
+    },
+    [vault],
+  );
+
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  }, []);
+
+  const onDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  }, []);
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOver(false);
+      if (e.dataTransfer.files.length > 0) {
+        void importFileList(e.dataTransfer.files);
+      }
+    },
+    [importFileList],
+  );
+
+  const exportToFolder = async () => {
+    setIoMsg(null);
+    setExportingDir(true);
+    try {
+      const summary = await exportToDirectory(vault.notes);
+      const parts = [`${summary.written} note${summary.written !== 1 ? 's' : ''} written`];
+      if (summary.errors.length) parts.push(`${summary.errors.length} failed`);
+      setIoMsg({ kind: 'ok', text: `Exported to folder: ${parts.join(', ')}.` });
     } catch (err) {
-      setIoMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Import failed.' });
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // User cancelled the picker — not an error.
+        return;
+      }
+      setIoMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Export failed.' });
+    } finally {
+      setExportingDir(false);
     }
   };
 
@@ -214,6 +289,8 @@ export default function SettingsPage() {
           backup, and import it anywhere. Nothing leaves your device — this runs entirely in your
           browser.
         </p>
+
+        {/* ---- Export buttons ---- */}
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
@@ -231,30 +308,74 @@ export default function SettingsPage() {
           >
             Export JSON
           </button>
-          <button
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
+          {/* Export to folder — only shown when the File System Access API is available */}
+          {isDirectoryExportSupported() && (
+            <button
+              type="button"
+              onClick={() => void exportToFolder()}
+              disabled={!vault.ready || vault.notes.length === 0 || exportingDir}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+              title="Write each note as a .md file into a folder you choose"
+            >
+              {exportingDir ? 'Exporting…' : 'Export to folder…'}
+            </button>
+          )}
+        </div>
+
+        {/* ---- Import: picker button + drag-and-drop zone ---- */}
+        <div className="mt-4">
+          <p className="mb-2 text-xs text-neutral-500">
+            Import from <code className="text-neutral-400">.zip</code>,{' '}
+            <code className="text-neutral-400">.json</code>, or individual{' '}
+            <code className="text-neutral-400">.md</code> files. Drop files anywhere in the zone
+            below, or click the button.
+          </p>
+
+          {/* Drag-and-drop target */}
+          <div
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            aria-label="Drop files here to import"
+            className={[
+              'flex min-h-[6rem] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors',
+              dragOver
+                ? 'border-neutral-400 bg-neutral-800/60'
+                : 'border-neutral-700 bg-neutral-900/20 hover:border-neutral-600',
+            ].join(' ')}
           >
-            Import…
-          </button>
+            <p className="select-none text-xs text-neutral-500">
+              {dragOver ? 'Drop to import' : 'Drop .zip / .json / .md here'}
+            </p>
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
+            >
+              Import files…
+            </button>
+          </div>
+
           <input
             ref={fileInput}
             type="file"
             accept=".zip,.json,.md,.markdown,.txt"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0];
+              if (e.target.files && e.target.files.length > 0) {
+                void importFileList(e.target.files);
+              }
               e.target.value = ''; // allow re-importing the same file
-              if (file) void onImportFile(file);
             }}
           />
         </div>
+
         <p className="mt-3 text-xs text-neutral-500">
           Import never overwrites: if a note already exists with different content, your copy is
           kept alongside the imported one.
         </p>
-        <div className="mt-2 h-4 text-xs">
+        <div className="mt-2 min-h-4 text-xs">
           {ioMsg && (
             <span className={ioMsg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
               {ioMsg.text}
