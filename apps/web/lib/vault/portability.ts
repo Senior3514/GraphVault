@@ -158,7 +158,8 @@ function crc32(bytes: Uint8Array): number {
 
 /** Encode a Date as a DOS time/date pair (used in ZIP headers). */
 function dosDateTime(d: Date): { time: number; date: number } {
-  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (Math.floor(d.getSeconds() / 2) & 0x1f);
+  const time =
+    (d.getHours() << 11) | (d.getMinutes() << 5) | (Math.floor(d.getSeconds() / 2) & 0x1f);
   const date =
     (((d.getFullYear() - 1980) & 0x7f) << 9) | ((d.getMonth() + 1) << 5) | (d.getDate() & 0x1f);
   return { time: time & 0xffff, date: date & 0xffff };

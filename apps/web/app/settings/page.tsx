@@ -187,9 +187,9 @@ export default function SettingsPage() {
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Import &amp; export</h2>
         <p className="mt-1 text-xs text-neutral-500">
-          Your data, any storage. Export the whole vault as plain Markdown (zipped) or a single
-          JSON backup, and import it anywhere. Nothing leaves your device — this runs entirely in
-          your browser.
+          Your data, any storage. Export the whole vault as plain Markdown (zipped) or a single JSON
+          backup, and import it anywhere. Nothing leaves your device — this runs entirely in your
+          browser.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button

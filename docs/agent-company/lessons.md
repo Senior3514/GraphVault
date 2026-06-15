@@ -135,16 +135,18 @@ stop repeating mistakes. Newest at the top within each section.
 ## Orchestration & integration
 
 ### A delegating agent must not end its turn before integrating
+
 - **Symptom:** the orchestrator spawned parallel slice agents in worktrees, then
   ended its own turn ("I'll wait for completion") — so its children were
   orphaned and their results never bubbled back to it. The top-level driver had
   to discover the finished worktree branches and integrate them by hand.
 - **Rule:** the agent that owns integration must stay alive until the slices
-  return, or the *parent* (not the orchestrator) must own integration. When a
+  return, or the _parent_ (not the orchestrator) must own integration. When a
   background sub-agent's results are needed, the entity that will integrate must
   be the one that receives the completion notification.
 
 ### Deduplicate redundant slice branches before integrating
+
 - **Note:** the same slice was dispatched twice (two graph branches, two shell
   branches) in isolated worktrees. They are mutually-conflicting rewrites of the
   same files — pick exactly one per slice and discard the rest; never try to
@@ -155,6 +157,7 @@ stop repeating mistakes. Newest at the top within each section.
   cross-package blast radius integrates more cleanly.
 
 ### `grep $'\x00'` cannot detect NUL bytes
+
 - **Symptom:** `grep -c $'\x00' file` reported "189" on a clean file, falsely
   implying corruption — bash can't pass a literal NUL as an argument, so the
   pattern degrades to empty and matches every line.
@@ -162,9 +165,11 @@ stop repeating mistakes. Newest at the top within each section.
   `git diff --numstat` showing `-`/`Bin`, not with `grep`.
 
 ### Decision: open-core
+
 - GraphVault is **open-core**: client + engine open and auditable, optional paid
   hosted sync proprietary. For a local-first app, data access comes from local
   Markdown + export — closed source would not improve access, only reduce trust.
+
 ## Crypto / WebCrypto
 
 ### `Uint8Array<ArrayBufferLike>` vs `BufferSource` in TypeScript strict WebCrypto types
@@ -200,6 +205,7 @@ stop repeating mistakes. Newest at the top within each section.
   ordering automatically via topological sort.
 
 ### Worktree isolation can branch from a stale base — verify before integrating
+
 - **Symptom:** five parallel slice agents (`isolation: worktree`) all branched
   from the old `29e3071` v0 squash-merge, NOT the driver's current branch HEAD.
   Slices that only added new files (docs, crypto, storage adapters, layout +
@@ -210,7 +216,7 @@ stop repeating mistakes. Newest at the top within each section.
 - **Rule:** before integrating a worktree branch, run
   `git log --oneline <currentHEAD>..<branch>` — if it contains an OLD merge
   commit, the branch is stale-based. For additive new-file work, `git checkout
-  <branch> -- <paths>` is cleanest. For rewrites of shared files, do a manual
+<branch> -- <paths>` is cleanest. For rewrites of shared files, do a manual
   3-way: take the agent's file, then re-thread the current API (e.g. the panes
   `EditorBody` needed the shell's `tags` prop wired into `MarkdownEditor`).
   Keep exactly one implementation per slice; defer divergent duplicates.

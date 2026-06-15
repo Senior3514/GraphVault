@@ -91,7 +91,7 @@
 ## Open question to resolve with the owner
 
 - **License / source model**: open-source (recommended: open-core — auditable
-  client + engine, optional paid hosted sync) vs closed. For a *local-first*
+  client + engine, optional paid hosted sync) vs closed. For a _local-first_
   app, user data access comes from local files + export (already shipped), **not**
   from the license — so closed source does **not** improve "access," while open
   source materially improves trust for a security-sensitive notes app. Pending decision.
