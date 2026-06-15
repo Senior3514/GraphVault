@@ -7,3 +7,7 @@ coverage/
 pnpm-lock.yaml
 *.tsbuildinfo
 storage/
+
+# Agent worktrees and the zero-build browser extension (own tooling).
+.claude/
+apps/extension/

@@ -16,6 +16,9 @@ export default tseslint.config(
       '**/next-env.d.ts',
       // Agent worktrees are isolated checkouts, not part of this tree's lint scope.
       '**/.claude/**',
+      // Zero-build MV3 browser extension (vanilla JS, browser/chrome globals);
+      // linted via its own tooling, not this TypeScript-focused root config.
+      'apps/extension/**',
     ],
   },
   eslint.configs.recommended,
