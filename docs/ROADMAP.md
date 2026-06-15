@@ -93,7 +93,7 @@
 - ✅ Accessibility pass: focus traps + restoration, skip-link, ARIA + live regions, WCAG AA
 - ✅ QA gauntlet + review (data-loss / privacy / security CLEAR; 2 fixes applied)
 - ⬜ Light/dark theming via design tokens (system preference + persisted override)
-- ⬜ "+ to add files" primary action: bottom-thumb FAB (mobile) + file-tree header (desktop)
+- ✅ "+ to add files" primary action: bottom-thumb FAB (mobile) + note-list header (desktop)
 - ⬜ Tagged v0.1.0 release → native installers via CI
 
 ## Milestone 18 — Universal storage providers (your data, literally anywhere) 🟡
