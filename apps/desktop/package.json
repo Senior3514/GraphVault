@@ -1,10 +1,18 @@
 {
   "name": "@graphvault/desktop",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "echo \"[desktop] Tauri wrapper is scaffolded in Milestone 3\" && exit 0",
-    "dev": "echo \"[desktop] Tauri wrapper is scaffolded in Milestone 3\" && exit 0",
-    "typecheck": "echo \"[desktop] no TypeScript sources yet\" && exit 0"
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "typecheck": "echo '[desktop] no TypeScript sources in src-tauri; web layer typechecked separately' && exit 0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.5.0"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-fs": "^2.4.0",
+    "@tauri-apps/plugin-dialog": "^2.2.0"
   }
 }
