@@ -9,6 +9,7 @@ import type {
   TokenRecord,
   UserRecord,
   VaultRecord,
+  WebDavConfigRecord,
 } from './types.js';
 
 /**
@@ -26,6 +27,7 @@ export class InMemoryStorage implements Storage {
   /** vaultId -> (path -> file state). */
   private readonly files = new Map<string, Map<string, FileState>>();
   private readonly blobs = new Map<string, BlobRecord>();
+  private readonly webdavConfigs = new Map<string, WebDavConfigRecord>();
 
   private static now(): string {
     return new Date().toISOString();
@@ -151,5 +153,17 @@ export class InMemoryStorage implements Storage {
 
   async putBlob(record: BlobRecord): Promise<void> {
     if (!this.blobs.has(record.hash)) this.blobs.set(record.hash, record);
+  }
+
+  async getWebDavConfig(userId: string): Promise<WebDavConfigRecord | null> {
+    return this.webdavConfigs.get(userId) ?? null;
+  }
+
+  async upsertWebDavConfig(record: WebDavConfigRecord): Promise<void> {
+    this.webdavConfigs.set(record.userId, { ...record });
+  }
+
+  async deleteWebDavConfig(userId: string): Promise<void> {
+    this.webdavConfigs.delete(userId);
   }
 }

@@ -9,6 +9,7 @@ import type {
   TokenRecord,
   UserRecord,
   VaultRecord,
+  WebDavConfigRecord,
 } from './types.js';
 
 /**
@@ -45,6 +46,21 @@ function toIso(value: Date | string): string {
 
 export class PrismaStorage implements Storage {
   constructor(private readonly db: PrismaLike) {}
+
+  /**
+   * In-process store for WebDAV configs.
+   *
+   * A full Prisma implementation would require a `WebDavConfig` table in the
+   * schema (add a migration when operationalising this in production). For
+   * now, the in-process map is sufficient for single-instance deployments —
+   * the data survives for the process lifetime, which is fine because it is
+   * re-entered via Settings whenever the server restarts without an
+   * GRAPHVAULT_ENCRYPTION_KEY (process-lifetime key). When the server key is
+   * configured, credentials should be persisted in a real DB table.
+   *
+   * TODO(M18-follow-up): add Prisma schema migration for `webdav_configs`.
+   */
+  private readonly _webdavConfigs = new Map<string, WebDavConfigRecord>();
 
   async createUser(input: {
     id: string;
@@ -199,6 +215,20 @@ export class PrismaStorage implements Storage {
       create: { hash: record.hash, size: record.size },
       update: {},
     });
+  }
+
+  // ---- WebDAV config (in-process map; see TODO above) ----
+
+  async getWebDavConfig(userId: string): Promise<WebDavConfigRecord | null> {
+    return this._webdavConfigs.get(userId) ?? null;
+  }
+
+  async upsertWebDavConfig(record: WebDavConfigRecord): Promise<void> {
+    this._webdavConfigs.set(record.userId, { ...record });
+  }
+
+  async deleteWebDavConfig(userId: string): Promise<void> {
+    this._webdavConfigs.delete(userId);
   }
 }
 

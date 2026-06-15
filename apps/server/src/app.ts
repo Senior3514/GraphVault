@@ -11,6 +11,7 @@ import { createServices } from './services/index.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerVaultRoutes } from './routes/vaults.js';
 import { registerBlobRoutes } from './routes/blobs.js';
+import { registerWebDavRoutes } from './routes/webdav.js';
 import type { Storage } from './store/types.js';
 
 export interface AppOptions {
@@ -170,6 +171,9 @@ export async function buildApp(
   registerAuthRoutes(app, services, config);
   registerVaultRoutes(app, services);
   registerBlobRoutes(app, services);
+
+  // --- Milestone 18: WebDAV proxy storage ---
+  registerWebDavRoutes(app, services);
 
   return app;
 }

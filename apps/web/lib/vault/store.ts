@@ -25,15 +25,29 @@
 import type { Note, VaultStore } from './types';
 import { localStorageAdapter } from './storage/localStorageAdapter';
 import { fileSystemAdapter } from './storage/fileSystemAdapter';
+import { webdavAdapter } from './storage/webdavAdapter';
 import { getActiveAdapter, registerAdapter, type StorageAdapter } from './storage/index';
 
 // ---------------------------------------------------------------------------
 // One-time adapter registration (safe to call multiple times — registry is
 // never reset in production). Adapters are probed in registration order; the
-// first available one wins. FS adapter is first so that if the user has
-// already granted a handle (session-persisted), it takes priority.
+// first available one wins.
+//
+// Priority order:
+//   1. webdavAdapter  — server proxy (available when signed in + configured)
+//   2. fileSystemAdapter — File System Access API (Chromium, opt-in)
+//   3. localStorageAdapter — universal browser fallback (always last)
+//
+// The WebDAV adapter is listed first so that once configured, saving goes
+// directly to the user's own server without needing manual selection. The
+// FileSystem adapter, which requires an explicit user gesture, takes second
+// priority, and localStorage is always the final fallback.
+//
+// Note: isAvailable() on webdavAdapter checks sessionStorage for a token, so
+// it correctly returns false during SSR and before the user signs in.
 // ---------------------------------------------------------------------------
 
+registerAdapter(webdavAdapter);
 registerAdapter(fileSystemAdapter);
 registerAdapter(localStorageAdapter);
 
@@ -45,6 +59,7 @@ export type { StorageAdapter };
 export { getActiveAdapter, registerAdapter, listAdapters, getAdapterById } from './storage/index';
 export { localStorageAdapter } from './storage/localStorageAdapter';
 export { fileSystemAdapter, FileSystemAdapter } from './storage/fileSystemAdapter';
+export { webdavAdapter, WebDavStorageAdapter } from './storage/webdavAdapter';
 
 // ---------------------------------------------------------------------------
 // LocalStorageVaultStore — backward-compatible concrete class

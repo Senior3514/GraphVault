@@ -36,6 +36,7 @@ import {
   fileSystemAdapter,
   getActiveAdapter,
   listAdapters,
+  webdavAdapter,
 } from '../../lib/vault/store';
 import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
 import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/exportToDirectory';
@@ -277,6 +278,11 @@ export default function SettingsPage() {
       {/* ------------------------------------------------------------------ */}
       <StorageSection />
 
+      {/* ------------------------------------------------------------------ */}
+      {/* WebDAV storage (M18)                                                */}
+      {/* ------------------------------------------------------------------ */}
+      <WebDavSection auth={auth} serverUrl={serverUrl} />
+
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Vault</h2>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
@@ -507,8 +513,40 @@ function StorageSection() {
     fileSystemAdapter.setDirectory(
       null as unknown as Parameters<typeof fileSystemAdapter.setDirectory>[0],
     );
+    // Also deactivate WebDAV if it was active.
     setActiveId('localStorage');
     setMsg({ kind: 'ok', text: 'Switched back to browser storage (localStorage).' });
+  };
+
+  const switchToWebDav = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      // Verify the WebDAV adapter is available (i.e., user is signed in).
+      if (!webdavAdapter.isAvailable()) {
+        setMsg({
+          kind: 'err',
+          text: 'Sign in to your GraphVault server first, then configure WebDAV below.',
+        });
+        return;
+      }
+      // Migrate notes: copy → verify → activate (copy-verify-switch pattern).
+      const source = getActiveAdapter();
+      const result = await migrateAdapter(source, webdavAdapter);
+      setActiveId('webdav');
+      setMsg({
+        kind: 'ok',
+        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to WebDAV. Source (${result.from}) preserved — clear it manually when satisfied.`,
+      });
+      await vault.resetVault();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to switch to WebDAV storage.',
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const activeLabel =
@@ -528,6 +566,17 @@ function StorageSection() {
       </dl>
 
       <div className="mt-3 flex flex-wrap gap-2">
+        {/* WebDAV option — requires sign-in + server WebDAV config */}
+        <button
+          type="button"
+          disabled={activeId === 'webdav' || busy}
+          onClick={() => void switchToWebDav()}
+          className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+          title="Store notes on your WebDAV server (Nextcloud / ownCloud). Configure below."
+        >
+          {busy && activeId !== 'webdav' ? 'Migrating…' : 'Use WebDAV (server)'}
+        </button>
+
         {fsApiAvailable ? (
           <>
             <button
@@ -536,21 +585,23 @@ function StorageSection() {
               onClick={() => void switchToFileSystem()}
               className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
             >
-              {busy ? 'Migrating…' : 'Use local folder (File System)'}
-            </button>
-            <button
-              type="button"
-              disabled={activeId === 'localStorage' || busy}
-              onClick={switchToLocalStorage}
-              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
-            >
-              Use browser storage
+              {busy && activeId !== 'fileSystem' ? 'Migrating…' : 'Use local folder (File System)'}
             </button>
           </>
-        ) : (
-          <p className="text-xs text-neutral-500">
+        ) : null}
+
+        <button
+          type="button"
+          disabled={activeId === 'localStorage' || busy}
+          onClick={switchToLocalStorage}
+          className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+        >
+          Use browser storage
+        </button>
+
+        {!fsApiAvailable && (
+          <p className="mt-1 w-full text-xs text-neutral-600">
             File System Access API is not available in this browser (requires Chrome / Edge 86+).
-            Notes are stored in browser localStorage.
           </p>
         )}
       </div>
@@ -566,6 +617,306 @@ function StorageSection() {
                   : 'text-red-400'
             }
           >
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WebDAV section (M18)
+// ---------------------------------------------------------------------------
+
+/**
+ * WebDAV configuration section.
+ *
+ * Shows:
+ *   1. Current config status (URL + username, never password).
+ *   2. A form to set/update credentials (only shown when signed in).
+ *   3. A delete button to remove the config.
+ *   4. A clear note that credentials live on the server, not in the browser.
+ *
+ * The form sends credentials to the server over TLS; they are encrypted at
+ * rest on the server. The client never stores or retrieves the WebDAV password.
+ */
+function WebDavSection({
+  auth,
+  serverUrl,
+}: {
+  auth: ReturnType<typeof useAuth>;
+  serverUrl: string;
+}) {
+  const [configInfo, setConfigInfo] = useState<{
+    url: string;
+    username: string;
+    updatedAt: string;
+  } | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [url, setUrl] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const didLoad = useRef(false);
+
+  const fetchConfig = useCallback(async () => {
+    if (!auth.token) return;
+    setLoadingConfig(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      const info = await client.getWebDavConfig();
+      setConfigInfo(info);
+    } catch {
+      setConfigInfo(null);
+    } finally {
+      setLoadingConfig(false);
+    }
+  }, [auth.token, serverUrl]);
+
+  useEffect(() => {
+    if (!didLoad.current && auth.isSignedIn && auth.token) {
+      didLoad.current = true;
+      void fetchConfig();
+    }
+  }, [auth.isSignedIn, auth.token, fetchConfig]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.token) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      await client.saveWebDavConfig({ url, username, password });
+      setMsg({
+        kind: 'ok',
+        text: 'WebDAV configuration saved. Credentials are stored encrypted on the server.',
+      });
+      setShowForm(false);
+      setPassword('');
+      await fetchConfig();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to save WebDAV config.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!auth.token) return;
+    if (!window.confirm('Remove WebDAV configuration? Notes stored on WebDAV will not be deleted.'))
+      return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      await client.deleteWebDavConfig();
+      setConfigInfo(null);
+      setMsg({ kind: 'ok', text: 'WebDAV configuration removed.' });
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to remove config.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-neutral-200">WebDAV storage</h2>
+        {auth.isSignedIn && (
+          <button
+            type="button"
+            onClick={() => void fetchConfig()}
+            disabled={loadingConfig}
+            className="text-xs text-neutral-500 hover:text-neutral-300 disabled:opacity-50"
+          >
+            {loadingConfig ? 'Loading…' : 'Refresh'}
+          </button>
+        )}
+      </div>
+
+      <p className="mt-1 text-xs text-neutral-500">
+        Store your vault on a WebDAV server (Nextcloud, ownCloud, or any WebDAV-compatible host).
+        The browser talks only to your GraphVault server, which proxies to WebDAV — no CORS issues,
+        and your WebDAV credentials never leave the server.
+      </p>
+
+      {/* Security notice */}
+      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+        <strong>Credentials stay on the server.</strong> Your WebDAV URL and password are encrypted
+        at rest on your GraphVault server and are never sent to the browser. The client uses only
+        its normal GraphVault bearer token to proxy through.
+      </div>
+
+      {!auth.isSignedIn ? (
+        <p className="mt-3 text-xs text-neutral-500">
+          Sign in to your GraphVault server (Account section above) to configure WebDAV.
+        </p>
+      ) : (
+        <>
+          {/* Current config display */}
+          {configInfo ? (
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+              <dt>Status</dt>
+              <dd className="text-emerald-400">Configured</dd>
+              <dt>WebDAV URL</dt>
+              <dd className="truncate text-neutral-200">{configInfo.url}</dd>
+              <dt>Username</dt>
+              <dd className="text-neutral-200">{configInfo.username}</dd>
+              <dt>Password</dt>
+              <dd className="text-neutral-600 italic">stored encrypted on server</dd>
+              <dt>Last updated</dt>
+              <dd className="text-neutral-200">
+                {new Date(configInfo.updatedAt).toLocaleString()}
+              </dd>
+            </dl>
+          ) : (
+            <p className="mt-3 text-xs text-neutral-500">
+              No WebDAV backend configured yet. Add one below.
+            </p>
+          )}
+
+          {/* Action buttons */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm((s) => !s);
+                setMsg(null);
+                if (configInfo) {
+                  setUrl(configInfo.url);
+                  setUsername(configInfo.username);
+                  setPassword('');
+                }
+              }}
+              disabled={busy}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            >
+              {configInfo ? 'Update WebDAV config' : 'Configure WebDAV'}
+            </button>
+            {configInfo && (
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={busy}
+                className="rounded-md border border-red-900/60 bg-red-950/30 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/60 disabled:opacity-40"
+              >
+                Remove config
+              </button>
+            )}
+          </div>
+
+          {/* Config form */}
+          {showForm && (
+            <form onSubmit={(e) => void handleSave(e)} className="mt-4 space-y-3" noValidate>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="dav-url"
+                >
+                  WebDAV URL
+                </label>
+                <input
+                  id="dav-url"
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  disabled={busy}
+                  placeholder="https://cloud.example.com/remote.php/dav/files/alice/"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-neutral-600">
+                  Nextcloud:{' '}
+                  <code className="text-neutral-500">
+                    https://your-cloud/remote.php/dav/files/username/
+                  </code>
+                </p>
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="dav-user"
+                >
+                  Username
+                </label>
+                <input
+                  id="dav-user"
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={busy}
+                  placeholder="your WebDAV username"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="dav-pass"
+                >
+                  Password / App password
+                </label>
+                <input
+                  id="dav-pass"
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={busy}
+                  placeholder={
+                    configInfo
+                      ? 'Enter new password to update…'
+                      : 'Your WebDAV password or app password'
+                  }
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-neutral-600">
+                  Tip: use an app password (Nextcloud: Settings → Security → App passwords). The
+                  password is sent to your server over TLS and stored encrypted — it is never
+                  returned to the browser.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={busy || !url || !username || !password}
+                  className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+                >
+                  {busy ? 'Saving…' : 'Save WebDAV config'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setPassword('');
+                    setMsg(null);
+                  }}
+                  disabled={busy}
+                  className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </>
+      )}
+
+      <div className="mt-2 min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
           </span>
         )}

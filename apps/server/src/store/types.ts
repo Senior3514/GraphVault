@@ -54,6 +54,23 @@ export interface BlobRecord {
 }
 
 /**
+ * Persisted WebDAV configuration for a single user.
+ *
+ * The `password` field stores an AES-256-GCM ciphertext (base64). The raw
+ * password is never written to the store; it exists only in the decrypted form
+ * inside a running request. The `url` and `username` are stored in plaintext
+ * because they are non-secret and displayed in the Settings UI.
+ */
+export interface WebDavConfigRecord {
+  userId: string;
+  url: string;
+  username: string;
+  /** AES-256-GCM encrypted password, base64-encoded (nonce||tag||ciphertext). */
+  encryptedPassword: string;
+  updatedAt: string; // ISO-8601
+}
+
+/**
  * The current state of one file within a vault, plus the version history needed
  * for conflict recovery. `state` is the canonical wire representation.
  */
@@ -108,6 +125,11 @@ export interface Storage {
   // --- blobs (metadata only; bytes are on disk) ---
   hasBlob(hash: string): Promise<boolean>;
   putBlob(record: BlobRecord): Promise<void>;
+
+  // --- WebDAV configuration ---
+  getWebDavConfig(userId: string): Promise<WebDavConfigRecord | null>;
+  upsertWebDavConfig(record: WebDavConfigRecord): Promise<void>;
+  deleteWebDavConfig(userId: string): Promise<void>;
 }
 
 export interface ChangesPage {
