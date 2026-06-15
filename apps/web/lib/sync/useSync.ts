@@ -1,0 +1,152 @@
+'use client';
+
+/**
+ * React hook that drives a sync cycle from the browser.
+ *
+ * It wires the live vault (from `useVaultContext`) and the server connection
+ * (base URL + bearer token) to `@graphvault/sync-core`'s `runSync` through the
+ * {@link createLocalVault} and {@link createRemoteApi} adapters, and exposes the
+ * status the `/sync-status` page renders: `{ status, lastSyncAt, pendingCount,
+ * conflicts, syncNow }`.
+ *
+ * The pending count is derived from the persisted sync index (dirty entries);
+ * last-sync metadata and conflicts persist in `localStorage` via `syncMeta`.
+ */
+
+import { runSync, type ResolvedConflict, type SyncResult } from '@graphvault/sync-core';
+import type { LocalFileEntry } from '@graphvault/shared';
+import { useCallback, useEffect, useState } from 'react';
+
+import { useVaultContext } from '../vault/VaultProvider';
+import { createLocalVault, SYNC_INDEX_KEY, type VaultMutator } from './localVault';
+import { createRemoteApi } from './remoteApi';
+import { loadSyncMeta, saveSyncMeta, type SyncMeta } from './syncMeta';
+
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+
+export interface UseSyncOptions {
+  /** Server base URL (from Settings). */
+  serverUrl: string;
+  /** Bearer token, if the user is authenticated. */
+  token?: string;
+  /** The adopted server vault id, if registered. */
+  vaultId?: string;
+}
+
+export interface UseSync {
+  status: SyncStatus;
+  lastSyncAt: string | null;
+  pendingCount: number;
+  conflicts: ResolvedConflict[];
+  error: string | null;
+  /** True while a sync cycle is in flight. */
+  busy: boolean;
+  /** Whether a sync can run (server reachable config + a vault id). */
+  canSync: boolean;
+  /** Run one sync cycle now. Resolves to the result, or null on error. */
+  syncNow(): Promise<SyncResult | null>;
+}
+
+function countDirty(): number {
+  try {
+    const raw = window.localStorage.getItem(SYNC_INDEX_KEY);
+    if (!raw) return 0;
+    const entries = JSON.parse(raw) as LocalFileEntry[];
+    if (!Array.isArray(entries)) return 0;
+    return entries.filter((e) => e?.dirty).length;
+  } catch {
+    return 0;
+  }
+}
+
+export function useSync(options: UseSyncOptions): UseSync {
+  const { serverUrl, token, vaultId } = options;
+  const vault = useVaultContext();
+
+  const [status, setStatus] = useState<SyncStatus>('idle');
+  const [meta, setMeta] = useState<SyncMeta | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load persisted metadata + pending count on mount.
+  useEffect(() => {
+    setMeta(loadSyncMeta());
+    setPendingCount(countDirty());
+  }, []);
+
+  const canSync = Boolean(serverUrl && (vaultId ?? meta?.vaultId));
+
+  const syncNow = useCallback(async (): Promise<SyncResult | null> => {
+    const current = meta ?? loadSyncMeta();
+    const targetVault = vaultId ?? current.vaultId;
+    if (!targetVault) {
+      setError('No vault registered on the server yet.');
+      setStatus('error');
+      return null;
+    }
+
+    setStatus('syncing');
+    setError(null);
+
+    const mutator: VaultMutator = {
+      notes: () => vault.notes.map((n) => ({ ...n })),
+      upsert: (path, content) => {
+        if (vault.getNote(path)) {
+          vault.updateContent(path, content);
+        } else {
+          vault.createNote(path, content);
+        }
+      },
+      remove: (path) => {
+        if (vault.getNote(path)) vault.deleteNote(path);
+      },
+    };
+
+    const local = createLocalVault(mutator);
+    const remote = createRemoteApi({ baseUrl: serverUrl, token });
+
+    try {
+      const result = await runSync(local, remote, targetVault, {
+        deviceId: current.deviceId,
+        deviceName: current.deviceName,
+      });
+
+      const nextMeta: SyncMeta = {
+        ...current,
+        vaultId: targetVault,
+        lastSyncAt: new Date().toISOString(),
+        lastRevision: result.newRevision,
+        // Accumulate conflicts; the user clears them by merging/deleting copies.
+        conflicts: dedupeConflicts([...current.conflicts, ...result.conflicts]),
+      };
+      saveSyncMeta(nextMeta);
+      setMeta(nextMeta);
+      setPendingCount(countDirty());
+      setStatus('synced');
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sync failed');
+      setStatus('error');
+      setPendingCount(countDirty());
+      return null;
+    }
+  }, [meta, serverUrl, token, vault, vaultId]);
+
+  return {
+    status,
+    lastSyncAt: meta?.lastSyncAt ?? null,
+    pendingCount,
+    conflicts: meta?.conflicts ?? [],
+    error,
+    busy: status === 'syncing',
+    canSync,
+    syncNow,
+  };
+}
+
+/** Keep the latest conflict per (path, copy) pair. */
+function dedupeConflicts(conflicts: ResolvedConflict[]): ResolvedConflict[] {
+  const byKey = new Map<string, ResolvedConflict>();
+  for (const c of conflicts) byKey.set(`${c.path}${c.conflictCopyPath}`, c);
+  return [...byKey.values()];
+}

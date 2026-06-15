@@ -1,0 +1,129 @@
+/**
+ * Typed client for the GraphVault sync server.
+ *
+ * Uses the wire types and zod schemas from `@graphvault/shared` so the client
+ * and server share one source of truth. The base URL comes from
+ * `NEXT_PUBLIC_GRAPHVAULT_SERVER_URL` (see `.env.example`) but can be overridden
+ * at runtime from Settings.
+ *
+ * Only the endpoints needed for Milestones 3-4 are implemented for real: the
+ * health check and auth register/login. The remaining sync endpoints land with
+ * the sync engine (Milestone 5).
+ */
+
+import {
+  apiErrorSchema,
+  authTokenSchema,
+  type AuthToken,
+  type LoginRequest,
+  type RegisterRequest,
+} from '@graphvault/shared';
+
+export const DEFAULT_SERVER_URL =
+  process.env.NEXT_PUBLIC_GRAPHVAULT_SERVER_URL ?? 'http://127.0.0.1:4000';
+
+export interface HealthInfo {
+  status: string;
+  apiVersion: string;
+  syncProtocolVersion: number;
+  time: string;
+}
+
+export class ApiClientError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+  }
+}
+
+function joinUrl(base: string, path: string): string {
+  return `${base.replace(/\/+$/, '')}${path}`;
+}
+
+export class GraphVaultClient {
+  constructor(
+    private baseUrl: string = DEFAULT_SERVER_URL,
+    private token?: string,
+  ) {}
+
+  setBaseUrl(url: string): void {
+    this.baseUrl = url;
+  }
+
+  setToken(token: string | undefined): void {
+    this.token = token;
+  }
+
+  private headers(json = true): HeadersInit {
+    const h: Record<string, string> = {};
+    if (json) h['Content-Type'] = 'application/json';
+    if (this.token) h['Authorization'] = `Bearer ${this.token}`;
+    return h;
+  }
+
+  private async request<T>(path: string, init: RequestInit): Promise<T> {
+    let res: Response;
+    try {
+      res = await fetch(joinUrl(this.baseUrl, path), init);
+    } catch (err) {
+      throw new ApiClientError(
+        err instanceof Error ? err.message : 'Network request failed',
+        'NETWORK_ERROR',
+        0,
+      );
+    }
+
+    const text = await res.text();
+    const data: unknown = text ? safeJson(text) : undefined;
+
+    if (!res.ok) {
+      const parsed = apiErrorSchema.safeParse(data);
+      if (parsed.success) {
+        throw new ApiClientError(parsed.data.error.message, parsed.data.error.code, res.status);
+      }
+      throw new ApiClientError(`Request failed (${res.status})`, 'HTTP_ERROR', res.status);
+    }
+
+    return data as T;
+  }
+
+  /** GET /v1/health — confirms the server is reachable and reports versions. */
+  async health(): Promise<HealthInfo> {
+    return this.request<HealthInfo>('/v1/health', {
+      method: 'GET',
+      headers: this.headers(false),
+    });
+  }
+
+  /** POST /v1/auth/register */
+  async register(body: RegisterRequest): Promise<AuthToken> {
+    const data = await this.request<unknown>('/v1/auth/register', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body),
+    });
+    return authTokenSchema.parse(data);
+  }
+
+  /** POST /v1/auth/login */
+  async login(body: LoginRequest): Promise<AuthToken> {
+    const data = await this.request<unknown>('/v1/auth/login', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body),
+    });
+    return authTokenSchema.parse(data);
+  }
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}

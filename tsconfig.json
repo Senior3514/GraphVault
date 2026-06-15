@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/engine" },
+    { "path": "./packages/sync-core" },
+    { "path": "./apps/server" }
+  ]
+}

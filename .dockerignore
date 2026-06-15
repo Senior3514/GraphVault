@@ -1,0 +1,43 @@
+# Build context excludes — keep the Docker build small and reproducible.
+
+# Dependencies (reinstalled inside the image)
+**/node_modules
+.pnpm-store
+
+# Build output (rebuilt inside the image)
+**/dist
+**/build
+**/out
+**/.next
+**/*.tsbuildinfo
+apps/server/src/store/generated
+
+# Runtime data — never bake blobs or a local DB into the image
+**/storage
+*.sqlite
+*.sqlite-journal
+*.db
+
+# VCS / CI / local tooling
+.git
+.github
+.gitignore
+.claude
+
+# Environment & secrets (config is injected at runtime, never baked in)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Editor / OS cruft
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# Logs & coverage
+**/*.log
+**/coverage
+
+# Tauri target
+apps/desktop/src-tauri/target
