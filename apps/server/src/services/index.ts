@@ -4,12 +4,14 @@ import { AuthService } from './auth.js';
 import { BlobService } from './blob.js';
 import { SyncService } from './sync.js';
 import { VaultService } from './vault.js';
+import { WebDavService } from './webdav.js';
 
 export { AuthService } from './auth.js';
 export type { AuthContext } from './auth.js';
 export { VaultService } from './vault.js';
 export { SyncService } from './sync.js';
 export { BlobService } from './blob.js';
+export { WebDavService } from './webdav.js';
 
 /** The service layer container, decoupled from Fastify and reusable. */
 export interface Services {
@@ -17,6 +19,7 @@ export interface Services {
   vault: VaultService;
   sync: SyncService;
   blob: BlobService;
+  webdav: WebDavService;
 }
 
 export function createServices(
@@ -30,5 +33,6 @@ export function createServices(
     vault: new VaultService(storage),
     sync: new SyncService(storage, blobStore),
     blob: new BlobService(storage, blobStore),
+    webdav: new WebDavService(storage, encryptionKey),
   };
 }

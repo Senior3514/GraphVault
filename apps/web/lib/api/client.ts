@@ -21,11 +21,15 @@ import {
   apiErrorSchema,
   authTokenSchema,
   registerVaultResponseSchema,
+  webdavConfigRequestSchema,
+  webdavConfigInfoSchema,
   type AuthToken,
   type LoginRequest,
   type RegisterRequest,
   type RegisterVaultResponse,
   type VaultRef,
+  type WebDavConfigRequest,
+  type WebDavConfigInfo,
 } from '@graphvault/shared';
 
 export const DEFAULT_SERVER_URL =
@@ -144,6 +148,53 @@ export class GraphVaultClient {
       body: JSON.stringify({ name }),
     });
     return registerVaultResponseSchema.parse(data);
+  }
+
+  // ---------------------------------------------------------------------------
+  // WebDAV proxy config (M18)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * POST /v1/storage/webdav/config
+   * Save WebDAV credentials on the server (encrypted at rest).
+   * The client sends the plaintext once over TLS; it is never returned.
+   */
+  async saveWebDavConfig(config: WebDavConfigRequest): Promise<void> {
+    webdavConfigRequestSchema.parse(config); // validate before sending
+    await this.request<unknown>('/v1/storage/webdav/config', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(config),
+    });
+  }
+
+  /**
+   * GET /v1/storage/webdav/config
+   * Fetch non-secret config info (URL, username, updatedAt — no password).
+   * Returns null if WebDAV is not configured.
+   */
+  async getWebDavConfig(): Promise<WebDavConfigInfo | null> {
+    try {
+      const data = await this.request<unknown>('/v1/storage/webdav/config', {
+        method: 'GET',
+        headers: this.headers(false),
+      });
+      return webdavConfigInfoSchema.parse(data);
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
+  /**
+   * DELETE /v1/storage/webdav/config
+   * Remove the WebDAV configuration for the current user.
+   */
+  async deleteWebDavConfig(): Promise<void> {
+    await this.request<unknown>('/v1/storage/webdav/config', {
+      method: 'DELETE',
+      headers: this.headers(false),
+    });
   }
 }
 
