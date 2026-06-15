@@ -68,6 +68,7 @@ import {
   type TimelineState,
 } from '../../lib/graph/timeline';
 import { buildClusterColors, type ClusterColorInfo } from '../../lib/graph/clusters';
+import { computeGroupColors, loadGroups, saveGroups, type NodeGroup } from '../../lib/graph/groups';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 
 // Canvas/DOM-only renderer: never server-rendered.
@@ -96,6 +97,9 @@ export default function GraphPage() {
   // v3: Graphics toggles
   const [contextView, setContextView] = useState(false);
   const [labelDensity, setLabelDensity] = useState<LabelDensity>('normal');
+
+  // v4: User-defined colour groups — initialised from localStorage on first render.
+  const [groups, setGroups] = useState<NodeGroup[]>(() => loadGroups());
 
   // Mobile drawer states
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
@@ -189,6 +193,35 @@ export default function GraphPage() {
     return buildClusterColors(payload.nodes, payload.edges);
   }, [colorMode, payload]);
 
+  // v4: Compute group colours. We need render-ready nodes to call matchesQuery
+  // (which checks tagKey and path), so we first build the render model without
+  // group colours, then compute the group map, then rebuild with the map.
+  // To avoid two full passes of buildRenderModel we compute the group map from
+  // the preliminary render-node list derived from payload.nodes directly. This
+  // keeps the memo chain efficient: group map only rebuilds when groups or the
+  // payload change, never on hover/selection.
+  const groupNodeColor: Map<string, string> = useMemo(() => {
+    if (groups.length === 0) return new Map();
+    // Build a lightweight proxy list: we only need id, title, tagKey and path
+    // for matching, which are directly available from GraphNode.
+    const proxyNodes = payload.nodes.map((n) => ({
+      id: n.id,
+      title: n.title,
+      category: 'note' as const,
+      color: '',
+      degree: 0,
+      tagKey: n.tags[0],
+      path: n.path,
+    }));
+    return computeGroupColors(proxyNodes, groups);
+  }, [groups, payload.nodes]);
+
+  // Persist groups to localStorage whenever they change (after initial load).
+  // We use a plain effect rather than useCallback so it fires on every update.
+  useEffect(() => {
+    saveGroups(groups);
+  }, [groups]);
+
   // Render model: enrich nodes with category/colour/degree and synthesize
   // placeholder nodes for unresolved targets.
   const model = useMemo(
@@ -197,8 +230,9 @@ export default function GraphPage() {
         colorMode,
         includeUnresolved: true,
         clusterNodeColor: clusterInfo?.nodeColor,
+        groupNodeColor: groupNodeColor.size > 0 ? groupNodeColor : undefined,
       }),
-    [payload, colorMode, clusterInfo],
+    [payload, colorMode, clusterInfo, groupNodeColor],
   );
 
   // In-graph search: compute the match set from the current query.
@@ -290,6 +324,8 @@ export default function GraphPage() {
       onContextViewChange={setContextView}
       labelDensity={labelDensity}
       onLabelDensityChange={setLabelDensity}
+      groups={groups}
+      onGroupsChange={setGroups}
     />
   );
 
@@ -367,6 +403,8 @@ export default function GraphPage() {
               onContextViewChange={setContextView}
               labelDensity={labelDensity}
               onLabelDensityChange={setLabelDensity}
+              groups={groups}
+              onGroupsChange={setGroups}
             />
           </div>
         </>
@@ -409,6 +447,12 @@ export default function GraphPage() {
                 cluster
               </span>
             )}
+            {/* v4: groups active pill */}
+            {groups.length > 0 && (
+              <span className="hidden rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-medium text-rose-300 sm:inline">
+                {groups.length} {groups.length === 1 ? 'group' : 'groups'}
+              </span>
+            )}
             <NodeCount shown={shownNodes} total={totalNodes} truncated={payload.truncated} />
           </div>
         </header>
@@ -440,6 +484,7 @@ export default function GraphPage() {
                 categories={model.presentCategories}
                 tags={facets.tags}
                 clusterInfo={clusterInfo}
+                groups={groups}
               />
               {/* Floating overlay controls: search (top-right) and zoom (bottom-right). */}
               <div className="pointer-events-none absolute inset-0 flex flex-col p-2 sm:p-3">

@@ -358,3 +358,41 @@ stop repeating mistakes. Newest at the top within each section.
   (b) pass the resulting `clusterNodeColor` map into `buildRenderModel` as an
   option. This keeps the model builder framework-free and makes it trivial to swap
   in a richer community-detection algorithm later without touching `model.ts`.
+
+## Wave 6 — Groups overlay (Prism)
+
+### Groups as a colour overlay, not a new colour mode
+
+- **Rule:** user-defined colour groups must be an _overlay_ on top of the base
+  colour mode (type/tag/cluster), not a fourth mode. This keeps the base modes
+  fully intact and lets users combine groups with any mode. Implementation:
+  (a) compute a `Map<nodeId, groupColor>` in a separate `useMemo` keyed only on
+  `[groups, payload.nodes]`, (b) pass it as `groupNodeColor` to
+  `buildRenderModel`, which applies it as a final override after the base colour
+  is set. Zero changes to `ForceGraphCanvas` — group colours land in
+  `node.color`, so the canvas draws them without any extra logic.
+
+### Proxy-node trick for group matching before render model is built
+
+- **Rule:** `computeGroupColors` needs rendered node shape (needs `tagKey`,
+  `path`) but `buildRenderModel` hasn't run yet. Solution: map `payload.nodes`
+  (engine `GraphNode[]`) to lightweight proxy objects with just `{id, title,
+tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
+  proxy map is then passed into `buildRenderModel`. One pass of the node list
+  for matching + one pass inside the model builder = O(2N) total, not O(N²).
+
+### Group matching: avoid localStorage access during SSR
+
+- **Rule:** `loadGroups()` guards with `typeof localStorage === 'undefined'`
+  before accessing it, so it is safe to call as a `useState` initialiser in a
+  `'use client'` component. No `useEffect` needed for the initial read.
+  `saveGroups()` carries the same guard for defensive depth. This pattern is
+  correct for any browser-only storage helper used in Next.js App Router.
+
+### Colour inputs as invisible overlays on styled discs
+
+- **Rule:** `<input type="color">` is styled via `opacity: 0; position: absolute`
+  layered over a styled `<span>` disc. The user sees the colour, the browser
+  handles the native picker. No third-party colour-picker dependency, no canvas
+  rendering. The `onChange` just updates the group's `color` string, which then
+  propagates through the normal memo chain.

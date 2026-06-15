@@ -7,15 +7,21 @@
  * - "tag" mode: lists the active tag colours.
  * - "cluster" mode: lists the discovered connected-component clusters, largest
  *   first, with a grey "Isolated" row for singleton nodes.
+ * - "groups" overlay: when user-defined groups are active, an additional
+ *   "Groups" section is appended above the base-mode legend so the canvas
+ *   colour meaning is always visible regardless of mode.
  *
  * The legend is driven straight from `CATEGORY_STYLE` / `colorForKey` /
- * `clusterLegendEntries` so it can never drift from the canvas.
+ * `clusterLegendEntries` / `groupLegendEntries` so it can never drift from
+ * the canvas.
  */
 
 import { CATEGORY_STYLE, colorForKey, GRAPH_NEUTRAL } from '../../lib/graph/model';
 import type { ColorMode, NodeCategory } from '../../lib/graph/model';
 import type { ClusterColorInfo } from '../../lib/graph/clusters';
 import { clusterLegendEntries } from '../../lib/graph/clusters';
+import type { NodeGroup } from '../../lib/graph/groups';
+import { groupLegendEntries } from '../../lib/graph/groups';
 
 export interface GraphLegendProps {
   colorMode: ColorMode;
@@ -25,29 +31,62 @@ export interface GraphLegendProps {
   tags: string[];
   /** Cluster info for the legend (cluster mode). */
   clusterInfo?: ClusterColorInfo | null;
+  /** Active user-defined groups (shown as an overlay legend section). */
+  groups?: readonly NodeGroup[];
 }
 
-export function GraphLegend({ colorMode, categories, tags, clusterInfo }: GraphLegendProps) {
-  const entries =
+export function GraphLegend({
+  colorMode,
+  categories,
+  tags,
+  clusterInfo,
+  groups = [],
+}: GraphLegendProps) {
+  const baseEntries =
     colorMode === 'type'
       ? legendForType(categories)
       : colorMode === 'cluster'
         ? legendForClusters(clusterInfo)
         : legendForTags(tags);
 
-  if (entries.items.length === 0) return null;
+  const groupItems = groupLegendEntries(groups);
+
+  // Hide the legend entirely only if there is nothing to show.
+  if (baseEntries.items.length === 0 && groupItems.length === 0) return null;
 
   return (
     <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-neutral-800 bg-neutral-950/85 px-3 py-2 text-xs backdrop-blur">
-      <p className="mb-1 font-semibold uppercase tracking-wide text-neutral-500">{entries.title}</p>
-      <ul className="space-y-0.5">
-        {entries.items.map((item) => (
-          <li key={item.key} className="flex items-center gap-2 text-neutral-300">
-            <Swatch color={item.color} outlined={item.outlined} />
-            {item.label}
-          </li>
-        ))}
-      </ul>
+      {/* Groups overlay section — shown first when groups are active */}
+      {groupItems.length > 0 && (
+        <>
+          <p className="mb-1 font-semibold uppercase tracking-wide text-neutral-500">Groups</p>
+          <ul className="space-y-0.5">
+            {groupItems.map((item, i) => (
+              <li key={`group-${i}`} className="flex items-center gap-2 text-neutral-300">
+                <Swatch color={item.color} />
+                {item.label}
+              </li>
+            ))}
+          </ul>
+          {baseEntries.items.length > 0 && <hr className="my-1.5 border-neutral-800/70" />}
+        </>
+      )}
+      {/* Base colour-mode section */}
+      {baseEntries.items.length > 0 && (
+        <>
+          <p className="mb-1 font-semibold uppercase tracking-wide text-neutral-500">
+            {baseEntries.title}
+          </p>
+          <ul className="space-y-0.5">
+            {baseEntries.items.map((item) => (
+              <li key={item.key} className="flex items-center gap-2 text-neutral-300">
+                <Swatch color={item.color} outlined={item.outlined} />
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

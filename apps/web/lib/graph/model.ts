@@ -174,6 +174,13 @@ export interface BuildRenderModelOptions {
    * `GRAPH_NEUTRAL`.
    */
   clusterNodeColor?: Map<string, string>;
+  /**
+   * Pre-computed node-id → hex colour map from user-defined Groups. When a
+   * node appears in this map its colour overrides the base `colorMode` colour
+   * (first-matching-group-wins semantics applied upstream). Placeholder nodes
+   * (attachments / unresolved) are never overridden by groups.
+   */
+  groupNodeColor?: Map<string, string>;
 }
 
 const CATEGORY_ORDER: NodeCategory[] = ['note', 'attachment', 'unresolved'];
@@ -195,6 +202,7 @@ export function buildRenderModel(
   const colorMode = options.colorMode ?? 'type';
   const includeUnresolved = options.includeUnresolved ?? true;
   const clusterNodeColor = options.clusterNodeColor;
+  const groupNodeColor = options.groupNodeColor;
 
   const noteIds = new Set(nodes.map((n) => n.id));
 
@@ -240,6 +248,10 @@ export function buildRenderModel(
     } else {
       color = colorForCategory('note');
     }
+    // Groups override the base colour mode (first-matching-group-wins,
+    // computed upstream in computeGroupColors).
+    const groupColor = groupNodeColor?.get(n.id);
+    if (groupColor) color = groupColor;
     return {
       id: n.id,
       title: n.title,
