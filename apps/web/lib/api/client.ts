@@ -23,6 +23,8 @@ import {
   registerVaultResponseSchema,
   webdavConfigRequestSchema,
   webdavConfigInfoSchema,
+  s3ConfigRequestSchema,
+  s3ConfigInfoSchema,
   type AuthToken,
   type LoginRequest,
   type RegisterRequest,
@@ -30,6 +32,8 @@ import {
   type VaultRef,
   type WebDavConfigRequest,
   type WebDavConfigInfo,
+  type S3ConfigRequest,
+  type S3ConfigInfo,
 } from '@graphvault/shared';
 
 export const DEFAULT_SERVER_URL =
@@ -192,6 +196,54 @@ export class GraphVaultClient {
    */
   async deleteWebDavConfig(): Promise<void> {
     await this.request<unknown>('/v1/storage/webdav/config', {
+      method: 'DELETE',
+      headers: this.headers(false),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // S3-compatible storage proxy config (M18)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * POST /v1/storage/s3/config
+   * Save S3 credentials on the server (secretAccessKey encrypted at rest).
+   * The client sends the plaintext once over TLS; it is never returned.
+   */
+  async saveS3Config(config: S3ConfigRequest): Promise<void> {
+    s3ConfigRequestSchema.parse(config); // validate before sending
+    await this.request<unknown>('/v1/storage/s3/config', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(config),
+    });
+  }
+
+  /**
+   * GET /v1/storage/s3/config
+   * Fetch non-secret config info (endpoint, region, bucket, accessKeyId, prefix,
+   * updatedAt — no secretAccessKey).
+   * Returns null if S3 is not configured.
+   */
+  async getS3Config(): Promise<S3ConfigInfo | null> {
+    try {
+      const data = await this.request<unknown>('/v1/storage/s3/config', {
+        method: 'GET',
+        headers: this.headers(false),
+      });
+      return s3ConfigInfoSchema.parse(data);
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
+  /**
+   * DELETE /v1/storage/s3/config
+   * Remove the S3 configuration for the current user.
+   */
+  async deleteS3Config(): Promise<void> {
+    await this.request<unknown>('/v1/storage/s3/config', {
       method: 'DELETE',
       headers: this.headers(false),
     });

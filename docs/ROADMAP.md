@@ -109,9 +109,10 @@ providers go through the self-hosted server (keys never touch the browser).
 
 ## Milestone 19 — Browser extension (web-clipper → note) 🟡
 
-- 🟡 MV3 extension: clip page/selection → Markdown → save (download / open in app)
+- ✅ MV3 extension: clip → Markdown → save; cross-browser PNG icons + Firefox id; store-packaging zip
 - ⬜ Post directly to the self-hosted sync server (once auth lands end-to-end)
-- ⬜ Chrome / Edge / Firefox store packaging
+- ✅ Store packaging zip (Chrome / Edge / Firefox) — publishing is a manual upload
+- ⬜ Post clips directly to the self-hosted sync server
 
 ## Milestone 20 — Embed everywhere / integrations ⬜
 
@@ -120,7 +121,7 @@ Make GraphVault the most _usable_ knowledge tool — it goes where you are.
 - ✅ One-click importers: Obsidian / Notion / Roam / Logseq / plain folders
 - ✅ Embeddable read-only graph (`/embed?s=…`, privacy-safe snapshot) + Share button
 - ⬜ Public shareable graph snapshots (opt-in, no account)
-- ⬜ CLI + local HTTP API for power users / automation
+- ✅ CLI (`@graphvault/cli`: list / search / stats / graph) — local HTTP API ⬜
 - ⬜ URL scheme + share targets (clip from any app)
 
 ## Milestone 21 — AI assistant (privacy-first, opt-in) 🟡
@@ -145,7 +146,8 @@ connector shows its privacy posture.
 
 - ✅ Connector framework + privacy posture (`local` / `server` / `byo`) + Settings panel
 - ✅ RSS / Atom / OPML import (phase 1, `local` — paste/upload, parsed on-device)
-- ⬜ Email (IMAP / Gmail / Outlook via OAuth) → server-side creds, phase 2
+- ✅ Email import (`.eml` / `.mbox`, client-side, phase 1)
+- ⬜ Live email (IMAP / Gmail / Outlook OAuth) → server-side creds, phase 2
 - ⬜ URL-fetch / web-clip via server proxy (avoids CORS, keeps creds off the browser)
 - ⬜ Generic webhook / "connect anything" recipe layer; per-connector audit log
 

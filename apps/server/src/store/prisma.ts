@@ -5,6 +5,7 @@ import type {
   DeviceRecord,
   FileChange,
   FileRecord,
+  S3ConfigRecord,
   Storage,
   TokenRecord,
   UserRecord,
@@ -61,6 +62,14 @@ export class PrismaStorage implements Storage {
    * TODO(M18-follow-up): add Prisma schema migration for `webdav_configs`.
    */
   private readonly _webdavConfigs = new Map<string, WebDavConfigRecord>();
+
+  /**
+   * In-process store for S3 configs.
+   *
+   * Same trade-off as WebDAV: sufficient for single-instance dev deployments.
+   * TODO(M18-follow-up): add Prisma schema migration for `s3_configs`.
+   */
+  private readonly _s3Configs = new Map<string, S3ConfigRecord>();
 
   async createUser(input: {
     id: string;
@@ -229,6 +238,20 @@ export class PrismaStorage implements Storage {
 
   async deleteWebDavConfig(userId: string): Promise<void> {
     this._webdavConfigs.delete(userId);
+  }
+
+  // ---- S3 config (in-process map; see TODO above) ----
+
+  async getS3Config(userId: string): Promise<S3ConfigRecord | null> {
+    return this._s3Configs.get(userId) ?? null;
+  }
+
+  async upsertS3Config(record: S3ConfigRecord): Promise<void> {
+    this._s3Configs.set(record.userId, { ...record });
+  }
+
+  async deleteS3Config(userId: string): Promise<void> {
+    this._s3Configs.delete(userId);
   }
 }
 

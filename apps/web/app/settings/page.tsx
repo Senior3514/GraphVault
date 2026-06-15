@@ -36,6 +36,7 @@ import {
   fileSystemAdapter,
   getActiveAdapter,
   listAdapters,
+  s3Adapter,
   webdavAdapter,
 } from '../../lib/vault/store';
 import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
@@ -283,6 +284,11 @@ export default function SettingsPage() {
       {/* WebDAV storage (M18)                                                */}
       {/* ------------------------------------------------------------------ */}
       <WebDavSection auth={auth} serverUrl={serverUrl} />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* S3-compatible storage (M18)                                         */}
+      {/* ------------------------------------------------------------------ */}
+      <S3Section auth={auth} serverUrl={serverUrl} />
 
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Vault</h2>
@@ -550,6 +556,36 @@ function StorageSection() {
     }
   };
 
+  const switchToS3 = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      if (!s3Adapter.isAvailable()) {
+        setMsg({
+          kind: 'err',
+          text: 'Sign in to your GraphVault server first, then configure S3 storage below.',
+        });
+        return;
+      }
+      // Migrate notes: copy → verify → activate (copy-verify-switch pattern).
+      const source = getActiveAdapter();
+      const result = await migrateAdapter(source, s3Adapter);
+      setActiveId('s3');
+      setMsg({
+        kind: 'ok',
+        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to S3. Source (${result.from}) preserved — clear it manually when satisfied.`,
+      });
+      await vault.resetVault();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to switch to S3 storage.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const activeLabel =
     adapters.find((a) => a.id === activeId)?.label ?? 'Browser storage (localStorage)';
 
@@ -576,6 +612,17 @@ function StorageSection() {
           title="Store notes on your WebDAV server (Nextcloud / ownCloud). Configure below."
         >
           {busy && activeId !== 'webdav' ? 'Migrating…' : 'Use WebDAV (server)'}
+        </button>
+
+        {/* S3 option — requires sign-in + server S3 config */}
+        <button
+          type="button"
+          disabled={activeId === 's3' || busy}
+          onClick={() => void switchToS3()}
+          className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+          title="Store notes in S3-compatible storage (AWS S3, MinIO, R2, B2). Configure below."
+        >
+          {busy && activeId !== 's3' ? 'Migrating…' : 'Use S3 storage (server)'}
         </button>
 
         {fsApiAvailable ? (
@@ -902,6 +949,382 @@ function WebDavSection({
                   onClick={() => {
                     setShowForm(false);
                     setPassword('');
+                    setMsg(null);
+                  }}
+                  disabled={busy}
+                  className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </>
+      )}
+
+      <div className="mt-2 min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// S3-compatible storage section (M18)
+// ---------------------------------------------------------------------------
+
+/**
+ * S3-compatible storage configuration section.
+ *
+ * Shows:
+ *   1. Current config status (endpoint, region, bucket, accessKeyId — never the secret key).
+ *   2. A form to set/update credentials (only shown when signed in).
+ *   3. A delete button to remove the config.
+ *   4. A clear note that credentials live on the server, not in the browser.
+ *
+ * The form sends the secretAccessKey to the server over TLS; it is encrypted at
+ * rest. The client never stores or retrieves the secret key.
+ */
+function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serverUrl: string }) {
+  const [configInfo, setConfigInfo] = useState<{
+    endpoint?: string;
+    region: string;
+    bucket: string;
+    accessKeyId: string;
+    prefix?: string;
+    updatedAt: string;
+  } | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [endpoint, setEndpoint] = useState('');
+  const [region, setRegion] = useState('');
+  const [bucket, setBucket] = useState('');
+  const [accessKeyId, setAccessKeyId] = useState('');
+  const [secretAccessKey, setSecretAccessKey] = useState('');
+  const [prefix, setPrefix] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const didLoad = useRef(false);
+
+  const fetchConfig = useCallback(async () => {
+    if (!auth.token) return;
+    setLoadingConfig(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      const info = await client.getS3Config();
+      setConfigInfo(info);
+    } catch {
+      setConfigInfo(null);
+    } finally {
+      setLoadingConfig(false);
+    }
+  }, [auth.token, serverUrl]);
+
+  useEffect(() => {
+    if (!didLoad.current && auth.isSignedIn && auth.token) {
+      didLoad.current = true;
+      void fetchConfig();
+    }
+  }, [auth.isSignedIn, auth.token, fetchConfig]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.token) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      await client.saveS3Config({
+        endpoint: endpoint.trim() || undefined,
+        region: region.trim(),
+        bucket: bucket.trim(),
+        accessKeyId: accessKeyId.trim(),
+        secretAccessKey,
+        prefix: prefix.trim() || undefined,
+      });
+      setMsg({
+        kind: 'ok',
+        text: 'S3 configuration saved. Credentials are stored encrypted on the server.',
+      });
+      setShowForm(false);
+      setSecretAccessKey('');
+      await fetchConfig();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to save S3 config.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!auth.token) return;
+    if (!window.confirm('Remove S3 configuration? Notes stored in S3 will not be deleted.')) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      await client.deleteS3Config();
+      setConfigInfo(null);
+      setMsg({ kind: 'ok', text: 'S3 configuration removed.' });
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to remove config.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-neutral-200">S3-compatible storage</h2>
+        {auth.isSignedIn && (
+          <button
+            type="button"
+            onClick={() => void fetchConfig()}
+            disabled={loadingConfig}
+            className="text-xs text-neutral-500 hover:text-neutral-300 disabled:opacity-50"
+          >
+            {loadingConfig ? 'Loading…' : 'Refresh'}
+          </button>
+        )}
+      </div>
+
+      <p className="mt-1 text-xs text-neutral-500">
+        Store your vault in an S3-compatible bucket (AWS S3, MinIO, Cloudflare R2, Backblaze B2, …).
+        The browser talks only to your GraphVault server, which proxies to S3 and signs requests
+        using AWS SigV4 — your credentials and secret key never leave the server.
+      </p>
+
+      {/* Security notice */}
+      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+        <strong>Credentials stay on the server.</strong> Your S3 access key and secret are encrypted
+        at rest on your GraphVault server using AES-256-GCM. AWS SigV4 request signing happens
+        server-side — the browser handles only its normal GraphVault bearer token.
+      </div>
+
+      {!auth.isSignedIn ? (
+        <p className="mt-3 text-xs text-neutral-500">
+          Sign in to your GraphVault server (Account section above) to configure S3 storage.
+        </p>
+      ) : (
+        <>
+          {/* Current config display */}
+          {configInfo ? (
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+              <dt>Status</dt>
+              <dd className="text-emerald-400">Configured</dd>
+              {configInfo.endpoint && (
+                <>
+                  <dt>Endpoint</dt>
+                  <dd className="truncate text-neutral-200">{configInfo.endpoint}</dd>
+                </>
+              )}
+              <dt>Region</dt>
+              <dd className="text-neutral-200">{configInfo.region}</dd>
+              <dt>Bucket</dt>
+              <dd className="text-neutral-200">{configInfo.bucket}</dd>
+              <dt>Access key ID</dt>
+              <dd className="truncate text-neutral-200">{configInfo.accessKeyId}</dd>
+              <dt>Secret access key</dt>
+              <dd className="text-neutral-600 italic">stored encrypted on server</dd>
+              {configInfo.prefix && (
+                <>
+                  <dt>Key prefix</dt>
+                  <dd className="text-neutral-200">{configInfo.prefix}</dd>
+                </>
+              )}
+              <dt>Last updated</dt>
+              <dd className="text-neutral-200">
+                {new Date(configInfo.updatedAt).toLocaleString()}
+              </dd>
+            </dl>
+          ) : (
+            <p className="mt-3 text-xs text-neutral-500">
+              No S3 backend configured yet. Add one below.
+            </p>
+          )}
+
+          {/* Action buttons */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm((s) => !s);
+                setMsg(null);
+                if (configInfo) {
+                  setEndpoint(configInfo.endpoint ?? '');
+                  setRegion(configInfo.region);
+                  setBucket(configInfo.bucket);
+                  setAccessKeyId(configInfo.accessKeyId);
+                  setPrefix(configInfo.prefix ?? '');
+                  setSecretAccessKey('');
+                }
+              }}
+              disabled={busy}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            >
+              {configInfo ? 'Update S3 config' : 'Configure S3'}
+            </button>
+            {configInfo && (
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={busy}
+                className="rounded-md border border-red-900/60 bg-red-950/30 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/60 disabled:opacity-40"
+              >
+                Remove config
+              </button>
+            )}
+          </div>
+
+          {/* Config form */}
+          {showForm && (
+            <form onSubmit={(e) => void handleSave(e)} className="mt-4 space-y-3" noValidate>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="s3-endpoint"
+                >
+                  Endpoint URL <span className="text-neutral-600">(leave blank for AWS S3)</span>
+                </label>
+                <input
+                  id="s3-endpoint"
+                  type="url"
+                  value={endpoint}
+                  onChange={(e) => setEndpoint(e.target.value)}
+                  disabled={busy}
+                  placeholder="https://account-id.r2.cloudflarestorage.com"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-neutral-600">
+                  MinIO: <code className="text-neutral-500">http://minio.local:9000</code>
+                  {' · '}Cloudflare R2:{' '}
+                  <code className="text-neutral-500">
+                    https://&lt;account-id&gt;.r2.cloudflarestorage.com
+                  </code>
+                </p>
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="s3-region"
+                >
+                  Region
+                </label>
+                <input
+                  id="s3-region"
+                  type="text"
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  disabled={busy}
+                  placeholder="us-east-1"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-neutral-600">
+                  R2: <code className="text-neutral-500">auto</code>
+                  {' · '}B2: <code className="text-neutral-500">us-east-005</code> (check your B2
+                  bucket)
+                </p>
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="s3-bucket"
+                >
+                  Bucket name
+                </label>
+                <input
+                  id="s3-bucket"
+                  type="text"
+                  value={bucket}
+                  onChange={(e) => setBucket(e.target.value)}
+                  disabled={busy}
+                  placeholder="my-graphvault-bucket"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="s3-akid"
+                >
+                  Access key ID
+                </label>
+                <input
+                  id="s3-akid"
+                  type="text"
+                  autoComplete="username"
+                  value={accessKeyId}
+                  onChange={(e) => setAccessKeyId(e.target.value)}
+                  disabled={busy}
+                  placeholder="AKIAIOSFODNN7EXAMPLE"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="s3-secret"
+                >
+                  Secret access key
+                </label>
+                <input
+                  id="s3-secret"
+                  type="password"
+                  autoComplete="new-password"
+                  value={secretAccessKey}
+                  onChange={(e) => setSecretAccessKey(e.target.value)}
+                  disabled={busy}
+                  placeholder={
+                    configInfo ? 'Enter new secret key to update…' : 'Your S3 secret access key'
+                  }
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-neutral-600">
+                  Sent to your server over TLS and stored encrypted — never returned to the browser.
+                </p>
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="s3-prefix"
+                >
+                  Key prefix <span className="text-neutral-600">(optional, must end with /)</span>
+                </label>
+                <input
+                  id="s3-prefix"
+                  type="text"
+                  value={prefix}
+                  onChange={(e) => setPrefix(e.target.value)}
+                  disabled={busy}
+                  placeholder="graphvault/"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={busy || !region || !bucket || !accessKeyId || !secretAccessKey}
+                  className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+                >
+                  {busy ? 'Saving…' : 'Save S3 config'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setSecretAccessKey('');
                     setMsg(null);
                   }}
                   disabled={busy}

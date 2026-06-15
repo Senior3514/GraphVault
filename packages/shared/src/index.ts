@@ -15,3 +15,4 @@ export * from './auth.js';
 export * from './sync/index.js';
 export * from './util/hash.js';
 export * from './webdav.js';
+export * from './s3.js';
