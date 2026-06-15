@@ -495,7 +495,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   Spreading it over defaults silently overwrote the default empty-string value
   with `undefined`, breaking downstream consumers.
 - **Root cause:** JavaScript spread copies all own enumerable keys, including
-  those with value `undefined`. A key existing as `undefined` *does* shadow
+  those with value `undefined`. A key existing as `undefined` _does_ shadow
   the same key in the source object.
 - **Fix / rule:** build the `Partial<T>` with conditional assignment
   (`if (x !== undefined) obj.x = x`) so undefined keys are simply absent from
