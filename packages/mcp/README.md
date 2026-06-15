@@ -21,13 +21,13 @@ Methods implemented: `initialize`, `tools/list`, `tools/call`,
 
 ## Tools
 
-| Tool | Description |
-|---|---|
-| `list_notes` | List all notes (path, title, tags) sorted by path |
-| `search_notes(query)` | Case-insensitive title + content search with context snippets |
-| `get_note(path)` | Full content + metadata for a note by vault-relative path |
-| `graph_neighbors(path, depth?)` | BFS neighbors (outbound links + backlinks) up to depth 3 |
-| `get_stats()` | Note count, link counts, tag count, top tags, orphan notes |
+| Tool                            | Description                                                   |
+| ------------------------------- | ------------------------------------------------------------- |
+| `list_notes`                    | List all notes (path, title, tags) sorted by path             |
+| `search_notes(query)`           | Case-insensitive title + content search with context snippets |
+| `get_note(path)`                | Full content + metadata for a note by vault-relative path     |
+| `graph_neighbors(path, depth?)` | BFS neighbors (outbound links + backlinks) up to depth 3      |
+| `get_stats()`                   | Note count, link counts, tag count, top tags, orphan notes    |
 
 ## Resources
 
