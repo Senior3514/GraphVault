@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 
 const NAV = [
   { href: '/vault', label: 'Vault', hint: 'Notes & editor' },
+  { href: '/graph', label: 'Graph', hint: 'Connections & filters' },
   { href: '/sync-status', label: 'Sync', hint: 'Status & conflicts' },
   { href: '/settings', label: 'Settings', hint: 'Server & vault' },
 ];
