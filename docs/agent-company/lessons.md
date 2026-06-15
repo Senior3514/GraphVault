@@ -524,3 +524,37 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   element to a local variable and add an explicit null guard before use, or
   define the type with a minimum-length tuple. Do not rely on a length-check
   type guard to narrow array element access in TypeScript strict mode.
+
+## MCP server / stdio transport
+
+### Content-Length framing: buffer raw bytes, never readline
+
+- **Symptom concern:** using `node:readline` to parse MCP messages line-by-line
+  fails because JSON-RPC bodies can contain embedded newlines (multi-line tool
+  results, note content with newlines). `readline` splits on `\n`, breaking the
+  body.
+- **Root cause:** the MCP/LSP Content-Length framing is a binary protocol:
+  read `Content-Length: N\r\n\r\n` as ASCII headers, then consume exactly `N`
+  raw bytes. `readline` is wrong at both levels.
+- **Fix / rule:** buffer `input.on('data')` into a `Buffer`, find `\r\n\r\n`,
+  parse `Content-Length`, then slice exactly that many bytes. Only then decode
+  as UTF-8 and `JSON.parse`. Never use `readline` for Content-Length-framed
+  protocols.
+
+### MCP `tools/call` error surface: use `isError: true` in the content, not a JSON-RPC error
+
+- **Rule:** per the MCP spec, tool execution errors (e.g. "note not found")
+  should be returned as a normal `tools/call` result with
+  `{ content: [{type: "text", text: "..."}], isError: true }`, not as a
+  JSON-RPC `error` object. Reserve JSON-RPC errors for protocol-level failures
+  (unknown method, invalid params). This lets the AI client see the error
+  message as tool output and reason about it, rather than treating it as a
+  transport failure.
+
+### Root `tsconfig.json` references must include new composite packages
+
+- **Rule:** when adding a new composite package under `packages/`, add it to
+  the root `tsconfig.json` `references` array. Without this the root-level
+  `tsc -b` (used by some CI steps) will not build or typecheck the new package.
+  The `pnpm-workspace.yaml` glob (`packages/*`) handles package discovery for
+  pnpm; the tsconfig references are separate and must be updated manually.
