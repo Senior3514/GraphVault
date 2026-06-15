@@ -43,6 +43,7 @@ import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/e
 import { useAISettings } from '../../components/assistant/useAISettings';
 import type { AISettings, ByokBackend } from '../../lib/ai/types';
 import { LOCAL_IMPORT_CONNECTORS } from '../../lib/connectors/registry';
+import { emailConnector } from '../../lib/connectors/email';
 import { rssOpmlConnector } from '../../lib/connectors/rssOpml';
 import {
   PRIVACY_POSTURE_COLORS,
@@ -1975,6 +1976,158 @@ function RssImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext> }
 }
 
 /**
+ * Email import panel — file upload for .eml and .mbox files.
+ *
+ * Processes files entirely in the browser; no network calls. Uses the
+ * emailConnector's parse() method and vault.importNotes() for collision-safe
+ * import.
+ */
+function EmailImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext> }) {
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const connector: LocalImportConnector = emailConnector;
+
+  const runImport = async (files: File[]) => {
+    if (files.length === 0) return;
+    setBusy(true);
+    setMsg(null);
+
+    let totalAdded = 0;
+    let totalRenamed = 0;
+    let totalUnchanged = 0;
+    const errors: string[] = [];
+
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        const connectorNotes = connector.parse(text);
+        const summary = vault.importNotes(connectorNotes);
+        totalAdded += summary.added;
+        totalRenamed += summary.renamed.length;
+        totalUnchanged += summary.unchanged;
+      } catch (err) {
+        errors.push(
+          `${file.name}: ${err instanceof ConnectorError || err instanceof Error ? err.message : 'Import failed.'}`,
+        );
+      }
+    }
+
+    setBusy(false);
+
+    if (errors.length > 0 && totalAdded === 0 && totalRenamed === 0 && totalUnchanged === 0) {
+      setMsg({ kind: 'err', text: errors.slice(0, 2).join(' ') });
+      return;
+    }
+
+    const parts: string[] = [];
+    if (totalAdded) parts.push(`${totalAdded} note${totalAdded !== 1 ? 's' : ''} added`);
+    if (totalRenamed) parts.push(`${totalRenamed} kept as copies (no overwrite)`);
+    if (totalUnchanged) parts.push(`${totalUnchanged} unchanged`);
+    if (errors.length) parts.push(`${errors.length} file(s) failed`);
+    setMsg({
+      kind: 'ok',
+      text: `Imported: ${parts.join(', ') || 'nothing new'}.`,
+    });
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) {
+      void runImport(Array.from(e.dataTransfer.files));
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="text-xs text-neutral-500">
+        Upload <code className="text-neutral-400">.eml</code> files (one message each) or{' '}
+        <code className="text-neutral-400">.mbox</code> archives (multiple messages). Each message
+        becomes one note under <code className="text-neutral-400">connectors/email/</code>. Import
+        is collision-safe — existing notes are never overwritten.
+      </p>
+
+      <div className="rounded-md border border-emerald-900/40 bg-emerald-950/20 p-3 text-xs text-emerald-300">
+        <strong>On-device only.</strong> Your email files are parsed entirely in the browser.
+        Nothing is uploaded or sent anywhere. Supports text/plain and text/html bodies, with
+        quoted-printable and base64 transfer encodings.
+      </div>
+
+      {/* Drop zone */}
+      <div>
+        <div
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          aria-label="Drop .eml or .mbox files here to import"
+          className={[
+            'flex min-h-[5rem] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors',
+            dragOver
+              ? 'border-neutral-400 bg-neutral-800/60'
+              : busy
+                ? 'border-neutral-700 bg-neutral-900/20 opacity-60'
+                : 'border-neutral-700 bg-neutral-900/20 hover:border-neutral-600',
+          ].join(' ')}
+        >
+          <p className="select-none text-xs text-neutral-500">
+            {dragOver ? 'Drop to import' : busy ? 'Importing…' : 'Drop .eml / .mbox here'}
+          </p>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+          >
+            {busy ? 'Importing…' : 'Upload files…'}
+          </button>
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept={connector.acceptedExtensions.join(',')}
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              void runImport(Array.from(e.target.files));
+            }
+            e.target.value = '';
+          }}
+        />
+      </div>
+
+      <p className="text-xs text-neutral-600">
+        Tip: export emails from your mail client as .eml (individual messages) or .mbox (folder
+        export). Most clients support one or both formats.
+      </p>
+
+      {/* Result message */}
+      <div className="min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
  * The full Connectors settings section. Lists all available connectors with
  * their privacy posture, description, and an expand/collapse panel per connector.
  */
@@ -1992,8 +2145,8 @@ function ConnectorsSection({ vault }: { vault: ReturnType<typeof useVaultContext
         <strong>Privacy model:</strong> connectors are opt-in and off by default. Each connector
         shows its privacy posture before it runs. Phase 1 connectors are{' '}
         <strong>on-device only</strong> — no network calls, no credentials. Future phases will add
-        server-proxied connectors (email, webhooks) where credentials stay on your self-hosted
-        server and never reach the browser.
+        server-proxied connectors (live IMAP, Gmail, Outlook) where credentials stay on your
+        self-hosted server and never reach the browser.
       </div>
 
       {/* Connector list */}
@@ -2031,13 +2184,14 @@ function ConnectorsSection({ vault }: { vault: ReturnType<typeof useVaultContext
 
             {/* Expand the import UI for this connector */}
             {openId === c.id && c.id === 'rss-opml-import' && <RssImportPanel vault={vault} />}
+            {openId === c.id && c.id === 'email-import' && <EmailImportPanel vault={vault} />}
           </li>
         ))}
       </ul>
 
       <p className="mt-4 text-xs text-neutral-600">
-        More connectors (email, calendar, bookmarks) are planned for phase 2. They will route
-        through your self-hosted server so credentials never touch the browser.
+        Phase 2 will add live email connectors (IMAP, Gmail, Outlook) that route through your
+        self-hosted GraphVault server — credentials never touch the browser.
       </p>
     </section>
   );
