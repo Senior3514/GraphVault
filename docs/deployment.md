@@ -222,7 +222,8 @@ the browser; set a server URL to add multi-device sync.
 
 ### One-time setup
 
-1. In Vercel, **Add New → Project** and import `Senior3514/GraphVault`.
+1. In Vercel, **Add New → Project** and import your fork of the GraphVault
+   repository.
 2. Keep **Root Directory** at the repo root (`./`) and the framework preset as
    **Other**. The committed root `vercel.json` drives the build:
    - install: `pnpm install --frozen-lockfile` (resolves the whole workspace),
