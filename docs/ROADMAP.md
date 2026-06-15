@@ -83,7 +83,8 @@
 
 - ✅ Stunning landing page + dismissible first-run onboarding hints (Cmd-K / `[[` / `#`)
 - ✅ Global UX polish (focus rings, transitions, empty-state utilities, motion-safe animations)
-- ✅ Docs: quickstart, self-hosting, security model, data portability; public-launch README (scrubbed)
+- ✅ Fully responsive/mobile: single-pane mobile workspace (Notes/Editor/Details bottom bar), drawers, safe-area insets, `100dvh`
+- ✅ Docs: quickstart, self-hosting, security model, data portability; public-launch README (scrubbed); one-command install table
 - ⬜ Full accessibility audit (focus order, contrast, screen-reader)
 - ⬜ "Finished product" QA gauntlet + tagged release
 

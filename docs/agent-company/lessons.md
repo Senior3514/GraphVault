@@ -258,3 +258,38 @@ stop repeating mistakes. Newest at the top within each section.
 
 - Grep public docs for the owner's account/repo slug before release; use generic
   "your fork" wording in setup docs, keep the real GitHub link only in app code.
+
+## Wave 3 — cross-cutting hardening (Pixel/Forge/Warden/Drift)
+
+### Responsive: dual-render structurally-different layouts (Pixel)
+
+- When mobile vs desktop differ in STRUCTURE (not just size), render two DOM
+  trees guarded by `hidden md:flex` / `flex md:hidden` instead of one
+  conditional-class tree — SSR-safe, no `matchMedia` JS, each layout stays
+  readable. Use `style={{ height: '100dvh' }}` (+ `h-screen` fallback) for
+  correct mobile viewport height; Tailwind 3's arbitrary `supports-*` variant is
+  unreliable for `100svh`.
+
+### Tauri desktop in a pnpm monorepo (Forge)
+
+- New `@tauri-apps/*` JS deps require regenerating the root lockfile
+  (`pnpm install --lockfile-only`) before Vercel's `--frozen-lockfile` install,
+  or the deploy breaks. `beforeBuildCommand` must run the topological
+  `pnpm run build:web`, not a bare web `--filter`. The `StorageAdapter` seam lets
+  the shell register a native `TauriStorageAdapter` with zero web-app diff.
+
+### Static-export CSP (Warden)
+
+- Next.js `output: 'export'` injects per-build inline RSC scripts, so
+  `script-src 'self' 'unsafe-inline'` is the correct (not lazy) policy; never
+  `'unsafe-eval'`. Deliver CSP via BOTH a `<meta http-equiv>` (any static host)
+  and `vercel.json` headers (authoritative; enforces `frame-ancestors`, which
+  browsers ignore in `<meta>`). `next.config.mjs` `headers()` is a no-op for
+  static export.
+
+### Untrusted file APIs in tests (Drift)
+
+- Shim browser APIs via `globalThis` (not `window`, which is undefined in Node;
+  `window === globalThis` in browsers). Augment DOM types with
+  `declare global { interface Window { … } }` — never re-declare a DOM interface
+  partially (creates a conflicting parallel type).
