@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppFrame } from '../components/AppFrame';
+import { ServiceWorkerRegistrar } from '../components/ServiceWorkerRegistrar';
 
 export const metadata: Metadata = {
   title: 'GraphVault — open and write. No folders, no file access.',
@@ -83,8 +84,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
          * vercel.json and X-Frame-Options both enforce the no-frame policy.
          */}
         <meta httpEquiv="Content-Security-Policy" content={CSP} />
+        {/* PWA manifest + theme */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#0a0a0a" />
+        {/* Apple PWA meta — iOS uses these when added to Home Screen */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="GraphVault" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
       <body>
+        {/*
+         * ServiceWorkerRegistrar is a tiny 'use client' component that calls
+         * navigator.serviceWorker.register('/sw.js') on mount. It renders
+         * nothing — purely a side-effect. Keeping it separate avoids making
+         * the entire layout a client component.
+         */}
+        <ServiceWorkerRegistrar />
         <AppFrame>{children}</AppFrame>
       </body>
     </html>

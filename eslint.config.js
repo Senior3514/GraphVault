@@ -31,4 +31,47 @@ export default tseslint.config(
       ],
     },
   },
+  // Service worker: runs in a ServiceWorkerGlobalScope, not a browser window.
+  // Inlined subset of the `globals` package's `serviceworker` entry so we
+  // don't need to add `globals` as a direct devDependency.
+  {
+    files: ['apps/web/public/sw.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        Request: 'readonly',
+        Response: 'readonly',
+        Headers: 'readonly',
+        Cache: 'readonly',
+        CacheStorage: 'readonly',
+        clients: 'readonly',
+        skipWaiting: 'readonly',
+        addEventListener: 'readonly',
+        console: 'readonly',
+      },
+    },
+  },
+  // Node.js scripts (icon generators, tooling helpers) use Node.js globals.
+  {
+    files: ['scripts/**'],
+    languageOptions: {
+      globals: {
+        Buffer: 'readonly',
+        console: 'readonly',
+        process: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+      },
+    },
+  },
 );

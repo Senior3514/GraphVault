@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { InstallButton } from '../components/InstallButton';
 
 /**
  * Marketing landing page — rendered full-bleed (no app chrome) via AppFrame.
@@ -157,6 +158,8 @@ export default function LandingPage() {
                 <GitHubIcon className="h-4 w-4 text-neutral-400" />
                 Star on GitHub
               </a>
+              {/* PWA install button — shown only when browser supports it */}
+              <InstallButton />
             </div>
           </div>
 

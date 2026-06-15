@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Background -->
+  <rect width="24" height="24" rx="5" fill="#0a0a0a"/>
+  <!-- Edges -->
+  <path d="M6.6 7.4 10.6 16M17.6 9.4 13.4 16M7 6.6 17 8"
+        stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.5"/>
+  <!-- Nodes -->
+  <circle cx="5" cy="6" r="2.2" fill="white"/>
+  <circle cx="19" cy="8" r="2.2" fill="white"/>
+  <circle cx="12" cy="18" r="2.2" fill="white" opacity="0.85"/>
+</svg>
