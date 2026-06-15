@@ -34,7 +34,7 @@
 - ✅ Hardened import (zip-slip / size / count guards) + tests
 - ✅ Pluggable storage backend seam: `StorageAdapter` + localStorage + File System Access disk adapter
 - ✅ Settings UI to pick storage location (folder on disk) with copy-verify-switch migration
-- ⬜ Drag-and-drop import; "export to folder"
+- ✅ Drag-and-drop import + "export to a folder" (File System Access)
 
 > Decision: **open-core** — auditable client + engine, optional paid hosted sync.
 
@@ -66,18 +66,18 @@
 - ✅ E2E vault encryption library: PBKDF2(310k)+AES-256-GCM, tamper-rejecting, versioned (`lib/crypto`)
 - ✅ Security review of render/XSS + import paths (passed)
 - ✅ Encryption wired into Settings: `EncryptedVaultStore` decorator + passphrase gate + safe enable/disable
-- ⬜ CSP + Trusted Types audit
+- ✅ Strict CSP (`<meta>` + `vercel.json` headers) + X-Content-Type-Options / Referrer-Policy / X-Frame-Options / Permissions-Policy
 - ⬜ Performance budget: virtualize long lists, debounce indexing, lazy graph
 
 ## Milestone 14b — Graph v2 extras ✅
 
 - ✅ In-graph search (`/`, highlight/zoom to matches), drag-to-pin nodes, zoom buttons, 200+ label cap perf
 
-## Milestone 16 — True local desktop (Tauri) ⬜
+## Milestone 16 — True local desktop (Tauri) 🟡
 
-- ⬜ Read/write real `.md` files on disk via the storage seam (no UI rewrite)
+- ✅ Tauri 2 shell scaffold (`apps/desktop`) wrapping the web export + `TauriStorageAdapter` on the storage seam
+- ⬜ Build installers on each OS (`pnpm --filter @graphvault/desktop build`; needs Rust + tauri-cli)
 - ⬜ Native file watching; open an existing folder as a vault
-- ⬜ Packaged installers (mac/win/linux)
 
 ## Milestone 17 — Polish, onboarding & launch 🟡
 

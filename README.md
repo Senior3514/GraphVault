@@ -168,6 +168,21 @@ planned milestone.
 
 ---
 
+## Install — one command per surface
+
+GraphVault runs everywhere, with a single command for each surface:
+
+| Surface                           | Command                                   | Notes                                                               |
+| --------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
+| **Use the web app**               | _(none — just open the URL)_              | Static export; runs in any modern browser on any OS.                |
+| **Self-host the sync server**     | `docker compose up -d --build`            | Brings up the server + PostgreSQL. Linux/macOS/Windows with Docker. |
+| **Desktop app** (Win/macOS/Linux) | `pnpm --filter @graphvault/desktop build` | Produces native installers via Tauri (requires the Rust toolchain). |
+
+The web client is **local-first** — it works fully offline with no account; the
+sync server is optional and only needed for multi-device sync.
+
+---
+
 ## Quickstart — local development
 
 ```bash
