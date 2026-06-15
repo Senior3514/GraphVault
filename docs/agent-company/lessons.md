@@ -324,3 +324,37 @@ stop repeating mistakes. Newest at the top within each section.
   that is updated on every render; the interval reads `stateRef.current`. This
   avoids needing to re-register the interval on every state change (which would
   reset the cadence and create micro-gaps in the animation).
+
+## Wave 5 — visual / cluster polish (Lumen)
+
+### `react-force-graph-2d` does not expose `pixelRatio` as a React prop
+
+- **Symptom:** adding `pixelRatio={window.devicePixelRatio}` to `<ForceGraph2D>`
+  caused a TS2322 type error: "Property 'pixelRatio' does not exist on type …".
+- **Root cause:** the upstream `force-graph` library handles DPR internally;
+  `react-force-graph-2d` never exposed it as a configurable prop, and its `.d.ts`
+  doesn't include it.
+- **Fix / rule:** don't pass `pixelRatio` to the component. Retina-crispness
+  improvements instead come from: (a) scaling all drawn sizes by `1 / globalScale`,
+  and (b) using radial gradient fills and halo-shadow labels which look good even
+  without explicit DPR scaling.
+
+### Context view as an alpha overlay (not a layout change)
+
+- **Rule:** the "context view" (isolate selected neighbourhood) must be implemented
+  as a per-node `ctx.globalAlpha` adjustment inside `nodeCanvasObject`, reading the
+  focus set through a stable ref — exactly like timeline and search dimming. This
+  keeps the layout completely stable, composes correctly with all other dimming
+  modes (search, timeline, hover), and avoids re-creating the callback on every
+  selection change. Never add a separate force-graph data rebuild for visual-only
+  effects.
+
+### Cluster colouring: compute outside `buildRenderModel`, pass in as a map
+
+- **Rule:** `buildRenderModel` is a pure, engine-agnostic transformer. Cluster
+  detection (connected-components BFS) depends on the graph topology and produces
+  a `Map<nodeId, color>`. The cleanest wiring is: (a) compute clusters in the page
+  with `buildClusterColors(payload.nodes, payload.edges)` as a separate `useMemo`,
+  (b) pass the resulting `clusterNodeColor` map into `buildRenderModel` as an
+  option. This keeps the model builder framework-free and makes it trivial to swap
+  in a richer community-detection algorithm later without touching `model.ts`.

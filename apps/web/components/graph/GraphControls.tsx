@@ -2,10 +2,17 @@
 
 /**
  * The left-hand control rail for the graph: mode toggle (global/local), local
- * depth, colour mode, the live physics sliders (link distance, repel strength,
- * centre gravity, label threshold), view buttons (zoom-to-fit / reset), and the
- * filter controls (tags, folders, link types, updated range) that drive
- * `filterGraph`. Presentational — state lives in the page.
+ * depth, colour mode (type/tag/cluster), the live physics sliders (link
+ * distance, repel strength, centre gravity, label threshold), view buttons
+ * (zoom-to-fit / reset), and the filter controls (tags, folders, link types,
+ * updated range) that drive `filterGraph`. Presentational — state lives in the
+ * page.
+ *
+ * v3 (Lumen) additions:
+ * - "Colour by" now includes "Cluster" mode (connected-component colouring).
+ * - New "Graphics" section with:
+ *   - Context view toggle (isolates the selected neighbourhood).
+ *   - Label density quick-preset (sparse / normal / dense).
  */
 
 import { colorForKey } from '../../lib/graph/model';
@@ -14,6 +21,14 @@ import type { ColorMode } from '../../lib/graph/model';
 import type { FilterAction, GraphFilters, GraphMode } from '../../lib/graph/filters';
 import { GraphTimeline } from './GraphTimeline';
 import type { TimelineState } from '../../lib/graph/timeline';
+
+/** Label density presets: maps to `physics.labelThreshold` values. */
+export type LabelDensity = 'sparse' | 'normal' | 'dense';
+const DENSITY_THRESHOLD: Record<LabelDensity, number> = {
+  sparse: 3.0,
+  normal: 1.6,
+  dense: 0.5,
+};
 
 export interface GraphControlsProps {
   mode: GraphMode;
@@ -42,6 +57,14 @@ export interface GraphControlsProps {
   /** Timeline slider state. `null` = no timestamped nodes, hide the control. */
   timeline: TimelineState | null;
   onTimelineChange: (patch: Partial<TimelineState>) => void;
+
+  /** v3: Context view toggle. */
+  contextView: boolean;
+  onContextViewChange: (on: boolean) => void;
+
+  /** v3: Current label density preset. */
+  labelDensity: LabelDensity;
+  onLabelDensityChange: (density: LabelDensity) => void;
 }
 
 export function GraphControls({
@@ -64,7 +87,16 @@ export function GraphControls({
   availableLinkTypes,
   timeline,
   onTimelineChange,
+  contextView,
+  onContextViewChange,
+  labelDensity,
+  onLabelDensityChange,
 }: GraphControlsProps) {
+  const handleDensityChange = (density: LabelDensity) => {
+    onLabelDensityChange(density);
+    onPhysicsChange({ labelThreshold: DENSITY_THRESHOLD[density] });
+  };
+
   return (
     // On mobile the aside is rendered inside a slide-up drawer by the page,
     // so we remove the fixed w-64 and border constraints and let it fill
@@ -116,6 +148,72 @@ export function GraphControls({
           <SegButton active={colorMode === 'tag'} onClick={() => onColorModeChange('tag')}>
             Tag
           </SegButton>
+          <SegButton active={colorMode === 'cluster'} onClick={() => onColorModeChange('cluster')}>
+            Cluster
+          </SegButton>
+        </div>
+        {colorMode === 'cluster' && (
+          <p className="mt-1.5 text-[11px] leading-snug text-neutral-600">
+            Colour by connected component — nodes that link to each other share a colour.
+          </p>
+        )}
+      </div>
+
+      <Divider />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* v3 Graphics section                                                  */}
+      {/* ------------------------------------------------------------------ */}
+      <div>
+        <Label>Graphics</Label>
+        <div className="mt-2 space-y-3">
+          {/* Context view toggle */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-neutral-400">Context view</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={contextView}
+              onClick={() => onContextViewChange(!contextView)}
+              title={
+                contextView
+                  ? 'Disable context view — show all nodes'
+                  : 'Enable context view — highlight the selected neighbourhood'
+              }
+              className={[
+                'relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-0 transition-colors duration-200',
+                contextView ? 'bg-blue-500' : 'bg-neutral-700',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'mt-px inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200',
+                  contextView ? 'translate-x-4' : 'translate-x-0.5',
+                ].join(' ')}
+              />
+            </button>
+          </div>
+          {contextView && (
+            <p className="text-[11px] leading-snug text-neutral-600">
+              Select a node to isolate its neighbourhood.
+            </p>
+          )}
+
+          {/* Label density */}
+          <div>
+            <span className="text-xs text-neutral-400">Label density</span>
+            <div className="mt-1.5 inline-flex rounded-md border border-neutral-800 p-0.5">
+              {(['sparse', 'normal', 'dense'] as LabelDensity[]).map((d) => (
+                <SegButton
+                  key={d}
+                  active={labelDensity === d}
+                  onClick={() => handleDensityChange(d)}
+                >
+                  {d.charAt(0).toUpperCase() + d.slice(1)}
+                </SegButton>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -392,3 +490,5 @@ function DateField({
     </label>
   );
 }
+
+export { DENSITY_THRESHOLD };

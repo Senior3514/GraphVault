@@ -1,15 +1,21 @@
 'use client';
 
 /**
- * The canvas colour legend. It mirrors exactly what the renderer draws: in
- * "type" mode it lists the node categories actually present (note / attachment
- * / missing note); in "tag" mode it lists the active tag colours. The legend is
- * driven straight from `CATEGORY_STYLE` / `colorForKey` so it can never drift
- * from the canvas.
+ * The canvas colour legend. It mirrors exactly what the renderer draws:
+ * - "type" mode: lists the node categories actually present (note / attachment
+ *   / missing note).
+ * - "tag" mode: lists the active tag colours.
+ * - "cluster" mode: lists the discovered connected-component clusters, largest
+ *   first, with a grey "Isolated" row for singleton nodes.
+ *
+ * The legend is driven straight from `CATEGORY_STYLE` / `colorForKey` /
+ * `clusterLegendEntries` so it can never drift from the canvas.
  */
 
 import { CATEGORY_STYLE, colorForKey, GRAPH_NEUTRAL } from '../../lib/graph/model';
 import type { ColorMode, NodeCategory } from '../../lib/graph/model';
+import type { ClusterColorInfo } from '../../lib/graph/clusters';
+import { clusterLegendEntries } from '../../lib/graph/clusters';
 
 export interface GraphLegendProps {
   colorMode: ColorMode;
@@ -17,10 +23,17 @@ export interface GraphLegendProps {
   categories: NodeCategory[];
   /** Tags available for the legend (tag mode). */
   tags: string[];
+  /** Cluster info for the legend (cluster mode). */
+  clusterInfo?: ClusterColorInfo | null;
 }
 
-export function GraphLegend({ colorMode, categories, tags }: GraphLegendProps) {
-  const entries = colorMode === 'type' ? legendForType(categories) : legendForTags(tags);
+export function GraphLegend({ colorMode, categories, tags, clusterInfo }: GraphLegendProps) {
+  const entries =
+    colorMode === 'type'
+      ? legendForType(categories)
+      : colorMode === 'cluster'
+        ? legendForClusters(clusterInfo)
+        : legendForTags(tags);
 
   if (entries.items.length === 0) return null;
 
@@ -67,6 +80,20 @@ function legendForTags(tags: string[]): { title: string; items: LegendItem[] } {
   }));
   items.push({ key: '__untagged__', label: 'untagged', color: GRAPH_NEUTRAL });
   return { title: 'Tags', items };
+}
+
+function legendForClusters(info: ClusterColorInfo | null | undefined): {
+  title: string;
+  items: LegendItem[];
+} {
+  if (!info) return { title: 'Clusters', items: [] };
+  const entries = clusterLegendEntries(info.result, info.colorMap, 7);
+  const items: LegendItem[] = entries.map((e, i) => ({
+    key: `cluster-${i}`,
+    label: e.label,
+    color: e.color,
+  }));
+  return { title: 'Clusters', items };
 }
 
 function Swatch({ color, outlined }: { color: string; outlined?: boolean }) {
