@@ -128,11 +128,7 @@ export class TauriStorageAdapter implements StorageAdapter {
   // ------------------------------------------------------------------
 
   isAvailable(): boolean {
-    return (
-      typeof window !== 'undefined' &&
-      '__TAURI__' in window &&
-      this.vaultPath !== null
-    );
+    return typeof window !== 'undefined' && '__TAURI__' in window && this.vaultPath !== null;
   }
 
   /**
@@ -159,8 +155,7 @@ export class TauriStorageAdapter implements StorageAdapter {
             const now = Date.now();
             notes.push({ path: relPath, content, mtime: now, ctime: now });
           } catch (err) {
-            const errorContent =
-              `<!-- GraphVault: failed to read file "${relPath}": ${String(err)} -->`;
+            const errorContent = `<!-- GraphVault: failed to read file "${relPath}": ${String(err)} -->`;
             const now = Date.now();
             notes.push({ path: relPath, content: errorContent, mtime: now, ctime: now });
           }

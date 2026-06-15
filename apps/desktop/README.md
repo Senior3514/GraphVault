@@ -23,7 +23,7 @@ apps/desktop/
   README.md             (this file)
 ```
 
-The web layer (`apps/web`) is unchanged.  In production Tauri loads the static
+The web layer (`apps/web`) is unchanged. In production Tauri loads the static
 export (`apps/web/out`); in development it proxies to the Next.js dev server on
 `http://localhost:3000`.
 
@@ -31,17 +31,17 @@ export (`apps/web/out`); in development it proxies to the Next.js dev server on
 
 ## Prerequisites
 
-| Tool | Minimum version | Install |
-|------|----------------|---------|
-| Rust + cargo | 1.77 | <https://rustup.rs> |
-| Tauri CLI | 2.x | `cargo install tauri-cli --version "^2"` |
-| Node.js | 20 | <https://nodejs.org> |
-| pnpm | 9+ | `npm i -g pnpm` |
-| System libraries | — | See <https://tauri.app/start/prerequisites/> |
+| Tool             | Minimum version | Install                                      |
+| ---------------- | --------------- | -------------------------------------------- |
+| Rust + cargo     | 1.77            | <https://rustup.rs>                          |
+| Tauri CLI        | 2.x             | `cargo install tauri-cli --version "^2"`     |
+| Node.js          | 20              | <https://nodejs.org>                         |
+| pnpm             | 9+              | `npm i -g pnpm`                              |
+| System libraries | —               | See <https://tauri.app/start/prerequisites/> |
 
 On **Linux** you additionally need `webkit2gtk-4.1`, `libappindicator3-1`,
 `librsvg2-dev`, and `libssl-dev` (Debian/Ubuntu) or the equivalents for your
-distro.  On **macOS** Xcode command-line tools are sufficient.  On **Windows**
+distro. On **macOS** Xcode command-line tools are sufficient. On **Windows**
 Microsoft Edge WebView2 (pre-installed from Win11) or the installer from
 <https://developer.microsoft.com/microsoft-edge/webview2/> is required.
 
@@ -61,6 +61,7 @@ pnpm dev
 ```
 
 Internally `pnpm dev` runs `tauri dev`, which:
+
 1. Executes `beforeDevCommand` → `pnpm --filter @graphvault/web dev` (Next.js on
    port 3000).
 2. Compiles the Rust shell and opens a native window pointing at
@@ -80,6 +81,7 @@ pnpm build
 ```
 
 Internally `pnpm build` runs `tauri build`, which:
+
 1. Executes `beforeBuildCommand` → `pnpm run build:web` (static export to
    `apps/web/out`).
 2. Compiles an optimised Rust binary and bundles the static files into a
@@ -87,6 +89,7 @@ Internally `pnpm build` runs `tauri build`, which:
    `.AppImage`/`.deb`/`.rpm` on Linux).
 
 Installer output lands in:
+
 ```
 apps/desktop/src-tauri/target/release/bundle/
 ```
@@ -96,7 +99,7 @@ apps/desktop/src-tauri/target/release/bundle/
 ## The `.md`-on-disk storage path
 
 GraphVault already has a pluggable `StorageAdapter` seam defined in
-`apps/web/lib/vault/storage/index.ts`.  The desktop build adds a native
+`apps/web/lib/vault/storage/index.ts`. The desktop build adds a native
 implementation (`src/tauriStorageAdapter.ts`) that:
 
 1. Invokes the Rust `pick_vault_folder` IPC command to show the OS folder picker.
@@ -148,7 +151,7 @@ needed** in the editor, vault page, or Settings to switch to native disk I/O.
 ## Native file watching (planned — Milestone 17)
 
 Once the storage adapter is wired end-to-end, the next step is native file
-watching via `tauri-plugin-fs`'s `watch` API.  This lets an external editor
+watching via `tauri-plugin-fs`'s `watch` API. This lets an external editor
 (VS Code, etc.) modify notes on disk and have GraphVault pick up the changes
 without a manual reload — replacing the current "poll on focus" approach.
 
@@ -157,10 +160,10 @@ without a manual reload — replacing the current "poll on focus" approach.
 ## Integration note (for the orchestrator)
 
 `apps/desktop` is a new pnpm workspace member (already covered by the
-`apps/*` glob in `pnpm-workspace.yaml`).  No root config changes are needed.
+`apps/*` glob in `pnpm-workspace.yaml`). No root config changes are needed.
 
 The `@tauri-apps/api`, `@tauri-apps/plugin-fs`, and `@tauri-apps/plugin-dialog`
-JS packages are listed as `dependencies` in `apps/desktop/package.json`.  Run
+JS packages are listed as `dependencies` in `apps/desktop/package.json`. Run
 `pnpm install` from the repo root to install them; the orchestrator owns the
 lockfile regeneration step.
 
