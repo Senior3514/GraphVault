@@ -42,7 +42,11 @@ export default function SettingsPage() {
   const totalChars = vault.notes.reduce((n, note) => n + note.content.length, 0);
 
   const resetVault = async () => {
-    if (!window.confirm('Reset the local vault to the sample notes? Your current notes will be removed.')) {
+    if (
+      !window.confirm(
+        'Reset the local vault to the sample notes? Your current notes will be removed.',
+      )
+    ) {
       return;
     }
     await vault.resetVault();
@@ -95,11 +99,13 @@ export default function SettingsPage() {
           <dt>Notes</dt>
           <dd className="text-neutral-200">{vault.ready ? vault.notes.length : '—'}</dd>
           <dt>Total content</dt>
-          <dd className="text-neutral-200">{vault.ready ? `${totalChars.toLocaleString()} chars` : '—'}</dd>
+          <dd className="text-neutral-200">
+            {vault.ready ? `${totalChars.toLocaleString()} chars` : '—'}
+          </dd>
         </dl>
         <p className="mt-4 text-xs text-neutral-500">
-          This web shell stores notes in your browser. The desktop app will read and write
-          real <code className="text-neutral-400">.md</code> files on disk.
+          This web shell stores notes in your browser. The desktop app will read and write real{' '}
+          <code className="text-neutral-400">.md</code> files on disk.
         </p>
         <button
           type="button"

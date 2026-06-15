@@ -45,10 +45,7 @@ export function buildLinkResolver(notes: IndexedNote[]): LinkResolver {
     resolve(target: string): NotePath | null {
       const key = normalizeTarget(target);
       return (
-        byPath.get(key) ??
-        byBasename.get(key) ??
-        byTitle.get(target.trim().toLowerCase()) ??
-        null
+        byPath.get(key) ?? byBasename.get(key) ?? byTitle.get(target.trim().toLowerCase()) ?? null
       );
     },
   };
@@ -86,9 +83,6 @@ export function computeBacklinks(notes: IndexedNote[]): Map<NotePath, Backlink[]
 }
 
 /** Backlinks pointing at a single note path. */
-export function backlinksFor(
-  notes: IndexedNote[],
-  path: NotePath,
-): Backlink[] {
+export function backlinksFor(notes: IndexedNote[], path: NotePath): Backlink[] {
   return computeBacklinks(notes).get(path) ?? [];
 }

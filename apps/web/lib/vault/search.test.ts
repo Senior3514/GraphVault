@@ -7,9 +7,24 @@ import type { Note } from './types';
 
 function corpus(): Note[] {
   return [
-    { path: 'graph.md', content: '---\ntitle: Graph view ideas\ntags: [graph]\n---\nforce directed layout', ctime: 0, mtime: 0 },
-    { path: 'sync.md', content: '---\ntitle: Sync overview\ntags: [sync]\n---\nconflicts preserved as copies', ctime: 0, mtime: 0 },
-    { path: 'welcome.md', content: '---\ntitle: Welcome\n---\nintro to the graph and sync', ctime: 0, mtime: 0 },
+    {
+      path: 'graph.md',
+      content: '---\ntitle: Graph view ideas\ntags: [graph]\n---\nforce directed layout',
+      ctime: 0,
+      mtime: 0,
+    },
+    {
+      path: 'sync.md',
+      content: '---\ntitle: Sync overview\ntags: [sync]\n---\nconflicts preserved as copies',
+      ctime: 0,
+      mtime: 0,
+    },
+    {
+      path: 'welcome.md',
+      content: '---\ntitle: Welcome\n---\nintro to the graph and sync',
+      ctime: 0,
+      mtime: 0,
+    },
   ];
 }
 

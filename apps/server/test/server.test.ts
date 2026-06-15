@@ -214,9 +214,7 @@ test('push referencing a missing blob is MISSING_BLOB', async () => {
     headers: authHeader(token),
     payload: {
       deviceId,
-      ops: [
-        { path: 'a.md', hash: fakeHash, size: 3, mtime: 1, deleted: false, baseRevision: 0 },
-      ],
+      ops: [{ path: 'a.md', hash: fakeHash, size: 3, mtime: 1, deleted: false, baseRevision: 0 }],
     },
   });
   assert.equal(push.statusCode, 200);
@@ -261,7 +259,9 @@ test('content conflict: second device edits from a stale base', async () => {
     headers: authHeader(token),
     payload: {
       deviceId,
-      ops: [{ path: 'doc.md', hash: h1, size: v1.length, mtime: 1, deleted: false, baseRevision: 0 }],
+      ops: [
+        { path: 'doc.md', hash: h1, size: v1.length, mtime: 1, deleted: false, baseRevision: 0 },
+      ],
     },
   });
   assert.equal(first.json().revision, 1);
@@ -273,7 +273,9 @@ test('content conflict: second device edits from a stale base', async () => {
     headers: authHeader(token),
     payload: {
       deviceId,
-      ops: [{ path: 'doc.md', hash: h2, size: v2.length, mtime: 2, deleted: false, baseRevision: 0 }],
+      ops: [
+        { path: 'doc.md', hash: h2, size: v2.length, mtime: 2, deleted: false, baseRevision: 0 },
+      ],
     },
   });
   assert.equal(second.statusCode, 200);
@@ -388,7 +390,9 @@ test('delete vs edit yields DELETE_EDIT_CONFLICT', async () => {
     headers: authHeader(token),
     payload: {
       deviceId,
-      ops: [{ path: 'd.md', hash, size: content.length, mtime: 1, deleted: false, baseRevision: 0 }],
+      ops: [
+        { path: 'd.md', hash, size: content.length, mtime: 1, deleted: false, baseRevision: 0 },
+      ],
     },
   });
 

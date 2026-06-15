@@ -56,11 +56,7 @@ export class InMemoryStorage implements Storage {
     return this.users.get(id) ?? null;
   }
 
-  async createDevice(input: {
-    id: string;
-    userId: string;
-    name: string;
-  }): Promise<DeviceRecord> {
+  async createDevice(input: { id: string; userId: string; name: string }): Promise<DeviceRecord> {
     const now = InMemoryStorage.now();
     const record: DeviceRecord = {
       id: input.id,
@@ -90,11 +86,7 @@ export class InMemoryStorage implements Storage {
     return this.tokens.get(tokenHash) ?? null;
   }
 
-  async createVault(input: {
-    id: string;
-    userId: string;
-    name: string;
-  }): Promise<VaultRecord> {
+  async createVault(input: { id: string; userId: string; name: string }): Promise<VaultRecord> {
     const record: VaultRecord = {
       id: input.id,
       userId: input.userId,

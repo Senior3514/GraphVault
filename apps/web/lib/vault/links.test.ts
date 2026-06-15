@@ -9,7 +9,12 @@ function notes(): Note[] {
   const t = 0;
   return [
     { path: 'a.md', content: '---\ntitle: Note A\n---\nlinks to [[Note B]]', ctime: t, mtime: t },
-    { path: 'sub/b.md', content: '---\ntitle: Note B\n---\nlinks to [[Note A]] and [[Note C]]', ctime: t, mtime: t },
+    {
+      path: 'sub/b.md',
+      content: '---\ntitle: Note B\n---\nlinks to [[Note A]] and [[Note C]]',
+      ctime: t,
+      mtime: t,
+    },
     { path: 'c.md', content: '# Note A duplicate title?\nlinks to [[sub/b]]', ctime: t, mtime: t },
   ];
 }

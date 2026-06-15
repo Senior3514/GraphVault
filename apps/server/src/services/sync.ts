@@ -25,7 +25,11 @@ export class SyncService {
     private readonly blobs: DiskBlobStore,
   ) {}
 
-  async changes(vaultId: string, since: number, limit: number | undefined): Promise<ChangesResponse> {
+  async changes(
+    vaultId: string,
+    since: number,
+    limit: number | undefined,
+  ): Promise<ChangesResponse> {
     const cap = clampLimit(limit);
     const page = await this.storage.listChangesSince(vaultId, since, cap);
     const vault = await this.storage.getVault(vaultId);

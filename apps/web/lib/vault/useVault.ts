@@ -90,10 +90,7 @@ export function useVault(): UseVault {
     void store.save(rawNotes);
   }, [rawNotes, ready]);
 
-  const getNote = useCallback(
-    (path: NotePath) => notes.find((n) => n.path === path),
-    [notes],
-  );
+  const getNote = useCallback((path: NotePath) => notes.find((n) => n.path === path), [notes]);
 
   const createNote = useCallback((path: string, content = '') => {
     let created: Note | undefined;
@@ -114,7 +111,8 @@ export function useVault(): UseVault {
     let target = from;
     setRawNotes((prev) => {
       const next = renameNoteOp(prev, from, to);
-      target = next.find((n) => n.path !== from && !prev.some((p) => p.path === n.path))?.path ?? to;
+      target =
+        next.find((n) => n.path !== from && !prev.some((p) => p.path === n.path))?.path ?? to;
       return next;
     });
     return target;
@@ -130,20 +128,14 @@ export function useVault(): UseVault {
     setRawNotes(seeded);
   }, []);
 
-  const search = useCallback(
-    (query: string) => searchIndex.current?.search(query) ?? [],
-    [],
-  );
+  const search = useCallback((query: string) => searchIndex.current?.search(query) ?? [], []);
 
   const resolveLink = useCallback(
     (target: string) => resolver.get(target.trim().replace(/\.md$/i, '').toLowerCase()) ?? null,
     [resolver],
   );
 
-  const backlinksFor = useCallback(
-    (path: NotePath) => backlinks.get(path) ?? [],
-    [backlinks],
-  );
+  const backlinksFor = useCallback((path: NotePath) => backlinks.get(path) ?? [], [backlinks]);
 
   return {
     ready,

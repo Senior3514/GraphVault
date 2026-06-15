@@ -38,10 +38,7 @@ test('extractInlineTags ignores hashes inside words', () => {
 
 test('extractWikiLinks parses targets and aliases, de-duplicated', () => {
   const links = extractWikiLinks('See [[Note A]] and [[Note A]] and [[path/b|Alias B]].');
-  assert.deepEqual(links, [
-    { target: 'Note A' },
-    { target: 'path/b', alias: 'Alias B' },
-  ]);
+  assert.deepEqual(links, [{ target: 'Note A' }, { target: 'path/b', alias: 'Alias B' }]);
 });
 
 test('deriveTitle prefers frontmatter, then H1, then filename', () => {

@@ -25,7 +25,10 @@ export interface AppOptions {
  * used directly; otherwise the configured backend is constructed and torn down
  * on `app.close()`.
  */
-export async function buildApp(config: ServerConfig, options: AppOptions = {}): Promise<FastifyInstance> {
+export async function buildApp(
+  config: ServerConfig,
+  options: AppOptions = {},
+): Promise<FastifyInstance> {
   const app = Fastify({
     bodyLimit: Math.max(config.maxBlobBytes, 1024 * 1024),
     logger: {
@@ -41,10 +44,8 @@ export async function buildApp(config: ServerConfig, options: AppOptions = {}): 
   });
 
   // Parse raw bytes for blob uploads (content is opaque; never JSON).
-  app.addContentTypeParser(
-    'application/octet-stream',
-    { parseAs: 'buffer' },
-    (_req, body, done) => done(null, body),
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) =>
+    done(null, body),
   );
   // Some clients PUT blobs with no/other content types; accept raw bytes too.
   app.addContentTypeParser('*', { parseAs: 'buffer' }, (_req, body, done) => done(null, body));
@@ -67,7 +68,9 @@ export async function buildApp(config: ServerConfig, options: AppOptions = {}): 
   // --- error handling: render everything as the standard JSON envelope ---
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof AppError) {
-      return reply.code(error.statusCode).send(errorEnvelope(error.code, error.message, error.details));
+      return reply
+        .code(error.statusCode)
+        .send(errorEnvelope(error.code, error.message, error.details));
     }
     if (error instanceof ZodError) {
       return reply.code(400).send(errorEnvelope('BAD_REQUEST', 'Invalid request', error.flatten()));

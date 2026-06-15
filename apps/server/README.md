@@ -34,15 +34,15 @@ test/                 node:test integration tests via app.inject()
 
 All configuration is via environment variables — see [`.env.example`](./.env.example).
 
-| Var                        | Default      | Meaning                                   |
-| -------------------------- | ------------ | ----------------------------------------- |
-| `GRAPHVAULT_HOST`          | `127.0.0.1`  | Listen host                               |
-| `GRAPHVAULT_PORT`          | `4000`       | Listen port                               |
-| `GRAPHVAULT_CORS_ORIGIN`   | `*`          | Comma-separated origins, or `*`           |
-| `GRAPHVAULT_DATA_DIR`      | `./storage`  | Where blob bytes live on disk             |
-| `GRAPHVAULT_STORAGE`       | `memory`     | `memory` or `postgres`                    |
-| `DATABASE_URL`             | —            | Postgres DSN (required for `postgres`)    |
-| `GRAPHVAULT_MAX_BLOB_BYTES`| `67108864`   | Max blob upload size (64 MiB)             |
+| Var                         | Default     | Meaning                                |
+| --------------------------- | ----------- | -------------------------------------- |
+| `GRAPHVAULT_HOST`           | `127.0.0.1` | Listen host                            |
+| `GRAPHVAULT_PORT`           | `4000`      | Listen port                            |
+| `GRAPHVAULT_CORS_ORIGIN`    | `*`         | Comma-separated origins, or `*`        |
+| `GRAPHVAULT_DATA_DIR`       | `./storage` | Where blob bytes live on disk          |
+| `GRAPHVAULT_STORAGE`        | `memory`    | `memory` or `postgres`                 |
+| `DATABASE_URL`              | —           | Postgres DSN (required for `postgres`) |
+| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864`  | Max blob upload size (64 MiB)          |
 
 ## Storage backends
 

@@ -1,9 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import {
-  pushRequestSchema,
-  registerVaultRequestSchema,
-  type PushOp,
-} from '@graphvault/shared';
+import { pushRequestSchema, registerVaultRequestSchema, type PushOp } from '@graphvault/shared';
 import { badRequest } from '../errors.js';
 import type { AuthContext } from '../services/auth.js';
 import type { Services } from '../services/index.js';

@@ -49,7 +49,10 @@ test('DEFAULT_NODE_CAP is exported and positive', () => {
 
 test('getLocalGraph depth 0 returns just the note', () => {
   const g = getLocalGraph(chainIndex(), 'b.md', 0);
-  assert.deepEqual(g.nodes.map((n) => n.id), ['b.md']);
+  assert.deepEqual(
+    g.nodes.map((n) => n.id),
+    ['b.md'],
+  );
   assert.equal(g.edges.length, 0);
 });
 
@@ -92,10 +95,11 @@ test('filterGraph by tag', () => {
 
 test('filterGraph by tag is case-insensitive', () => {
   const g = filterGraph(taggedIndex(), { tags: ['PROJECT'] });
-  assert.deepEqual(
-    g.nodes.map((n) => n.id).sort(),
-    ['personal/sub/d.md', 'work/a.md', 'work/b.md'],
-  );
+  assert.deepEqual(g.nodes.map((n) => n.id).sort(), [
+    'personal/sub/d.md',
+    'work/a.md',
+    'work/b.md',
+  ]);
 });
 
 test('filterGraph by folder includes nested folders', () => {

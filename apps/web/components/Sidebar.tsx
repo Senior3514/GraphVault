@@ -18,9 +18,7 @@ export function Sidebar() {
     <nav className="flex h-full w-56 shrink-0 flex-col border-r border-neutral-800 bg-neutral-950">
       <div className="px-4 py-5">
         <Link href="/vault" className="block">
-          <span className="text-lg font-semibold tracking-tight text-neutral-100">
-            GraphVault
-          </span>
+          <span className="text-lg font-semibold tracking-tight text-neutral-100">GraphVault</span>
         </Link>
         <p className="mt-1 text-xs text-neutral-500">Local-first notes</p>
       </div>

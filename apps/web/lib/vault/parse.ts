@@ -121,10 +121,7 @@ export function extractWikiLinks(body: string): WikiLink[] {
 }
 
 /** Combine frontmatter `tags` and inline tags into one de-duplicated list. */
-function collectTags(
-  frontmatter: Record<string, string | string[]>,
-  body: string,
-): string[] {
+function collectTags(frontmatter: Record<string, string | string[]>, body: string): string[] {
   const tags = new Set<string>();
   const fmTags = frontmatter.tags;
   if (Array.isArray(fmTags)) {

@@ -141,9 +141,7 @@ function parseYaml(yaml: string): Record<string, unknown> {
     const baseIndent = line.indent;
 
     if (rest !== '') {
-      result[key] = isFlowList(rest)
-        ? parseFlowList(rest)
-        : coerceScalar(rest);
+      result[key] = isFlowList(rest) ? parseFlowList(rest) : coerceScalar(rest);
       i++;
       continue;
     }
@@ -158,9 +156,10 @@ function parseYaml(yaml: string): Record<string, unknown> {
         block.push(lines[j]!);
         j++;
       }
-      result[key] = block[0]!.content.startsWith('- ') || block[0]!.content === '-'
-        ? parseBlockList(block)
-        : parseNestedMap(block, childIndent);
+      result[key] =
+        block[0]!.content.startsWith('- ') || block[0]!.content === '-'
+          ? parseBlockList(block)
+          : parseNestedMap(block, childIndent);
       i = j;
     } else {
       result[key] = null;
@@ -216,9 +215,7 @@ function parseNestedMap(block: YamlLine[], indent: number): Record<string, unkno
     const key = unquote(line.content.slice(0, colon));
     const rest = line.content.slice(colon + 1).trim();
     if (rest !== '') {
-      map[key] = isFlowList(rest)
-        ? parseFlowList(rest)
-        : coerceScalar(rest);
+      map[key] = isFlowList(rest) ? parseFlowList(rest) : coerceScalar(rest);
       i++;
       continue;
     }
@@ -374,7 +371,11 @@ export function parseNote(path: FilePath, content: string): ParsedNote {
     title = fmTitle.trim();
   } else {
     const h1 = H1_RE.exec(maskedBody);
-    title = h1 ? body.slice(h1.index, h1.index + h1[0].length).replace(H1_RE, '$1').trim()
+    title = h1
+      ? body
+          .slice(h1.index, h1.index + h1[0].length)
+          .replace(H1_RE, '$1')
+          .trim()
       : titleFromPath(path);
   }
 

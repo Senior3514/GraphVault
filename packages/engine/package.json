@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -b",
     "dev": "tsc -b --watch",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo",
     "test": "tsx --test src/**/*.test.ts"
   },

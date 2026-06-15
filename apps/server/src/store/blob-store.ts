@@ -68,7 +68,10 @@ export class DiskBlobStore {
     if (await this.has(actual)) {
       return { hash: actual, size: bytes.length };
     }
-    const tmp = join(tmpdir(), `gv-blob-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const tmp = join(
+      tmpdir(),
+      `gv-blob-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
     await writeFile(tmp, bytes);
     try {
       await rename(tmp, dest);

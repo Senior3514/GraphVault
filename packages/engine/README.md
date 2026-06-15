@@ -42,7 +42,7 @@ const index = buildIndex([
   { path: 'notes/beta.md', content: '# Beta\nsee [Alpha](a.md)', updatedAt: 200 },
 ]);
 
-getGraph(index);                      // whole graph (capped, with truncation flag)
+getGraph(index); // whole graph (capped, with truncation flag)
 getLocalGraph(index, 'notes/a.md', 1); // 1-hop neighbourhood around a note
 filterGraph(index, { tags: ['project'] });
 ```
@@ -86,29 +86,29 @@ See `src/types.ts` for the authoritative definitions. The key ones:
 
 ```ts
 interface NoteInput {
-  path: FilePath;       // vault-relative POSIX path, from @graphvault/shared
-  content: string;      // raw markdown
-  createdAt?: number;   // epoch ms
-  updatedAt?: number;   // epoch ms
+  path: FilePath; // vault-relative POSIX path, from @graphvault/shared
+  content: string; // raw markdown
+  createdAt?: number; // epoch ms
+  updatedAt?: number; // epoch ms
 }
 
 interface GraphNode {
-  id: string;           // == path in v0
+  id: string; // == path in v0
   path: FilePath;
   title: string;
   tags: string[];
-  folder: string;       // '' for the vault root
+  folder: string; // '' for the vault root
   createdAt?: number;
   updatedAt?: number;
 }
 
 interface GraphEdge {
-  source: string;       // note id
-  target: string;       // note id when resolved, else the raw link text
-  type: LinkType;       // 'wikilink' | 'markdown' | <relation-name>
+  source: string; // note id
+  target: string; // note id when resolved, else the raw link text
+  type: LinkType; // 'wikilink' | 'markdown' | <relation-name>
   resolved: boolean;
-  heading?: string;     // anchor within the target, if specified
-  alias?: string;       // display text, if specified
+  heading?: string; // anchor within the target, if specified
+  alias?: string; // display text, if specified
 }
 ```
 

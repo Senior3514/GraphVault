@@ -41,9 +41,7 @@ export default function SyncStatusPage() {
   return (
     <main className="mx-auto w-full max-w-3xl overflow-auto px-8 py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">Sync status</h1>
-      <p className="mt-1 text-sm text-neutral-500">
-        Self-hosted sync. Your notes, your server.
-      </p>
+      <p className="mt-1 text-sm text-neutral-500">Self-hosted sync. Your notes, your server.</p>
 
       <section className="mt-8 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <div className="flex items-center justify-between">
@@ -91,22 +89,29 @@ export default function SyncStatusPage() {
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5 text-sm">
         <h2 className="text-sm font-semibold text-neutral-200">Last sync</h2>
         <p className="mt-2 text-neutral-400">
-          Never synced — the sync engine arrives in Milestone 5. When connected, this panel
-          will show the last sync time, pending pushes, and any conflict copies created to
-          preserve data.
+          Never synced — the sync engine arrives in Milestone 5. When connected, this panel will
+          show the last sync time, pending pushes, and any conflict copies created to preserve data.
         </p>
       </section>
     </main>
   );
 }
 
-function Badge({ tone, children }: { tone: 'green' | 'red' | 'neutral'; children: React.ReactNode }) {
+function Badge({
+  tone,
+  children,
+}: {
+  tone: 'green' | 'red' | 'neutral';
+  children: React.ReactNode;
+}) {
   const cls = {
     green: 'bg-emerald-900/40 text-emerald-300',
     red: 'bg-red-900/40 text-red-300',
     neutral: 'bg-neutral-800 text-neutral-300',
   }[tone];
-  return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs ${cls}`}>{children}</span>;
+  return (
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs ${cls}`}>{children}</span>
+  );
 }
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {

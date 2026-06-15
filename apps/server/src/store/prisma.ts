@@ -67,11 +67,7 @@ export class PrismaStorage implements Storage {
     return u ? mapUser(u) : null;
   }
 
-  async createDevice(input: {
-    id: string;
-    userId: string;
-    name: string;
-  }): Promise<DeviceRecord> {
+  async createDevice(input: { id: string; userId: string; name: string }): Promise<DeviceRecord> {
     const d = await this.db.device.create({
       data: { id: input.id, userId: input.userId, name: input.name },
     });
@@ -110,11 +106,7 @@ export class PrismaStorage implements Storage {
     };
   }
 
-  async createVault(input: {
-    id: string;
-    userId: string;
-    name: string;
-  }): Promise<VaultRecord> {
+  async createVault(input: { id: string; userId: string; name: string }): Promise<VaultRecord> {
     const v = await this.db.vault.create({
       data: { id: input.id, userId: input.userId, name: input.name },
     });

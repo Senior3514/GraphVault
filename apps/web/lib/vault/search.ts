@@ -80,10 +80,6 @@ export class NoteSearchIndex {
  * One-shot search helper for callers that don't keep an index around (e.g.
  * tests). Prefer {@link NoteSearchIndex} when searching repeatedly.
  */
-export function searchNotes(
-  notes: IndexedNote[],
-  query: string,
-  limit = 50,
-): SearchResult[] {
+export function searchNotes(notes: IndexedNote[], query: string, limit = 50): SearchResult[] {
   return new NoteSearchIndex(notes).search(query, limit);
 }

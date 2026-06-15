@@ -9,14 +9,7 @@
  * pushed up through `onChange` for the parent to autosave.
  */
 
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { IndexedNote } from '../lib/vault/types';
 

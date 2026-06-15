@@ -34,9 +34,7 @@ export function indexNote(note: Note): IndexedNote {
 
 /** Attach parsed metadata to every note, sorted by title for stable display. */
 export function indexNotes(notes: Note[]): IndexedNote[] {
-  return notes
-    .map(indexNote)
-    .sort((a, b) => a.parsed.title.localeCompare(b.parsed.title));
+  return notes.map(indexNote).sort((a, b) => a.parsed.title.localeCompare(b.parsed.title));
 }
 
 export class VaultError extends Error {}
@@ -49,11 +47,7 @@ function assertValidPath(path: NotePath): void {
 }
 
 /** Create a new note. Throws if the path already exists. */
-export function createNote(
-  notes: Note[],
-  rawPath: string,
-  content = '',
-): Note[] {
+export function createNote(notes: Note[], rawPath: string, content = ''): Note[] {
   const path = ensureMdExtension(normalizePath(rawPath));
   assertValidPath(path);
   if (notes.some((n) => n.path === path)) {
@@ -65,11 +59,7 @@ export function createNote(
 }
 
 /** Update a note's content (no-op if unchanged). Throws if it doesn't exist. */
-export function updateNoteContent(
-  notes: Note[],
-  path: NotePath,
-  content: string,
-): Note[] {
+export function updateNoteContent(notes: Note[], path: NotePath, content: string): Note[] {
   let found = false;
   const next = notes.map((n) => {
     if (n.path !== path) return n;
@@ -82,11 +72,7 @@ export function updateNoteContent(
 }
 
 /** Rename/move a note. Throws if the source is missing or target exists. */
-export function renameNote(
-  notes: Note[],
-  from: NotePath,
-  rawTo: string,
-): Note[] {
+export function renameNote(notes: Note[], from: NotePath, rawTo: string): Note[] {
   const to = ensureMdExtension(normalizePath(rawTo));
   assertValidPath(to);
   if (!notes.some((n) => n.path === from)) {
@@ -95,9 +81,7 @@ export function renameNote(
   if (from !== to && notes.some((n) => n.path === to)) {
     throw new VaultError(`A note already exists at "${to}".`);
   }
-  return notes.map((n) =>
-    n.path === from ? { ...n, path: to, mtime: Date.now() } : n,
-  );
+  return notes.map((n) => (n.path === from ? { ...n, path: to, mtime: Date.now() } : n));
 }
 
 /** Delete a note by path. Returns the list unchanged if it doesn't exist. */
@@ -131,9 +115,7 @@ export function buildTree(notes: IndexedNote[]): TreeNode[] {
       if (isFile) {
         cursor.children!.push({ name: parts[i], path: segPath, note });
       } else {
-        let child = cursor.children!.find(
-          (c) => c.path === segPath && c.children,
-        );
+        let child = cursor.children!.find((c) => c.path === segPath && c.children);
         if (!child) {
           child = { name: parts[i], path: segPath, children: [] };
           cursor.children!.push(child);

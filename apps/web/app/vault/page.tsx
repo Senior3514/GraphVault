@@ -211,7 +211,11 @@ export default function VaultPage() {
         {activeNote ? (
           <div className="flex min-h-0 flex-1">
             {(view === 'edit' || view === 'split') && (
-              <div className={view === 'split' ? 'min-w-0 flex-1 border-r border-neutral-800' : 'min-w-0 flex-1'}>
+              <div
+                className={
+                  view === 'split' ? 'min-w-0 flex-1 border-r border-neutral-800' : 'min-w-0 flex-1'
+                }
+              >
                 <MarkdownEditor value={draft} notes={vault.notes} onChange={onDraftChange} />
               </div>
             )}

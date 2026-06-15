@@ -86,7 +86,16 @@ test('external links and images are ignored', () => {
 });
 
 test('links inside code spans and fences are ignored', () => {
-  const md = ['`[[not a link]]`', '', '```', '[[also not]]', '[md](x.md)', '```', '', '[[real link]]'].join('\n');
+  const md = [
+    '`[[not a link]]`',
+    '',
+    '```',
+    '[[also not]]',
+    '[md](x.md)',
+    '```',
+    '',
+    '[[real link]]',
+  ].join('\n');
   const note = parseNote(p('a.md'), md);
   assert.equal(note.links.length, 1);
   assert.equal(note.links[0]!.target, 'real link');
@@ -108,7 +117,15 @@ test('frontmatter tags merge with inline tags', () => {
 });
 
 test('typed relations become links with the relation name as type', () => {
-  const md = ['---', 'relations:', '  supports:', '    - [[Claim A]]', '  refutes: [[Claim B]]', '---', 'body'].join('\n');
+  const md = [
+    '---',
+    'relations:',
+    '  supports:',
+    '    - [[Claim A]]',
+    '  refutes: [[Claim B]]',
+    '---',
+    'body',
+  ].join('\n');
   const note = parseNote(p('a.md'), md);
   const supports = note.links.find((l) => l.type === 'supports');
   const refutes = note.links.find((l) => l.type === 'refutes');

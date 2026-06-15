@@ -72,11 +72,7 @@ export interface FileChange {
 
 export interface Storage {
   // --- users ---
-  createUser(input: {
-    id: string;
-    email: string;
-    passwordHash: string;
-  }): Promise<UserRecord>;
+  createUser(input: { id: string; email: string; passwordHash: string }): Promise<UserRecord>;
   getUserByEmail(email: string): Promise<UserRecord | null>;
   getUserById(id: string): Promise<UserRecord | null>;
 

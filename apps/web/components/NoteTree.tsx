@@ -56,9 +56,7 @@ function TreeItem({
           style={pad}
           className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200"
         >
-          <span className="inline-block w-3 text-xs text-neutral-600">
-            {open ? '▾' : '▸'}
-          </span>
+          <span className="inline-block w-3 text-xs text-neutral-600">{open ? '▾' : '▸'}</span>
           <span className="truncate">{node.name}</span>
         </button>
         {open && (

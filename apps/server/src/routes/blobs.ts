@@ -22,7 +22,8 @@ export function registerBlobRoutes(app: FastifyInstance, services: Services): vo
     await auth(request);
     const { hash } = request.params as { hash: string };
     const bytes = await services.blob.get(hash);
-    if (!bytes) return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Blob not found' } });
+    if (!bytes)
+      return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Blob not found' } });
     return reply
       .code(200)
       .header('content-type', 'application/octet-stream')
