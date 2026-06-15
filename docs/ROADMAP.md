@@ -122,15 +122,15 @@ Make GraphVault the most _usable_ knowledge tool — it goes where you are.
 Off by default. A privacy dial the user controls; note content never leaves the
 device unless the user enables a provider.
 
-- ⬜ Provider abstraction with a **privacy spectrum**: local/on-device (Ollama /
-  WebLLM, OpenAI-compatible localhost) → bring-your-own-key (Anthropic / OpenAI /
-  compatible) → nothing hosted-by-us by default
-- ⬜ Assistant panel: summarize / outline / find connections / suggest links &
-  tags / "organize this" — operating over the local notes + graph only when on
-- ⬜ Graph intelligence: AI-suggested clusters, related-notes, gap-finding; surfaced
-  as overlays on the graph (by time & context, dynamic)
-- ⬜ Clear in-UI privacy notice + per-action consent; no telemetry; keys stored
-  locally (or server-side for shared deployments), never logged
+- ✅ Provider abstraction with a **privacy spectrum**: local (Ollama / OpenAI-
+  compatible localhost) → bring-your-own-key (Anthropic / OpenAI) → off (default,
+  no network)
+- ✅ Assistant panel: summarize / outline / find connections / suggest links &
+  tags / "organize this" — confirm-before-send, output sanitised via DOMPurify
+- ✅ Clear in-UI privacy notice + per-action consent; no telemetry; keys in
+  sessionStorage, redacted from errors, never logged; button hidden when off
+- ⬜ Graph intelligence: AI-suggested clusters / related-notes / gap-finding as
+  overlays on the graph (clusters helper already shipped — see graph graphics)
 
 ## Milestone 22 — Connectors (email & everything, privacy-graded) ⬜
 
