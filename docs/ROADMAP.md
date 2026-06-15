@@ -73,11 +73,14 @@
 
 - ✅ In-graph search (`/`, highlight/zoom to matches), drag-to-pin nodes, zoom buttons, 200+ label cap perf
 
-## Milestone 16 — True local desktop (Tauri) 🟡
+## Milestone 16 — Desktop app 🟡
 
-- ✅ Tauri 2 shell scaffold (`apps/desktop`) wrapping the web export + `TauriStorageAdapter` on the storage seam
-- ⬜ Build installers on each OS (`pnpm --filter @graphvault/desktop build`; needs Rust + tauri-cli)
-- ⬜ Native file watching; open an existing folder as a vault
+- ✅ **Installable PWA** — manifest + offline service worker + icons + Install button;
+  runs as a standalone desktop app from any modern browser, auto-updating (the
+  "run it right now, any OS" path)
+- ✅ Tauri 2 shell scaffold (`apps/desktop`) wrapping the web export + `TauriStorageAdapter`
+- ⬜ CI workflow to build signed Win/Mac/Linux Tauri installers
+- ⬜ Native file watching; open an existing folder as a vault (web: "Open folder" ✅)
 
 ## Milestone 17 — Polish, onboarding & launch 🟡
 
@@ -132,15 +135,16 @@ device unless the user enables a provider.
 - ⬜ Graph intelligence: AI-suggested clusters / related-notes / gap-finding as
   overlays on the graph (clusters helper already shipped — see graph graphics)
 
-## Milestone 22 — Connectors (email & everything, privacy-graded) ⬜
+## Milestone 22 — Connectors (email & everything, privacy-graded) 🟡
 
 Opt-in, credential-bearing flows go through the self-hosted server; each
 connector shows its privacy posture.
 
-- ⬜ Email (IMAP / Gmail / Outlook via OAuth) → clip messages to notes
-- ⬜ Read-only importers & sync: calendars, RSS, web bookmarks, Readwise, etc.
-- ⬜ Generic webhook / "connect anything" recipe layer (à la a privacy-first Zapier)
-- ⬜ Per-connector privacy controls + audit log of what was fetched
+- ✅ Connector framework + privacy posture (`local` / `server` / `byo`) + Settings panel
+- ✅ RSS / Atom / OPML import (phase 1, `local` — paste/upload, parsed on-device)
+- ⬜ Email (IMAP / Gmail / Outlook via OAuth) → server-side creds, phase 2
+- ⬜ URL-fetch / web-clip via server proxy (avoids CORS, keeps creds off the browser)
+- ⬜ Generic webhook / "connect anything" recipe layer; per-connector audit log
 
 ---
 
