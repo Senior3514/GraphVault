@@ -102,7 +102,7 @@ providers go through the self-hosted server (keys never touch the browser).
 
 - ✅ Seam + localStorage + File System Access (disk) + Tauri (native disk)
 - ✅ WebDAV adapter (Nextcloud / any) via self-hosted server proxy — creds never in browser
-- ⬜ S3-compatible adapter (AWS S3 / MinIO / Backblaze / R2) via server-proxied creds
+- ✅ S3-compatible adapter (AWS S3 / MinIO / Backblaze / R2) via server proxy (from-scratch SigV4)
 - ⬜ Azure Blob + Google Cloud Storage adapters (server-proxied)
 - ⬜ Google Drive + OneDrive (OAuth, app-folder scope; tokens server-side)
 - ⬜ Settings provider picker with safe copy-verify-switch migration (reuse existing)
@@ -122,7 +122,7 @@ Make GraphVault the most _usable_ knowledge tool — it goes where you are.
 - ✅ Embeddable read-only graph (`/embed?s=…`, privacy-safe snapshot) + Share button
 - ⬜ Public shareable graph snapshots (opt-in, no account)
 - ✅ CLI (`@graphvault/cli`: list / search / stats / graph) — local HTTP API ⬜
-- ⬜ URL scheme + share targets (clip from any app)
+- ✅ URL scheme (`web+graphvault:`) + PWA share_target (`/share`) — clip from any app
 
 ## Milestone 21 — AI assistant (privacy-first, opt-in) 🟡
 
