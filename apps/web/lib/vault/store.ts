@@ -26,6 +26,7 @@ import type { Note, VaultStore } from './types';
 import { localStorageAdapter } from './storage/localStorageAdapter';
 import { fileSystemAdapter } from './storage/fileSystemAdapter';
 import { webdavAdapter } from './storage/webdavAdapter';
+import { s3Adapter } from './storage/s3Adapter';
 import { getActiveAdapter, registerAdapter, type StorageAdapter } from './storage/index';
 
 // ---------------------------------------------------------------------------
@@ -34,20 +35,21 @@ import { getActiveAdapter, registerAdapter, type StorageAdapter } from './storag
 // first available one wins.
 //
 // Priority order:
-//   1. webdavAdapter  — server proxy (available when signed in + configured)
-//   2. fileSystemAdapter — File System Access API (Chromium, opt-in)
-//   3. localStorageAdapter — universal browser fallback (always last)
+//   1. webdavAdapter  — WebDAV server proxy (available when signed in + configured)
+//   2. s3Adapter      — S3-compatible server proxy (available when signed in + configured)
+//   3. fileSystemAdapter — File System Access API (Chromium, opt-in)
+//   4. localStorageAdapter — universal browser fallback (always last)
 //
-// The WebDAV adapter is listed first so that once configured, saving goes
-// directly to the user's own server without needing manual selection. The
-// FileSystem adapter, which requires an explicit user gesture, takes second
-// priority, and localStorage is always the final fallback.
+// Both server-proxy adapters are listed before the local adapters so that
+// once configured, saving goes directly to the user's own storage without
+// needing manual selection each time.
 //
-// Note: isAvailable() on webdavAdapter checks sessionStorage for a token, so
-// it correctly returns false during SSR and before the user signs in.
+// Note: isAvailable() on server-proxy adapters checks sessionStorage for a
+// token, so they correctly return false during SSR and before sign-in.
 // ---------------------------------------------------------------------------
 
 registerAdapter(webdavAdapter);
+registerAdapter(s3Adapter);
 registerAdapter(fileSystemAdapter);
 registerAdapter(localStorageAdapter);
 
@@ -60,6 +62,7 @@ export { getActiveAdapter, registerAdapter, listAdapters, getAdapterById } from 
 export { localStorageAdapter } from './storage/localStorageAdapter';
 export { fileSystemAdapter, FileSystemAdapter } from './storage/fileSystemAdapter';
 export { webdavAdapter, WebDavStorageAdapter } from './storage/webdavAdapter';
+export { s3Adapter, S3StorageAdapter } from './storage/s3Adapter';
 
 // ---------------------------------------------------------------------------
 // LocalStorageVaultStore — backward-compatible concrete class

@@ -71,6 +71,25 @@ export interface WebDavConfigRecord {
 }
 
 /**
+ * Persisted S3-compatible storage configuration for a single user.
+ *
+ * The `secretAccessKey` field stores an AES-256-GCM ciphertext (base64). The
+ * raw key is never written to the store; it exists only in decrypted form inside
+ * a running request. All other fields are non-secret and displayed in Settings.
+ */
+export interface S3ConfigRecord {
+  userId: string;
+  endpoint?: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  /** AES-256-GCM encrypted secretAccessKey, base64-encoded (nonce||tag||ciphertext). */
+  encryptedSecretAccessKey: string;
+  prefix?: string;
+  updatedAt: string; // ISO-8601
+}
+
+/**
  * The current state of one file within a vault, plus the version history needed
  * for conflict recovery. `state` is the canonical wire representation.
  */
@@ -130,6 +149,11 @@ export interface Storage {
   getWebDavConfig(userId: string): Promise<WebDavConfigRecord | null>;
   upsertWebDavConfig(record: WebDavConfigRecord): Promise<void>;
   deleteWebDavConfig(userId: string): Promise<void>;
+
+  // --- S3 configuration ---
+  getS3Config(userId: string): Promise<S3ConfigRecord | null>;
+  upsertS3Config(record: S3ConfigRecord): Promise<void>;
+  deleteS3Config(userId: string): Promise<void>;
 }
 
 export interface ChangesPage {

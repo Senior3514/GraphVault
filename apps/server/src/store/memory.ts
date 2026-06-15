@@ -5,6 +5,7 @@ import type {
   DeviceRecord,
   FileChange,
   FileRecord,
+  S3ConfigRecord,
   Storage,
   TokenRecord,
   UserRecord,
@@ -28,6 +29,7 @@ export class InMemoryStorage implements Storage {
   private readonly files = new Map<string, Map<string, FileState>>();
   private readonly blobs = new Map<string, BlobRecord>();
   private readonly webdavConfigs = new Map<string, WebDavConfigRecord>();
+  private readonly s3Configs = new Map<string, S3ConfigRecord>();
 
   private static now(): string {
     return new Date().toISOString();
@@ -165,5 +167,17 @@ export class InMemoryStorage implements Storage {
 
   async deleteWebDavConfig(userId: string): Promise<void> {
     this.webdavConfigs.delete(userId);
+  }
+
+  async getS3Config(userId: string): Promise<S3ConfigRecord | null> {
+    return this.s3Configs.get(userId) ?? null;
+  }
+
+  async upsertS3Config(record: S3ConfigRecord): Promise<void> {
+    this.s3Configs.set(record.userId, { ...record });
+  }
+
+  async deleteS3Config(userId: string): Promise<void> {
+    this.s3Configs.delete(userId);
   }
 }

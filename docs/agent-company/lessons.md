@@ -426,3 +426,33 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   (`-w` / `--workspace-root`) so Tauri invokes the root-level script that runs
   the topologically-ordered full web stack build. Alternatively add a
   `"build:web": "pnpm -w run build:web"` pass-through to `apps/desktop/package.json`.
+
+## S3-compatible storage (M18 / Vault3)
+
+### AWS SigV4 from `node:crypto` — zero new dependencies, but the `host` header must not be sent manually
+
+- **Rule:** when implementing SigV4 in pure Node, the `host` header MUST be
+  included in the signed canonical headers and the `SignedHeaders` list, but
+  MUST NOT be present in the headers object passed to `fetch`. `fetch` sets
+  `host` automatically from the URL; duplicating it causes "invalid header name"
+  errors in some runtimes. Solution: build the signing headers map including `host`,
+  compute the signature, then `delete allHeaders['host']` before returning the
+  final headers object.
+
+### Restrict S3 proxy to a single well-known object key — don't build a generic object proxy
+
+- **Rule:** the S3 proxy exposes only `GET/PUT/DELETE` for
+  `graphvault-vault.json`. Attempting to proxy arbitrary object keys would
+  widen the attack surface (an attacker with a valid token could read/write any
+  object in the bucket). The wildcard catch-all routes return 400 for any other
+  key. This is the same "minimal, auditable" principle as the WebDAV adapter
+  (one PUT per save, one GET per load).
+
+### Derive different HKDF info strings per credential type
+
+- **Rule:** the per-user key derivation uses an `info` string that encodes
+  both the application and the credential type:
+  `graphvault-webdav-cred-v1` for WebDAV, `graphvault-s3-cred-v1` for S3.
+  This means even if two users accidentally share the same `userId`, the
+  derived keys for WebDAV and S3 are independent. Versioning (`-v1`) in the
+  info string allows future key rotation without breaking existing ciphertexts.
