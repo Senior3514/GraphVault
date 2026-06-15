@@ -90,8 +90,9 @@
 - ✅ Global UX polish (focus rings, transitions, empty-state utilities, motion-safe animations)
 - ✅ Fully responsive/mobile: single-pane mobile workspace (Notes/Editor/Details bottom bar), drawers, safe-area insets, `100dvh`
 - ✅ Docs: quickstart, self-hosting, security model, data portability; public-launch README (scrubbed); one-command install table
-- ⬜ Full accessibility audit (focus order, contrast, screen-reader)
-- ⬜ "Finished product" QA gauntlet + tagged release
+- ✅ Accessibility pass: focus traps + restoration, skip-link, ARIA + live regions, WCAG AA
+- ✅ QA gauntlet + review (data-loss / privacy / security CLEAR; 2 fixes applied)
+- ⬜ Tagged v0.1.0 release → native installers via CI
 
 ## Milestone 18 — Universal storage providers (your data, literally anywhere) 🟡
 

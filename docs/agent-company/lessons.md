@@ -396,3 +396,33 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   handles the native picker. No third-party colour-picker dependency, no canvas
   rendering. The `onChange` just updates the group's `color` string, which then
   propagates through the normal memo chain.
+
+## QA / Gauntlet
+
+### `vercel.json` response-header CSP overrides `<meta>` CSP — keep them in sync
+
+- **Symptom:** `vercel.json` sets `connect-src 'self'` as a response header;
+  `apps/web/app/layout.tsx` sets `connect-src 'self' https: http:` in a `<meta>`
+  tag. On Vercel the response header is authoritative (browsers prefer headers over
+  meta CSP), so all outbound fetch calls to the self-hosted sync server and to
+  AI BYOK providers (Anthropic/OpenAI) are silently blocked by the browser on every
+  Vercel deployment.
+- **Root cause:** the two CSP sources diverged — the meta tag was correctly
+  updated to allow `https:` for sync + AI BYOK, but the vercel.json header was
+  not updated to match.
+- **Fix / rule:** whenever `connect-src` in `layout.tsx` changes, update
+  `vercel.json` (and vice versa). The two must be treated as a single logical
+  policy. On Vercel, ONLY the response header is enforced. The `<meta>` tag is
+  the fallback for self-hosted static deployments.
+
+### `pnpm -r build` fails for desktop — `beforeBuildCommand` targets missing script
+
+- **Symptom:** `apps/desktop/src-tauri/tauri.conf.json` has
+  `"beforeBuildCommand": "pnpm run build:web"`, but `apps/desktop/package.json`
+  has no `build:web` script. Running `pnpm -r build` causes Tauri to invoke
+  `pnpm run build:web` in the desktop package context, fails with exit code 1, and
+  aborts the recursive build.
+- **Fix / rule:** change `beforeBuildCommand` to `pnpm -w run build:web`
+  (`-w` / `--workspace-root`) so Tauri invokes the root-level script that runs
+  the topologically-ordered full web stack build. Alternatively add a
+  `"build:web": "pnpm -w run build:web"` pass-through to `apps/desktop/package.json`.
