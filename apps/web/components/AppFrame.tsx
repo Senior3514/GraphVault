@@ -79,6 +79,7 @@ import { BackupHistory } from './BackupHistory';
 import { CommandPalette } from './CommandPalette';
 import { NavIcon } from './NavIcon';
 import { OnboardingHint } from './onboarding/OnboardingHint';
+import { Tour } from './onboarding/Tour';
 import { Sidebar } from './Sidebar';
 import { VaultProvider } from '../lib/vault/VaultProvider';
 import { AssistantPanel } from './assistant/AssistantPanel';
@@ -239,6 +240,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <BackupHistory />
       {/* Onboarding hint: shown only on first use, persisted-dismissed in localStorage */}
       <OnboardingHint />
+      {/* Guided tour: multi-step coachmark shown on first run, re-openable via
+          the graphvault.tour.open custom event. Mounted after the hint so they
+          don't compete visually (tour has a higher z-index overlay). */}
+      <Tour />
       {/* AI assistant panel — toggleable, off by default, privacy-first.
           Wrapped in Suspense because it reads useSearchParams() (current note),
           which requires a boundary for the static export to prerender. */}
