@@ -1,0 +1,10 @@
+{
+  "name": "@graphvault/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo \"[desktop] Tauri wrapper is scaffolded in Milestone 3\" && exit 0",
+    "dev": "echo \"[desktop] Tauri wrapper is scaffolded in Milestone 3\" && exit 0",
+    "typecheck": "echo \"[desktop] no TypeScript sources yet\" && exit 0"
+  }
+}
