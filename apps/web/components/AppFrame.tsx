@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
+import { BackupHistory } from './BackupHistory';
 import { CommandPalette } from './CommandPalette';
 import { NavIcon } from './NavIcon';
 import { OnboardingHint } from './onboarding/OnboardingHint';
@@ -163,6 +164,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <CommandPalette />
+      {/* Version history / backup restore modal — opened via CommandPalette or
+          the OPEN_BACKUP_HISTORY_EVENT custom event. Mounted once so the IDB
+          load is shared across all triggers. */}
+      <BackupHistory />
       {/* Onboarding hint: shown only on first use, persisted-dismissed in localStorage */}
       <OnboardingHint />
       {/* AI assistant panel — toggleable, off by default, privacy-first.
