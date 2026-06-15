@@ -35,6 +35,23 @@
 - ⬜ Pluggable storage backend interface (browser ↔ disk ↔ sync server) + docs
 - ⬜ Drag-and-drop import; "export to folder" via File System Access API (where available)
 
+> Decision: **open-core** — auditable client + engine, optional paid hosted sync.
+
+## Milestone 13 — Command palette & power editing ✅
+
+- ✅ Command palette (Cmd/Ctrl+K): quick-open, create note, navigate, toggle preview
+- ✅ `[[` wikilink autocomplete and `#` tag autocomplete in the editor
+- ✅ Interactive preview: wikilinks navigate, inline `#tags` are clickable filters
+- ✅ Collapsible icon-rail shell, tag cloud + tag-filtered note list
+
+## Milestone 14 — Spectacular graph ✅
+
+- ✅ Color by node type (note / attachment / unresolved) + accurate legend
+- ✅ Hover glow + neighbor highlight, dim the rest; smooth settled physics
+- ✅ Click → select; double-click → open note (`/vault?note=`)
+- ✅ Live force controls (link distance, repel, gravity, label threshold)
+- ✅ Zoom-to-fit / reset; degree-scaled nodes; reduced-motion aware
+
 ## Milestone 12 — Workspace, panes & window controls ⬜
 
 The Obsidian-grade shell. Make the layout feel alive and under the user's control.
@@ -44,20 +61,6 @@ The Obsidian-grade shell. Make the layout feel alive and under the user's contro
 - ⬜ Tabs: open multiple notes, split view (editor + preview, or two notes)
 - ⬜ Movable/dockable panels; "focus mode" (hide all chrome)
 - ⬜ Persist workspace layout locally; reduced-motion friendly
-
-## Milestone 13 — Command palette & power editing ⬜
-
-- ⬜ Command palette (Cmd/Ctrl-K): quick-open, create note, navigate, toggle preview
-- ⬜ `[[` wikilink autocomplete and `#` tag autocomplete in the editor
-- ⬜ Slash menu, keyboard-first navigation, inline link/tag clicks
-
-## Milestone 14 — Spectacular graph ⬜
-
-- ⬜ Color by node type (note / tag / attachment / unresolved) + accurate legend
-- ⬜ Hover glow + neighbor highlight, dim the rest; smooth settled physics
-- ⬜ Click → select; double-click → open note (`/vault?note=`)
-- ⬜ Live force controls (link distance, repel, gravity, label threshold)
-- ⬜ Zoom-to-fit / reset; smooth at 500+ nodes; reduced-motion aware
 
 ## Milestone 15 — Security, encryption & speed ⬜
 

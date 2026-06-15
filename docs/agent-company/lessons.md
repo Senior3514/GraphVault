@@ -131,3 +131,37 @@ stop repeating mistakes. Newest at the top within each section.
 - **Rule:** canvas/WebGL components (e.g. force-graph renderers) must be loaded
   via `next/dynamic` with `ssr: false` and marked `'use client'`, or production
   `next build` fails during static generation.
+
+## Orchestration & integration
+
+### A delegating agent must not end its turn before integrating
+- **Symptom:** the orchestrator spawned parallel slice agents in worktrees, then
+  ended its own turn ("I'll wait for completion") — so its children were
+  orphaned and their results never bubbled back to it. The top-level driver had
+  to discover the finished worktree branches and integrate them by hand.
+- **Rule:** the agent that owns integration must stay alive until the slices
+  return, or the *parent* (not the orchestrator) must own integration. When a
+  background sub-agent's results are needed, the entity that will integrate must
+  be the one that receives the completion notification.
+
+### Deduplicate redundant slice branches before integrating
+- **Note:** the same slice was dispatched twice (two graph branches, two shell
+  branches) in isolated worktrees. They are mutually-conflicting rewrites of the
+  same files — pick exactly one per slice and discard the rest; never try to
+  merge both.
+- **Tie-breaker used:** prefer the implementation that keeps the engine
+  UI-agnostic (synthesize attachment/unresolved graph nodes in `apps/web/lib/graph`,
+  not by adding a required `kind` field to the engine's `GraphNode`). Lower
+  cross-package blast radius integrates more cleanly.
+
+### `grep $'\x00'` cannot detect NUL bytes
+- **Symptom:** `grep -c $'\x00' file` reported "189" on a clean file, falsely
+  implying corruption — bash can't pass a literal NUL as an argument, so the
+  pattern degrades to empty and matches every line.
+- **Rule:** detect NUL bytes with `tr -cd '\000' < file | wc -c` (byte count) or
+  `git diff --numstat` showing `-`/`Bin`, not with `grep`.
+
+### Decision: open-core
+- GraphVault is **open-core**: client + engine open and auditable, optional paid
+  hosted sync proprietary. For a local-first app, data access comes from local
+  Markdown + export — closed source would not improve access, only reduce trust.
