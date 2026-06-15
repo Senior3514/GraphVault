@@ -30,6 +30,8 @@ import { chat, truncateContext } from '../../lib/ai/providers';
 import type { AssistantAction } from '../../lib/ai/types';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import { useAISettings } from './useAISettings';
+import { useAuth } from '../../lib/api/useAuth';
+import { useServerSettings } from '../../lib/api/useServerSettings';
 
 /** Custom event name — dispatched by the toolbar button and command-palette. */
 export const ASSISTANT_TOGGLE_EVENT = 'graphvault:assistant-toggle';
@@ -81,6 +83,8 @@ export function AssistantPanel() {
   const [open, setOpen] = useState(false);
   const { settings } = useAISettings();
   const vault = useVaultContext();
+  const auth = useAuth();
+  const { serverUrl } = useServerSettings();
 
   // Derive the current note path from the URL search param (?note=…).
   // This matches how the vault page navigates: /vault?note=path/to/note.md
@@ -188,22 +192,24 @@ export function AssistantPanel() {
     try {
       const truncated = truncateContext(noteContent);
       const messages = buildPrompt(selectedAction, truncated, relatedTitles.slice(0, 50));
-      const raw = await chat(settings, messages);
+      // For `server` mode, pass the session token + server URL so the provider
+      // can authenticate with the GV server proxy. The key never touches the browser.
+      const serverOpts =
+        settings.kind === 'server' && auth.token
+          ? { serverUrl, bearerToken: auth.token }
+          : undefined;
+      const raw = await chat(settings, messages, serverOpts);
       // Sanitise through DOMPurify-based markdown renderer before display.
       // Use a no-op resolver so no wikilink anchors are injected into AI output.
       const sanitised = renderMarkdown(raw, () => null);
       setResult(sanitised);
       setStatus('done');
     } catch (err) {
-      // Never expose raw key in error messages — providers.ts already strips it,
-      // but we guard again here for defence in depth.
       const msg = err instanceof Error ? err.message : 'Unexpected error.';
-      // Strip any potential key leaks (apiKey value should never appear here
-      // due to providers.ts sanitisation, but belt-and-suspenders).
       setErrorMsg(msg);
       setStatus('error');
     }
-  }, [noteContent, selectedAction, relatedTitles, settings]);
+  }, [noteContent, selectedAction, relatedTitles, settings, auth.token, serverUrl]);
 
   const handleSendClick = useCallback(() => {
     setStatus('confirming');
@@ -262,7 +268,7 @@ export function AssistantPanel() {
                     : 'bg-sky-950 text-sky-400',
               ].join(' ')}
             >
-              {isOff ? 'Off' : settings.kind === 'local' ? 'Local' : 'Cloud key'}
+              {isOff ? 'Off' : settings.kind === 'local' ? 'Local' : 'Server proxy'}
             </span>
           </div>
           <button
@@ -368,9 +374,7 @@ export function AssistantPanel() {
                       Provider:{' '}
                       {settings.kind === 'local'
                         ? `Local (${settings.localEndpoint})`
-                        : settings.byokBackend === 'anthropic'
-                          ? `Anthropic (${settings.byokModel})`
-                          : `OpenAI-compatible (${settings.byokEndpoint})`}
+                        : `Server proxy (${serverUrl})`}
                     </p>
                   </div>
                   <div className="flex gap-2">

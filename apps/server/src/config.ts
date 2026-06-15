@@ -81,6 +81,12 @@ export interface ServerConfig {
    * Undefined means blobs are stored as plaintext (unchanged legacy behavior).
    */
   encryptionKey: Buffer | undefined;
+  /**
+   * Per-user/day request cap for the AI proxy endpoint.
+   * 0 = unlimited (discouraged in production without key-level billing controls).
+   * Default: 200.
+   */
+  aiDailyCap: number;
 }
 
 function storageBackend(value: string | undefined): StorageBackend {
@@ -105,5 +111,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     trustProxy: bool(env.GRAPHVAULT_TRUST_PROXY, false),
     requireHttps: bool(env.GRAPHVAULT_REQUIRE_HTTPS, isProduction),
     encryptionKey: encryptionKey(env.GRAPHVAULT_ENCRYPTION_KEY),
+    aiDailyCap: num(env.GRAPHVAULT_AI_DAILY_CAP, 200),
   };
 }

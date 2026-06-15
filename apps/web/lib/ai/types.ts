@@ -3,27 +3,31 @@
  *
  * Three-tier privacy spectrum — OFF by default:
  *
- *   off   — no AI, no network, ever. DEFAULT.
- *   local — OpenAI-compatible endpoint on localhost (e.g. Ollama). Notes never leave the machine.
- *   byok  — bring-your-own-key: Anthropic Messages API or OpenAI-compatible Chat Completions.
- *           Notes are sent to the user's own key/account, not to GraphVault's infrastructure.
+ *   off    — no AI, no network, ever. DEFAULT.
+ *   local  — OpenAI-compatible endpoint on localhost (e.g. Ollama). Notes never
+ *            leave the machine. Key-free.
+ *   server — BYO-key via the user's self-hosted GraphVault server (BFF proxy).
+ *            The browser sends the prompt to POST /v1/ai/chat on the GV server;
+ *            the server adds the encrypted API key and forwards to the gateway
+ *            (OpenRouter default, or a custom base URL). The API key NEVER
+ *            touches the browser — it lives on the server, encrypted at rest
+ *            with AES-256-GCM + per-user HKDF. Requires a signed-in session.
  *
  * Key security rules enforced throughout this module:
- *  - No network call is made unless provider is explicitly 'local' or 'byok' and configured.
- *  - Keys are stored in sessionStorage only and are never logged or included in error messages.
- *  - AI output is always passed through the DOMPurify-sanitised markdown renderer before display.
- *  - All provider responses are validated (type guards) before use.
+ *  - No network call is made unless the provider is explicitly 'local' or 'server'
+ *    and configured.
+ *  - For `server` mode: the browser never sees or stores the API key at any point.
+ *  - Settings (kind, local endpoint, model) are stored in sessionStorage (cleared
+ *    on tab/browser close).
  */
 
 /** The three privacy tiers. */
-export type AIProviderKind = 'off' | 'local' | 'byok';
-
-/** Which cloud API to use when provider is 'byok'. */
-export type ByokBackend = 'anthropic' | 'openai-compatible';
+export type AIProviderKind = 'off' | 'local' | 'server';
 
 /**
- * Serialisable AI settings — stored in sessionStorage (never localStorage so
- * the key is cleared when the tab/browser closes).
+ * Serialisable AI settings — stored in sessionStorage (cleared when the tab or
+ * browser closes). No API keys are ever stored here — for `server` mode the key
+ * lives on the GV server encrypted at rest.
  */
 export interface AISettings {
   /** Provider kind. Defaults to 'off'. */
@@ -35,30 +39,20 @@ export interface AISettings {
   /** Model name for the local endpoint, e.g. 'llama3' or 'mistral'. */
   localModel: string;
 
-  // --- byok ---
-  byokBackend: ByokBackend;
+  // --- server ---
   /**
-   * Raw API key — kept only in sessionStorage; never in logs or the DOM.
-   * When reading for display, always redact (see redactKey()).
+   * Optional model override for the server proxy. If empty, the server will use
+   * its configured default model (stored in the AI config on the server,
+   * defaulting to "openai/gpt-4o-mini" on OpenRouter).
    */
-  byokKey: string;
-  /**
-   * API endpoint for OpenAI-compatible backend.
-   * Ignored when byokBackend === 'anthropic' (endpoint is always the Anthropic API).
-   */
-  byokEndpoint: string;
-  /** Model name. Defaults to a current Claude model for Anthropic, 'gpt-4o-mini' for OpenAI. */
-  byokModel: string;
+  serverModel: string;
 }
 
 export const DEFAULT_AI_SETTINGS: AISettings = {
   kind: 'off',
   localEndpoint: 'http://localhost:11434/v1',
   localModel: 'llama3',
-  byokBackend: 'anthropic',
-  byokKey: '',
-  byokEndpoint: 'https://api.openai.com/v1',
-  byokModel: 'claude-sonnet-4-6',
+  serverModel: '',
 };
 
 /** Redact all but the first 4 chars of a key for display in error messages or UI. */

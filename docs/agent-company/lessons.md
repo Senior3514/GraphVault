@@ -486,3 +486,41 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   caught it.
 - **Rule:** for a converter like this, symmetric open/close tag output is enough
   for most inline markup. Avoid accumulating state that is only set but never read.
+
+### Spreading `Partial<T>` with `undefined` values overwrites defaults
+
+- **Symptom:** `loadAISettings` merged old sessionStorage data with
+  `DEFAULT_AI_SETTINGS` via `{ ...defaults, ...cleaned }`. When the stored JSON
+  lacked a field (e.g. `serverModel`), `cleaned.serverModel` was `undefined`.
+  Spreading it over defaults silently overwrote the default empty-string value
+  with `undefined`, breaking downstream consumers.
+- **Root cause:** JavaScript spread copies all own enumerable keys, including
+  those with value `undefined`. A key existing as `undefined` _does_ shadow
+  the same key in the source object.
+- **Fix / rule:** build the `Partial<T>` with conditional assignment
+  (`if (x !== undefined) obj.x = x`) so undefined keys are simply absent from
+  the spread. Never spread a constructed object that may contain `undefined`
+  values if defaults must be preserved.
+
+### BFF proxy security pattern: HKDF info strings must be unique per credential type
+
+- **Symptom/concern:** server encrypts WebDAV, S3, and AI credentials all under
+  the same `GRAPHVAULT_ENCRYPTION_KEY`. If the HKDF info string were shared,
+  two credential types for the same `userId` would derive the same sub-key —
+  enabling cross-type confusion attacks.
+- **Rule:** every credential type must use a unique HKDF info string:
+  `graphvault-webdav-cred-v1`, `graphvault-s3-cred-v1`,
+  `graphvault-ai-cred-v1`. When adding new encrypted credential stores,
+  always pick a new, versioned info string.
+
+### TypeScript array-index access is not narrowed by length-check type guards
+
+- **Symptom:** `isOpenAICompatResponse` checked `choices.length > 0` and
+  returned `true`, but TypeScript still flagged `json.choices[0].message` as
+  "possibly undefined" because the type was `{ message: ... }[]` (an array, not
+  a tuple). Even with the guard in scope, `choices[0]` returned
+  `T | undefined` under `noUncheckedIndexedAccess`.
+- **Fix / rule:** after a confirmed-non-empty array check, assign the first
+  element to a local variable and add an explicit null guard before use, or
+  define the type with a minimum-length tuple. Do not rely on a length-check
+  type guard to narrow array element access in TypeScript strict mode.

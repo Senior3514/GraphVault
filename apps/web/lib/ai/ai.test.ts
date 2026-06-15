@@ -3,11 +3,14 @@
  *
  * Covers:
  *  1. Provider selection invariant: kind=off → no network, always throws.
- *  2. Prompt builder correctness for every action.
- *  3. Send-context builder correctness.
- *  4. truncateContext respects the MAX_CONTEXT_CHARS limit.
- *  5. redactKey helper.
- *  6. Settings persistence round-trip (mocked sessionStorage).
+ *  2. Provider selection: kind=server without bearerToken → throws, no network.
+ *  3. Provider selection: kind=server with bearerToken → calls /v1/ai/chat (mock).
+ *  4. Provider selection: kind=local with empty endpoint → throws, no network.
+ *  5. Prompt builder correctness for every action.
+ *  6. Send-context builder correctness.
+ *  7. truncateContext respects the MAX_CONTEXT_CHARS limit.
+ *  8. redactKey helper.
+ *  9. Settings persistence round-trip (mocked sessionStorage).
  */
 
 import assert from 'node:assert/strict';
@@ -91,8 +94,12 @@ describe('chat() with kind=off', () => {
   });
 });
 
-describe('chat() with kind=byok and empty key', () => {
-  it('throws without network call when key is missing', async () => {
+// ---------------------------------------------------------------------------
+// 2. Provider selection: server without bearerToken → throws, no network
+// ---------------------------------------------------------------------------
+
+describe('chat() with kind=server and no bearer token', () => {
+  it('throws without network call when bearer token is missing', async () => {
     const originalFetch = (globalThis as Record<string, unknown>)['fetch'];
     let fetchCalled = false;
     (globalThis as Record<string, unknown>)['fetch'] = () => {
@@ -102,19 +109,47 @@ describe('chat() with kind=byok and empty key', () => {
 
     const settings: AISettings = {
       ...DEFAULT_AI_SETTINGS,
-      kind: 'byok',
-      byokKey: '',
+      kind: 'server',
     };
     await assert.rejects(
-      () => chat(settings, [{ role: 'user', content: 'hello' }]),
+      () =>
+        chat(settings, [{ role: 'user', content: 'hello' }], {
+          serverUrl: 'http://localhost:4000',
+          bearerToken: '', // empty — not signed in
+        }),
       (err: unknown) => {
         assert.ok(err instanceof Error);
-        assert.ok(err.message.toLowerCase().includes('key'), `Expected "key" in: ${err.message}`);
+        assert.ok(
+          err.message.toLowerCase().includes('sign in') ||
+            err.message.toLowerCase().includes('token'),
+          `Expected sign-in message in: ${err.message}`,
+        );
         return true;
       },
     );
 
-    assert.equal(fetchCalled, false, 'fetch should not have been called with empty key');
+    assert.equal(fetchCalled, false, 'fetch should not have been called without a bearer token');
+
+    if (originalFetch === undefined) {
+      delete (globalThis as Record<string, unknown>)['fetch'];
+    } else {
+      (globalThis as Record<string, unknown>)['fetch'] = originalFetch;
+    }
+  });
+
+  it('throws without network call when serverOpts is undefined', async () => {
+    const originalFetch = (globalThis as Record<string, unknown>)['fetch'];
+    let fetchCalled = false;
+    (globalThis as Record<string, unknown>)['fetch'] = () => {
+      fetchCalled = true;
+      return Promise.resolve(new Response('{}'));
+    };
+
+    const settings: AISettings = { ...DEFAULT_AI_SETTINGS, kind: 'server' };
+    // Pass no serverOpts at all
+    await assert.rejects(() => chat(settings, [{ role: 'user', content: 'hello' }]));
+
+    assert.equal(fetchCalled, false, 'fetch should not have been called without serverOpts');
 
     if (originalFetch === undefined) {
       delete (globalThis as Record<string, unknown>)['fetch'];
@@ -123,6 +158,130 @@ describe('chat() with kind=byok and empty key', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// 3. Provider selection: server with bearerToken → calls /v1/ai/chat (mock)
+// ---------------------------------------------------------------------------
+
+describe('chat() with kind=server and valid bearer token', () => {
+  it('calls /v1/ai/chat on the GV server and returns content', async () => {
+    const originalFetch = (globalThis as Record<string, unknown>)['fetch'];
+    let fetchedUrl = '';
+    let fetchedBody: unknown = null;
+    let fetchedAuthHeader = '';
+
+    (globalThis as Record<string, unknown>)['fetch'] = async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      fetchedUrl = input.toString();
+      fetchedBody = init?.body ? JSON.parse(init.body as string) : null;
+      fetchedAuthHeader = (init?.headers as Record<string, string>)?.['Authorization'] ?? '';
+      return new Response(JSON.stringify({ content: 'Mock AI response', model: 'test/model' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const settings: AISettings = {
+      ...DEFAULT_AI_SETTINGS,
+      kind: 'server',
+      serverModel: 'anthropic/claude-3-haiku',
+    };
+
+    const result = await chat(settings, [{ role: 'user', content: 'Summarise my note.' }], {
+      serverUrl: 'http://localhost:4000',
+      bearerToken: 'test-bearer-token-abc',
+    });
+
+    assert.equal(result, 'Mock AI response');
+    assert.ok(
+      fetchedUrl.includes('/v1/ai/chat'),
+      `Expected /v1/ai/chat in URL, got: ${fetchedUrl}`,
+    );
+    assert.equal(fetchedAuthHeader, 'Bearer test-bearer-token-abc');
+    assert.ok(
+      fetchedBody !== null &&
+        typeof fetchedBody === 'object' &&
+        'messages' in (fetchedBody as object),
+      'fetch body must include messages',
+    );
+    assert.equal((fetchedBody as { model?: string }).model, 'anthropic/claude-3-haiku');
+
+    if (originalFetch === undefined) {
+      delete (globalThis as Record<string, unknown>)['fetch'];
+    } else {
+      (globalThis as Record<string, unknown>)['fetch'] = originalFetch;
+    }
+  });
+
+  it('does not include model key when serverModel is empty', async () => {
+    const originalFetch = (globalThis as Record<string, unknown>)['fetch'];
+    let fetchedBody: unknown = null;
+
+    (globalThis as Record<string, unknown>)['fetch'] = async (
+      _input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      fetchedBody = init?.body ? JSON.parse(init.body as string) : null;
+      return new Response(JSON.stringify({ content: 'ok' }), { status: 200 });
+    };
+
+    const settings: AISettings = { ...DEFAULT_AI_SETTINGS, kind: 'server', serverModel: '' };
+
+    await chat(settings, [{ role: 'user', content: 'hello' }], {
+      serverUrl: 'http://localhost:4000',
+      bearerToken: 'tok',
+    });
+
+    // model key should not be present when serverModel is empty
+    assert.ok(
+      !('model' in (fetchedBody as Record<string, unknown>)),
+      'model should not be sent when serverModel is empty',
+    );
+
+    if (originalFetch === undefined) {
+      delete (globalThis as Record<string, unknown>)['fetch'];
+    } else {
+      (globalThis as Record<string, unknown>)['fetch'] = originalFetch;
+    }
+  });
+
+  it('throws when the server proxy returns a non-ok status', async () => {
+    const originalFetch = (globalThis as Record<string, unknown>)['fetch'];
+
+    (globalThis as Record<string, unknown>)['fetch'] = async () => {
+      return new Response(
+        JSON.stringify({ error: { message: 'No AI key configured', code: 'NOT_FOUND' } }),
+        { status: 404 },
+      );
+    };
+
+    const settings: AISettings = { ...DEFAULT_AI_SETTINGS, kind: 'server' };
+
+    await assert.rejects(
+      () =>
+        chat(settings, [{ role: 'user', content: 'hello' }], {
+          serverUrl: 'http://localhost:4000',
+          bearerToken: 'tok',
+        }),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        return true;
+      },
+    );
+
+    if (originalFetch === undefined) {
+      delete (globalThis as Record<string, unknown>)['fetch'];
+    } else {
+      (globalThis as Record<string, unknown>)['fetch'] = originalFetch;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Provider selection: local with empty endpoint → throws, no network
+// ---------------------------------------------------------------------------
 
 describe('chat() with kind=local and empty endpoint', () => {
   it('throws without network call when endpoint is not configured', async () => {
@@ -151,7 +310,7 @@ describe('chat() with kind=local and empty endpoint', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Prompt builders
+// 5. Prompt builders
 // ---------------------------------------------------------------------------
 
 describe('buildPrompt()', () => {
@@ -199,7 +358,7 @@ describe('buildPrompt()', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Send-context builders
+// 6. Send-context builders
 // ---------------------------------------------------------------------------
 
 describe('buildSendContext()', () => {
@@ -235,7 +394,7 @@ describe('buildSendContext()', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. truncateContext
+// 7. truncateContext
 // ---------------------------------------------------------------------------
 
 describe('truncateContext()', () => {
@@ -255,7 +414,7 @@ describe('truncateContext()', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. redactKey
+// 8. redactKey
 // ---------------------------------------------------------------------------
 
 describe('redactKey()', () => {
@@ -276,30 +435,44 @@ describe('redactKey()', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. Settings persistence round-trip
+// 9. Settings persistence round-trip
 // ---------------------------------------------------------------------------
 
 describe('AI settings persistence', () => {
-  it('round-trips settings through sessionStorage', () => {
+  it('round-trips server settings through sessionStorage', () => {
     const settings: AISettings = {
       ...DEFAULT_AI_SETTINGS,
-      kind: 'byok',
-      byokKey: 'sk-testkey',
-      byokModel: 'claude-sonnet-4-6',
+      kind: 'server',
+      serverModel: 'openai/gpt-4o-mini',
     };
 
     saveAISettings(settings);
     const loaded = loadAISettings();
 
-    assert.equal(loaded.kind, 'byok');
-    assert.equal(loaded.byokKey, 'sk-testkey');
-    assert.equal(loaded.byokModel, 'claude-sonnet-4-6');
+    assert.equal(loaded.kind, 'server');
+    assert.equal(loaded.serverModel, 'openai/gpt-4o-mini');
+  });
+
+  it('round-trips local settings through sessionStorage', () => {
+    const settings: AISettings = {
+      ...DEFAULT_AI_SETTINGS,
+      kind: 'local',
+      localEndpoint: 'http://localhost:11434/v1',
+      localModel: 'llama3',
+    };
+
+    saveAISettings(settings);
+    const loaded = loadAISettings();
+
+    assert.equal(loaded.kind, 'local');
+    assert.equal(loaded.localEndpoint, 'http://localhost:11434/v1');
+    assert.equal(loaded.localModel, 'llama3');
   });
 
   it('returns defaults when nothing is stored', () => {
     const loaded = loadAISettings();
     assert.equal(loaded.kind, 'off');
-    assert.equal(loaded.byokKey, '');
+    assert.equal(loaded.serverModel, '');
   });
 
   it('clearAISettings removes stored data', () => {
@@ -323,6 +496,21 @@ describe('AI settings persistence', () => {
     assert.equal(loaded.kind, 'local');
     assert.equal(loaded.localModel, 'mistral');
     // Defaults for un-persisted fields must still be present.
-    assert.equal(loaded.byokBackend, DEFAULT_AI_SETTINGS.byokBackend);
+    assert.equal(loaded.serverModel, DEFAULT_AI_SETTINGS.serverModel);
+  });
+
+  it('legacy byok kind is migrated to off', () => {
+    // Simulate old data with kind='byok' (from before the server-proxy migration).
+    const raw = JSON.stringify({ kind: 'byok', byokKey: 'sk-old' });
+    (globalThis as Record<string, unknown>)['window'] = {
+      sessionStorage: {
+        getItem: () => raw,
+        setItem: () => undefined,
+        removeItem: () => undefined,
+      },
+    };
+    const loaded = loadAISettings();
+    // Must be migrated to 'off' — the client-side key path no longer exists.
+    assert.equal(loaded.kind, 'off');
   });
 });
