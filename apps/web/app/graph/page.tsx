@@ -1,17 +1,36 @@
 'use client';
 
 /**
- * Graph view (Milestone 7). Builds the `@graphvault/engine` index in the browser
- * from the current vault, then renders a force-directed graph with filters, a
- * global/local mode toggle, and a selection side panel.
+ * Graph view (Milestones 7 + 11 "wow" + v2 power features). Builds the
+ * `@graphvault/engine` index in the browser from the current vault, then
+ * renders a force-directed graph with:
  *
- * The engine index is memoised over the vault notes so we don't re-parse on
- * every interaction; the heavy canvas renderer is dynamically imported with
- * `ssr: false` so production `next build` stays server-safe.
+ * v1 (preserved):
+ * - Live physics, colour-by-type (or by-tag), filters, global/local mode toggle
+ * - Hover/selection highlighting, glow on the focused node + neighbours
+ * - Selection side panel, zoom-to-fit on engine settle
+ *
+ * v2 additions:
+ * - In-graph search (press `/`): highlights + dims non-matches, live count
+ * - Drag-to-pin: drag fixes a node; pin glyph shows; click pinned node to unpin
+ * - "Unpin all" control, zoom-in / zoom-out buttons
+ * - Link curvature for multi-edges
+ * - Label suppression at high node counts for performance
+ * - Better empty + filtered-zero states
+ *
+ * Mobile layout (< md / 768 px):
+ * - The left GraphControls panel collapses to a slide-up drawer toggled by a
+ *   floating button. The NodePanel also slides up from the bottom.
+ * - Overlays (search, zoom) stay within the viewport; the search bar shrinks
+ *   to fit narrow screens.
+ *
+ * The heavy canvas renderer is dynamically imported with `ssr: false` so
+ * production `next build` stays server-safe.
  */
 
 import dynamic from 'next/dynamic';
-import { useMemo, useReducer, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
   buildIndex,
@@ -23,28 +42,43 @@ import {
 
 import { GraphControls } from '../../components/graph/GraphControls';
 import { GraphLegend } from '../../components/graph/GraphLegend';
+import { GraphSearch } from '../../components/graph/GraphSearch';
+import { GraphZoomControls } from '../../components/graph/GraphZoomControls';
 import { NodePanel } from '../../components/graph/NodePanel';
+import type { ForceGraphHandle } from '../../components/graph/ForceGraphCanvas';
 import { EMPTY_FILTERS, filtersReducer, toCriteria } from '../../lib/graph/filters';
-import { distinctSorted, notesToInputs } from '../../lib/graph/model';
+import { buildRenderModel, distinctSorted, notesToInputs } from '../../lib/graph/model';
+import type { ColorMode } from '../../lib/graph/model';
+import { clampPhysics, DEFAULT_PHYSICS, type GraphPhysics } from '../../lib/graph/physics';
+import { matchNodes } from '../../lib/graph/search';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
-import type { GraphNode } from '@graphvault/engine';
 
 // Canvas/DOM-only renderer: never server-rendered.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
   ssr: false,
   loading: () => (
     <div className="flex h-full w-full items-center justify-center text-sm text-neutral-600">
-      Loading graph…
+      Loading graph...
     </div>
   ),
 });
 
 export default function GraphPage() {
   const vault = useVaultContext();
+  const router = useRouter();
   const [filters, dispatch] = useReducer(filtersReducer, EMPTY_FILTERS);
   const [mode, setMode] = useState<'global' | 'local'>('global');
   const [localDepth, setLocalDepth] = useState(2);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [colorMode, setColorMode] = useState<ColorMode>('type');
+  const [physics, setPhysics] = useState<GraphPhysics>(DEFAULT_PHYSICS);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+
+  // Mobile drawer states
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
+
+  const canvasRef = useRef<ForceGraphHandle>(null);
 
   // Build the engine index from the current vault. Memoised on the raw notes so
   // unrelated re-renders (hover, selection) don't trigger a reparse.
@@ -72,29 +106,39 @@ export default function GraphPage() {
 
   // The payload to render: filtered global graph, or a local neighbourhood
   // around the selected note. Local mode also honours the active filters by
-  // intersecting the two node sets.
+  // intersecting the two node sets. Unresolved edges are included so the render
+  // model can surface attachment / missing-note placeholders.
   const payload: GraphPayload = useMemo(() => {
     const criteria = toCriteria(filters, DEFAULT_NODE_CAP);
+    criteria.includeUnresolved = true;
     const filtered = filterGraph(index, criteria);
     if (mode === 'local' && selectedId) {
       const local = getLocalGraph(index, selectedId, localDepth, {
-        includeUnresolved: false,
+        includeUnresolved: true,
       });
       const allowed = new Set(filtered.nodes.map((n) => n.id));
       const nodes = local.nodes.filter((n) => n.id === selectedId || allowed.has(n.id));
       const present = new Set(nodes.map((n) => n.id));
-      const edges = local.edges.filter((e) => present.has(e.source) && present.has(e.target));
+      const edges = local.edges.filter(
+        (e) => present.has(e.source) && (!e.resolved || present.has(e.target)),
+      );
       return { nodes, edges, truncated: local.truncated };
     }
     return filtered;
   }, [index, filters, mode, selectedId, localDepth]);
 
-  const selectedNode = selectedId ? index.nodes.get(selectedId) : undefined;
+  // Render model: enrich nodes with category/colour/degree and synthesize
+  // placeholder nodes for unresolved targets.
+  const model = useMemo(
+    () => buildRenderModel(payload.nodes, payload.edges, { colorMode, includeUnresolved: true }),
+    [payload, colorMode],
+  );
 
-  // Colour each node by its first tag; the legend mirrors this mapping.
-  const colorKeyForNode = useMemo(() => {
-    return (node: GraphNode) => node.tags[0];
-  }, []);
+  // In-graph search: compute the match set from the current query.
+  const searchIds = useMemo(() => matchNodes(model.nodes, searchQuery), [model.nodes, searchQuery]);
+  const searchMatchCount = searchIds?.size ?? null;
+
+  const selectedNode = selectedId ? index.nodes.get(selectedId) : undefined;
 
   const handleModeChange = (next: 'global' | 'local') => {
     if (next === 'local' && !selectedId) return;
@@ -111,76 +155,263 @@ export default function GraphPage() {
     if (!id && mode === 'local') setMode('global');
   };
 
+  // Deep-link a note into the vault editor (single source of the URL shape).
+  const openNote = useCallback(
+    (path: string) => {
+      router.push(`/vault?note=${encodeURIComponent(path)}`);
+    },
+    [router],
+  );
+
+  const handlePhysicsChange = (patch: Partial<GraphPhysics>) => {
+    setPhysics((prev) => clampPhysics(prev, patch));
+  };
+
+  const handlePinnedChange = useCallback((pinned: Set<string>) => {
+    setPinnedIds(new Set(pinned));
+  }, []);
+
+  const handleUnpinAll = useCallback(() => {
+    // We can't directly mutate the force-graph nodes from outside the canvas.
+    // The canvas tracks pins internally; "unpin all" is driven by clearing the
+    // external pin state, which causes the canvas to skip the pin glyph — and
+    // more importantly, we call zoomToFit to re-engage the simulation.
+    // The actual fx/fy clearing happens the next time the model rebuilds, since
+    // model change triggers a full node array rebuild in the canvas.
+    // For an immediate effect, we trigger a model recompute by toggling a dummy
+    // state change and rely on the canvas's model-change effect.
+    setPinnedIds(new Set());
+    // Force canvas data rebuild by nudging the physics (harmless, reverts).
+    setPhysics((p) => ({ ...p }));
+  }, []);
+
   if (!vault.ready) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-neutral-600">
-        Loading vault…
+        Loading vault...
       </div>
     );
   }
 
   const shownNodes = payload.nodes.length;
 
-  return (
-    <div className="flex h-full min-h-0">
-      <GraphControls
-        mode={mode}
-        onModeChange={handleModeChange}
-        localDepth={localDepth}
-        onLocalDepthChange={setLocalDepth}
-        canFocusLocal={selectedId !== null}
-        filters={filters}
-        dispatch={dispatch}
-        availableTags={facets.tags}
-        availableFolders={facets.folders}
-        availableLinkTypes={facets.linkTypes}
-      />
+  const controlsPanel = (
+    <GraphControls
+      mode={mode}
+      onModeChange={handleModeChange}
+      localDepth={localDepth}
+      onLocalDepthChange={setLocalDepth}
+      canFocusLocal={selectedId !== null}
+      colorMode={colorMode}
+      onColorModeChange={setColorMode}
+      physics={physics}
+      onPhysicsChange={handlePhysicsChange}
+      onResetPhysics={() => setPhysics(DEFAULT_PHYSICS)}
+      onZoomToFit={() => canvasRef.current?.zoomToFit()}
+      onResetView={() => canvasRef.current?.resetView()}
+      filters={filters}
+      dispatch={dispatch}
+      availableTags={facets.tags}
+      availableFolders={facets.folders}
+      availableLinkTypes={facets.linkTypes}
+    />
+  );
 
+  return (
+    <div className="flex h-full min-h-0 flex-col md:flex-row">
+      {/* ================================================================ */}
+      {/* DESKTOP: left rail controls (always visible ≥ md)                */}
+      {/* ================================================================ */}
+      <div className="hidden md:flex">{controlsPanel}</div>
+
+      {/* ================================================================ */}
+      {/* MOBILE: slide-up controls drawer (< md)                          */}
+      {/* ================================================================ */}
+      {mobileControlsOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 z-30 bg-neutral-950/70 backdrop-blur-sm md:hidden"
+            onClick={() => setMobileControlsOpen(false)}
+          />
+          {/* Drawer slides up from bottom */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Graph controls"
+            className="absolute bottom-0 left-0 right-0 z-40 max-h-[80dvh] overflow-y-auto rounded-t-2xl border-t border-neutral-800 bg-neutral-950 md:hidden motion-safe:animate-slide-up"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center py-2">
+              <div className="h-1 w-10 rounded-full bg-neutral-700" aria-hidden="true" />
+            </div>
+            <div className="flex items-center justify-between border-b border-neutral-800 px-4 pb-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Graph controls
+              </span>
+              <button
+                type="button"
+                onClick={() => setMobileControlsOpen(false)}
+                aria-label="Close controls"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            {/* Controls content rendered without the aside outer wrapper */}
+            <GraphControls
+              mode={mode}
+              onModeChange={handleModeChange}
+              localDepth={localDepth}
+              onLocalDepthChange={setLocalDepth}
+              canFocusLocal={selectedId !== null}
+              colorMode={colorMode}
+              onColorModeChange={setColorMode}
+              physics={physics}
+              onPhysicsChange={handlePhysicsChange}
+              onResetPhysics={() => setPhysics(DEFAULT_PHYSICS)}
+              onZoomToFit={() => {
+                canvasRef.current?.zoomToFit();
+                setMobileControlsOpen(false);
+              }}
+              onResetView={() => {
+                canvasRef.current?.resetView();
+                setMobileControlsOpen(false);
+              }}
+              filters={filters}
+              dispatch={dispatch}
+              availableTags={facets.tags}
+              availableFolders={facets.folders}
+              availableLinkTypes={facets.linkTypes}
+            />
+          </div>
+        </>
+      )}
+
+      {/* ================================================================ */}
+      {/* Canvas area                                                       */}
+      {/* ================================================================ */}
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-neutral-800 bg-neutral-950 px-4 py-2.5">
-          <div>
-            <h1 className="text-sm font-semibold text-neutral-100">Graph</h1>
-            <p className="text-xs text-neutral-500">
-              {mode === 'local' && selectedNode
-                ? `Local · ${selectedNode.title} · depth ${localDepth}`
-                : 'Global'}
-            </p>
+        {/* Header */}
+        <header className="flex shrink-0 items-center justify-between border-b border-neutral-800 bg-neutral-950 px-3 py-2.5 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            {/* Mobile controls toggle button */}
+            <button
+              type="button"
+              onClick={() => setMobileControlsOpen(true)}
+              aria-label="Open graph controls"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-800 text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200 md:hidden"
+            >
+              <ControlsIcon />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-sm font-semibold text-neutral-100">Graph</h1>
+              <p className="truncate text-xs text-neutral-500">
+                {mode === 'local' && selectedNode
+                  ? `Local · ${selectedNode.title} · depth ${localDepth}`
+                  : 'Global'}
+              </p>
+            </div>
           </div>
           <NodeCount shown={shownNodes} total={totalNodes} truncated={payload.truncated} />
         </header>
 
         <div className="relative min-h-0 flex-1">
           {totalNodes === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-neutral-600">
-              This vault has no notes yet.
-            </div>
+            <EmptyState message="This vault has no notes yet. Create your first note to see the graph." />
           ) : shownNodes === 0 ? (
-            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-neutral-600">
-              No notes match the current filters.
-            </div>
+            <EmptyState
+              message="No notes match the current filters."
+              hint="Try removing some tag, folder, or date filters."
+            />
           ) : (
             <>
               <ForceGraphCanvas
-                nodes={payload.nodes}
-                edges={payload.edges}
+                model={model}
                 selectedId={selectedId}
-                colorKeyForNode={colorKeyForNode}
+                physics={physics}
+                handleRef={canvasRef}
                 onSelect={handleSelect}
+                onOpen={(node) => node.path && openNote(node.path)}
+                searchIds={searchIds}
+                onPinnedChange={handlePinnedChange}
               />
-              <GraphLegend tags={facets.tags} />
+              <GraphLegend
+                colorMode={colorMode}
+                categories={model.presentCategories}
+                tags={facets.tags}
+              />
+              {/* Floating overlay controls: search (top-right) and zoom (bottom-right). */}
+              <div className="pointer-events-none absolute inset-0 flex flex-col p-2 sm:p-3">
+                {/* Top-right: search bar */}
+                <div className="flex justify-end">
+                  <GraphSearch
+                    query={searchQuery}
+                    matchCount={searchMatchCount}
+                    onQueryChange={setSearchQuery}
+                  />
+                </div>
+                {/* Bottom-right: zoom + unpin controls */}
+                <div className="mt-auto flex justify-end">
+                  <GraphZoomControls
+                    onZoomIn={() => canvasRef.current?.zoomIn()}
+                    onZoomOut={() => canvasRef.current?.zoomOut()}
+                    onFit={() => canvasRef.current?.zoomToFit()}
+                    hasPinnedNodes={pinnedIds.size > 0}
+                    onUnpinAll={handleUnpinAll}
+                  />
+                </div>
+              </div>
             </>
           )}
         </div>
       </div>
 
+      {/* ================================================================ */}
+      {/* Node panel — desktop: right side panel; mobile: bottom drawer     */}
+      {/* ================================================================ */}
       {selectedNode && (
-        <NodePanel
-          node={selectedNode}
-          index={index}
-          isLocalFocus={mode === 'local'}
-          onFocusLocal={handleFocusLocal}
-          onSelect={handleSelect}
-        />
+        <>
+          {/* Desktop node panel */}
+          <div className="hidden md:flex">
+            <NodePanel
+              node={selectedNode}
+              index={index}
+              isLocalFocus={mode === 'local'}
+              onFocusLocal={handleFocusLocal}
+              onSelect={handleSelect}
+              onOpen={openNote}
+            />
+          </div>
+          {/* Mobile node panel — slides up from bottom */}
+          <div
+            className="absolute bottom-0 left-0 right-0 z-20 max-h-[55dvh] overflow-y-auto rounded-t-2xl border-t border-neutral-800 bg-neutral-950 shadow-2xl md:hidden"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
+            {/* Drag handle + close */}
+            <div className="flex items-center justify-between px-4 py-2">
+              <div className="h-1 w-10 rounded-full bg-neutral-700" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => handleSelect(null)}
+                aria-label="Close node panel"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            <NodePanel
+              node={selectedNode}
+              index={index}
+              isLocalFocus={mode === 'local'}
+              onFocusLocal={handleFocusLocal}
+              onSelect={handleSelect}
+              onOpen={openNote}
+            />
+          </div>
+        </>
       )}
     </div>
   );
@@ -196,15 +427,66 @@ function NodeCount({
   truncated: boolean;
 }) {
   return (
-    <div className="text-right text-xs">
+    <div className="shrink-0 text-right text-xs">
       <span className="text-neutral-300">
-        {truncated || shown < total ? `Showing ${shown} of ${total}` : `${total}`} nodes
+        {truncated || shown < total ? `${shown}/${total}` : `${total}`}
+        <span className="hidden sm:inline"> nodes</span>
       </span>
       {truncated && (
-        <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300">
-          capped at {DEFAULT_NODE_CAP}
+        <span className="ml-1.5 hidden rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300 sm:inline">
+          cap {DEFAULT_NODE_CAP}
         </span>
       )}
     </div>
+  );
+}
+
+function EmptyState({ message, hint }: { message: string; hint?: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
+      <svg
+        className="h-10 w-10 text-neutral-700"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        aria-hidden
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path strokeLinecap="round" d="M8 12h8M12 8v8" opacity={0.4} />
+      </svg>
+      <p className="text-sm text-neutral-500">{message}</p>
+      {hint && <p className="text-xs text-neutral-700">{hint}</p>}
+    </div>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" d="M4 4l8 8M12 4l-8 8" />
+    </svg>
+  );
+}
+
+function ControlsIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" d="M2 4h12M4 8h8M6 12h4" />
+    </svg>
   );
 }

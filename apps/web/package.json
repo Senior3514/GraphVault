@@ -8,13 +8,12 @@
     "start": "next start --port 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --import tsx lib/**/*.test.ts"
+    "test": "node --test --import tsx lib/**/*.test.ts lib/**/**/*.test.ts"
   },
   "dependencies": {
     "@graphvault/engine": "workspace:*",
     "@graphvault/shared": "workspace:*",
     "@graphvault/sync-core": "workspace:*",
-    "@vercel/analytics": "^2.0.1",
     "dompurify": "^3.2.4",
     "marked": "^15.0.6",
     "minisearch": "^7.1.1",

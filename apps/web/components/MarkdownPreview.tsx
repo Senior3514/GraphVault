@@ -1,11 +1,12 @@
 'use client';
 
 /**
- * Renders sanitized markdown HTML and wires wikilink clicks to navigation.
+ * Renders sanitized markdown HTML and wires wikilink + tag clicks.
  *
  * Clicking an `<a data-wikilink>` produced by the renderer calls `onNavigate`
  * with the resolved note path (or the raw target for unresolved links, so the
- * caller can offer to create it).
+ * caller can offer to create it). Clicking an `<a data-tag>` calls `onTag` with
+ * the tag name so the caller can filter the note list.
  */
 
 import { useMemo, type MouseEvent } from 'react';
@@ -16,17 +17,27 @@ interface MarkdownPreviewProps {
   markdown: string;
   resolve: ResolveTarget;
   onNavigate(target: string): void;
+  onTag?(tag: string): void;
 }
 
-export function MarkdownPreview({ markdown, resolve, onNavigate }: MarkdownPreviewProps) {
+export function MarkdownPreview({ markdown, resolve, onNavigate, onTag }: MarkdownPreviewProps) {
   const html = useMemo(() => renderMarkdown(markdown, resolve), [markdown, resolve]);
 
   const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-    const el = (e.target as HTMLElement).closest('a[data-wikilink]');
-    if (!el) return;
-    e.preventDefault();
-    const target = el.getAttribute('data-wikilink');
-    if (target) onNavigate(target);
+    const target = e.target as HTMLElement;
+    const wiki = target.closest('a[data-wikilink]');
+    if (wiki) {
+      e.preventDefault();
+      const t = wiki.getAttribute('data-wikilink');
+      if (t) onNavigate(t);
+      return;
+    }
+    const tag = target.closest('a[data-tag]');
+    if (tag) {
+      e.preventDefault();
+      const t = tag.getAttribute('data-tag');
+      if (t && onTag) onTag(t);
+    }
   };
 
   return (

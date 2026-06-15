@@ -3,11 +3,116 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
+  /* App is dark-first per DESIGN.md; pin the scheme so form controls and
+     scrollbars don't flash light. */
 }
 
 body {
   @apply bg-neutral-950 text-neutral-100 antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Refined interactive defaults — smooth hover/focus transitions everywhere. */
+a,
+button,
+[role='button'] {
+  @apply transition-colors duration-150;
+}
+
+/* Inter-style numeric tabular figures for counters and stats. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Quieter, dark scrollbars so panels feel cohesive rather than OS-default. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: theme('colors.neutral.700') transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  @apply rounded-full border-2 border-solid border-transparent bg-neutral-700 bg-clip-content;
+}
+*::-webkit-scrollbar-thumb:hover {
+  @apply bg-neutral-600;
+}
+
+/* Crisp focus rings for keyboard users; pointer focus stays quiet. */
+:focus-visible {
+  @apply outline-none ring-2 ring-sky-500/60 ring-offset-1 ring-offset-neutral-950;
+}
+
+/* Lightweight motion primitives used by the palette / popups. Gated to
+   motion-safe utilities at call sites, but also fully disabled here for users
+   who prefer reduced motion. */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes paletteIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Landing page motion primitives */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes onboardingIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Rendered Markdown preview. Tailwind's preflight resets element styles, so we
@@ -45,6 +150,10 @@ body {
 .markdown-preview a.wikilink--unresolved {
   @apply text-amber-400/80 hover:text-amber-300;
 }
+.markdown-preview a.hashtag {
+  @apply cursor-pointer rounded px-1 text-xs font-medium text-sky-300/90 no-underline;
+  @apply bg-sky-950/40 hover:bg-sky-900/50 hover:text-sky-200;
+}
 .markdown-preview code {
   @apply rounded bg-neutral-800 px-1 py-0.5 font-mono text-[0.85em] text-neutral-200;
 }
@@ -73,3 +182,53 @@ body {
 .markdown-preview input[type='checkbox'] {
   @apply mr-1.5 align-middle;
 }
+
+/* Hide scrollbars on horizontally-scrolling strips (e.g. the editor tab bar). */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================================
+   Empty state helper — centred muted placeholder used across vault/graph views
+   ============================================================================ */
+.empty-state {
+  @apply flex flex-col items-center justify-center gap-3 py-16 text-center;
+}
+.empty-state-icon {
+  @apply flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-neutral-500;
+}
+.empty-state-title {
+  @apply text-sm font-medium text-neutral-400;
+}
+.empty-state-desc {
+  @apply max-w-xs text-xs leading-relaxed text-neutral-600;
+}
+
+/* ============================================================================
+   Micro-interaction: subtle scale + shadow lift on interactive card hover
+   ============================================================================ */
+.card-hover {
+  @apply transition-all duration-200;
+}
+.card-hover:hover {
+  @apply -translate-y-0.5 shadow-lg shadow-black/30;
+}
+
+/* ============================================================================
+   Safe-area utilities — used by fixed/sticky elements near notches / home bars
+   ============================================================================ */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ============================================================================
+   100dvh fallback: use 100svh on browsers that support it for better mobile UX
+   (avoids the address-bar resize jump). Applied in AppFrame via Tailwind class.
+   ============================================================================ */
