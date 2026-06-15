@@ -24,6 +24,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
+  { href: '/', label: 'Home', hint: 'Landing page', glyph: 'home' },
   { href: '/vault', label: 'Vault', hint: 'Notes & editor', glyph: 'vault' },
   { href: '/graph', label: 'Graph', hint: 'Connections & filters', glyph: 'graph' },
   { href: '/sync-status', label: 'Sync', hint: 'Status & conflicts', glyph: 'sync' },

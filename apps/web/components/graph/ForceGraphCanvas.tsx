@@ -23,6 +23,23 @@
  * - Link curvature for multi-edges between the same pair.
  * - Performance: labels suppressed when node count exceeds `LABEL_NODE_CAP`.
  *
+ * v3 (Lumen) additions — all additive, no v1/v2 regression:
+ * - Radial-gradient node fill: rich centre → transparent edge, giving a soft
+ *   3-D "glow dot" appearance without canvas shadow overhead.
+ * - Soft outer ring: a faint outline ring at `radius * 1.45` that gives hubs
+ *   extra visual mass without dominating small nodes.
+ * - Halo labels: white text drawn twice (once slightly offset in a "shadow"
+ *   colour) for legibility on any background, replacing the old flat label.
+ * - DPR-aware drawing: all pixel-level measurements (line widths, font sizes,
+ *   pin glyphs) are divided by `globalScale` so they remain visually consistent
+ *   at any zoom level on retina / HiDPI screens. The force-graph library
+ *   handles the canvas backing-store scaling automatically.
+ * - Edge opacity by relationship type: wikilink ≥ markdown > typed-relation
+ *   edges; unresolved links stay dashed at a lower opacity.
+ * - Context view: when a node is selected, distant nodes (non-neighbours) fade
+ *   to near-invisible so the selected neighbourhood reads as a distinct "island".
+ *   The effect stacks correctly with timeline dimming and search dimming.
+ *
  * Interaction:
  * - single click  → select (side panel); click a pinned node → unpin
  * - double click  → open the note (deep link, handled by the page)
@@ -62,10 +79,22 @@ export interface ForceGraphCanvasProps {
    */
   searchIds?: Set<string> | null;
   /**
+   * Set of node IDs visible in the current timeline window. When non-null,
+   * nodes not in this set are faded to indicate they are outside the selected
+   * time range. Null = timeline not active.
+   */
+  timelineIds?: Set<string> | null;
+  /**
    * Called when the set of pinned node IDs changes. The page uses this to show
    * the "Unpin all" control and to expose the pin state to the imperative handle.
    */
   onPinnedChange?: (pinned: Set<string>) => void;
+  /**
+   * v3: When true, non-neighbour nodes are faded to near-invisible when a node
+   * is hovered or selected, creating a focused "context view" of the
+   * neighbourhood. Does not affect layout. Default false.
+   */
+  contextView?: boolean;
 }
 
 /** Internal: the link object after the force lib resolves source/target. */
@@ -92,6 +121,18 @@ const LABEL_NODE_CAP = 200;
 
 /** Zoom step multiplier for the +/- buttons. */
 const ZOOM_STEP = 1.4;
+
+/**
+ * Alpha level for nodes that are "in context" (non-focused, no search active,
+ * context view on). They are visible but subordinate.
+ */
+const CONTEXT_DIM_ALPHA = 0.08;
+
+/**
+ * Alpha for nodes dimmed by the standard hover/search/timeline mechanism (still
+ * readable but clearly de-emphasised).
+ */
+const DIM_ALPHA = 0.12;
 
 function endpointId(end: string | RenderNode): string {
   return typeof end === 'object' ? end.id : end;
@@ -128,6 +169,117 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
+/**
+ * Parse a hex colour (#rrggbb) into {r,g,b} integers. Returns {r:156,g:163,b:175}
+ * (neutral grey) as a safe fallback for any unrecognised string.
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return { r: 156, g: 163, b: 175 };
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+}
+
+/**
+ * Draw a node using a radial gradient fill (rich centre → transparent edge)
+ * plus a faint outer ring for structural weight. Returns the canvas state
+ * restored to what it was before the call.
+ */
+function drawNodeGradient(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+  isPlaceholder: boolean,
+  isSelected: boolean,
+  globalScale: number,
+) {
+  const { r, g, b } = hexToRgb(color);
+
+  if (isPlaceholder) {
+    // Faint, outlined disc for attachments / missing notes.
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fill();
+    ctx.lineWidth = 1.4 / globalScale;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  } else {
+    // Radial gradient: opaque centre, fading toward the edge.
+    const grad = ctx.createRadialGradient(
+      x - radius * 0.25,
+      y - radius * 0.25,
+      radius * 0.05,
+      x,
+      y,
+      radius,
+    );
+    grad.addColorStop(0, `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(0.55, `rgba(${r},${g},${b},0.92)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0.55)`);
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Soft outer ring: visible halo at 1.45× radius.
+    const ringRadius = radius * 1.45;
+    ctx.beginPath();
+    ctx.arc(x, y, ringRadius, 0, 2 * Math.PI, false);
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.18)`;
+    ctx.lineWidth = 1.2 / globalScale;
+    ctx.stroke();
+  }
+
+  // Selected: crisp white ring directly over the node.
+  if (isSelected) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 1.5 / globalScale, 0, 2 * Math.PI, false);
+    ctx.lineWidth = 2 / globalScale;
+    ctx.strokeStyle = '#f4f4f5';
+    ctx.stroke();
+  }
+}
+
+/**
+ * Draw a label with a "halo" (white shadow pass then solid text pass) so it
+ * reads cleanly on any background colour.
+ */
+function drawHaloLabel(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  fontSize: number,
+  isDimmed: boolean,
+  isPlaceholder: boolean,
+) {
+  const textColor = isDimmed ? '#52525b' : isPlaceholder ? '#9ca3af' : '#d4d4d8';
+
+  ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  if (!isDimmed) {
+    // Halo pass: slightly thicker, near-black, drawn offset to simulate a shadow.
+    ctx.fillStyle = 'rgba(10,10,10,0.85)';
+    for (const [dx, dy] of [
+      [-0.8, 0],
+      [0.8, 0],
+      [0, -0.8],
+      [0, 0.8],
+    ] as [number, number][]) {
+      ctx.fillText(text, x + dx, y + dy);
+    }
+  }
+
+  // Foreground text pass.
+  ctx.fillStyle = textColor;
+  ctx.fillText(text, x, y);
+}
+
 export default function ForceGraphCanvas({
   model,
   selectedId,
@@ -136,7 +288,9 @@ export default function ForceGraphCanvas({
   onSelect,
   onOpen,
   searchIds,
+  timelineIds,
   onPinnedChange,
+  contextView = false,
 }: ForceGraphCanvasProps) {
   const [containerRef, size] = useElementSize();
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -312,8 +466,12 @@ export default function ForceGraphCanvas({
   focusRef.current = focus;
   const searchIdsRef = useRef(searchIds);
   searchIdsRef.current = searchIds;
+  const timelineIdsRef = useRef(timelineIds);
+  timelineIdsRef.current = timelineIds;
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
+  const contextViewRef = useRef(contextView);
+  contextViewRef.current = contextView;
 
   const nodeCanvasObject = useCallback(
     (node: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -323,18 +481,39 @@ export default function ForceGraphCanvas({
       const currentFocus = focusRef.current;
       const currentSearchIds = searchIdsRef.current;
       const currentSelectedId = selectedIdRef.current;
+      const currentContextView = contextViewRef.current;
 
       const isSelected = n.id === currentSelectedId;
       const isFocused = currentFocus !== null && currentFocus.set.has(n.id);
       const isPinned = pinnedRef.current.has(n.id);
       const isPlaceholder = n.category !== 'note';
+      const currentTimelineIds = timelineIdsRef.current;
 
-      // Dimming logic: search overrides hover/focus dimming when active.
+      // Dimming logic:
+      // 1. Timeline: if active, nodes outside the window are faded first.
+      // 2. Search: if active, overrides hover dimming (non-matches dim).
+      // 3. Hover/focus: non-neighbours dim when a node is hovered/selected.
+      // 4. Context view: when no hover but a node is selected, non-neighbours
+      //    fade more aggressively to isolate the focused island.
+      // Focus (hover/selected neighbours) always overrides timeline dimming so
+      // the user can still explore by clicking even with the slider on.
+      const timelineDimmed =
+        currentTimelineIds !== null &&
+        currentTimelineIds !== undefined &&
+        !currentTimelineIds.has(n.id) &&
+        !isFocused;
+
       let dimmed: boolean;
+      let dimAlpha = DIM_ALPHA;
+
       if (currentSearchIds !== null && currentSearchIds !== undefined) {
-        dimmed = !currentSearchIds.has(n.id) && !isFocused;
+        dimmed = (!currentSearchIds.has(n.id) && !isFocused) || timelineDimmed;
+      } else if (currentContextView && currentFocus !== null && !isFocused) {
+        // Context view: all non-neighbours fade very aggressively.
+        dimmed = true;
+        dimAlpha = CONTEXT_DIM_ALPHA;
       } else {
-        dimmed = currentFocus !== null && !isFocused;
+        dimmed = (currentFocus !== null && !isFocused) || timelineDimmed;
       }
 
       // Performance: suppress label rendering in dense graphs unless important.
@@ -342,13 +521,13 @@ export default function ForceGraphCanvas({
       const forceLabel = isFocused || isSelected || isSearchMatch;
       const showLabelDense = !denseGraph || forceLabel;
 
-      ctx.globalAlpha = dimmed ? 0.12 : 1;
+      ctx.globalAlpha = dimmed ? dimAlpha : 1;
 
-      // v1: Hover/selection glow around the focused node + neighbours.
+      // v1 preserved: Hover/selection glow around the focused node + neighbours.
       if (isFocused && !reducedMotion) {
         ctx.save();
         ctx.shadowColor = n.color;
-        ctx.shadowBlur = (n.id === currentFocus?.id ? 18 : 10) / globalScale;
+        ctx.shadowBlur = (n.id === currentFocus?.id ? 22 : 12) / globalScale;
         ctx.beginPath();
         ctx.arc(n.x, n.y, radius, 0, 2 * Math.PI, false);
         ctx.fillStyle = n.color;
@@ -356,7 +535,7 @@ export default function ForceGraphCanvas({
         ctx.restore();
       }
 
-      // v2: Search-match highlight ring.
+      // v2 preserved: Search-match highlight ring.
       if (isSearchMatch && currentSearchIds !== null && !isFocused && !reducedMotion) {
         ctx.save();
         ctx.shadowColor = '#f4d03f';
@@ -369,31 +548,16 @@ export default function ForceGraphCanvas({
         ctx.restore();
       }
 
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, radius, 0, 2 * Math.PI, false);
-      if (isPlaceholder) {
-        // Faint, outlined disc for attachments / missing notes.
-        ctx.fillStyle = '#0a0a0a';
-        ctx.fill();
-        ctx.lineWidth = 1.4 / globalScale;
-        ctx.strokeStyle = n.color;
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = n.color;
-        ctx.fill();
-      }
+      // v3: Radial gradient node body + soft outer ring.
+      ctx.save();
+      drawNodeGradient(ctx, n.x, n.y, radius, n.color, isPlaceholder, isSelected, globalScale);
+      ctx.restore();
 
-      if (isSelected) {
-        ctx.lineWidth = 2 / globalScale;
-        ctx.strokeStyle = '#f4f4f5';
-        ctx.stroke();
-      }
-
-      // v2: Pin glyph — a small pushpin drawn above the node.
+      // v2 preserved: Pin glyph — a small dot drawn above the node.
       if (isPinned) {
         const pinSize = Math.max(4 / globalScale, 1.5);
         ctx.save();
-        ctx.globalAlpha = dimmed ? 0.12 : 0.9;
+        ctx.globalAlpha = dimmed ? dimAlpha : 0.9;
         ctx.fillStyle = '#fbbf24'; // amber-400
         ctx.beginPath();
         ctx.arc(n.x, n.y - radius - pinSize * 0.7, pinSize * 0.55, 0, 2 * Math.PI);
@@ -409,17 +573,18 @@ export default function ForceGraphCanvas({
         shouldShowLabel({ globalScale, threshold: physics.labelThreshold, isFocused: forceLabel })
       ) {
         const fontSize = Math.max(10 / globalScale, 2);
-        ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = dimmed ? '#52525b' : isPlaceholder ? '#9ca3af' : '#d4d4d8';
-        ctx.fillText(n.title, n.x, n.y + radius + 1);
+        ctx.save();
+        ctx.globalAlpha = dimmed ? dimAlpha : 1;
+        // v3: Halo label for legibility on any background.
+        drawHaloLabel(ctx, n.title, n.x, n.y + radius + 1, fontSize, dimmed, isPlaceholder);
+        ctx.restore();
       }
       ctx.globalAlpha = 1;
     },
-    // focusRef, searchIdsRef, selectedIdRef and pinnedRef are intentionally
-    // read via refs so this callback can be stable — it only needs to rebuild
-    // when the label threshold, density flag, or reduced-motion preference changes.
+    // focusRef, searchIdsRef, timelineIdsRef, selectedIdRef, contextViewRef and
+    // pinnedRef are intentionally read via refs so this callback can be stable —
+    // it only needs to rebuild when the label threshold, density flag, or
+    // reduced-motion preference changes.
     [physics.labelThreshold, denseGraph, reducedMotion],
   );
 
@@ -460,10 +625,28 @@ export default function ForceGraphCanvas({
         linkColor={(link) => {
           const l = link as LiveLink;
           const dashed = !l.resolved;
-          if (!focus) return dashed ? 'rgba(120,120,130,0.18)' : 'rgba(120,120,130,0.28)';
+
+          // v3: opacity by relationship type.
+          // wikilink: most opaque; markdown: slightly less; typed relations: more subtle.
+          let baseOpacity: number;
+          if (!l.resolved) {
+            baseOpacity = 0.15;
+          } else if (l.type === 'wikilink') {
+            baseOpacity = 0.32;
+          } else if (l.type === 'markdown') {
+            baseOpacity = 0.26;
+          } else {
+            // typed relation (references, refutes, etc.)
+            baseOpacity = 0.22;
+          }
+
+          if (!focus)
+            return dashed
+              ? `rgba(120,120,130,${baseOpacity * 0.6})`
+              : `rgba(120,120,130,${baseOpacity})`;
           const lit = endpointId(l.source) === focus.id || endpointId(l.target) === focus.id;
-          if (lit) return dashed ? 'rgba(190,160,120,0.75)' : 'rgba(170,185,215,0.85)';
-          return 'rgba(120,120,130,0.06)';
+          if (lit) return dashed ? 'rgba(190,160,120,0.75)' : 'rgba(170,185,215,0.9)';
+          return `rgba(120,120,130,${baseOpacity * 0.22})`;
         }}
         linkLineDash={(link) => ((link as LiveLink).resolved ? null : [3, 3])}
         linkWidth={(link) => {

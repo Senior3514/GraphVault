@@ -28,6 +28,7 @@ import {
 } from 'react';
 
 import { fuzzyMatch } from '../lib/vault/fuzzy';
+import { isFolderPickerSupported, openFolder } from '../lib/vault/openFolder';
 import { useVaultContext } from '../lib/vault/VaultProvider';
 import type { NotePath } from '../lib/vault/types';
 
@@ -174,6 +175,51 @@ export function CommandPalette() {
         glyph: '⌘E',
         keywords: 'toggle preview markdown render edit',
         run: () => window.dispatchEvent(new Event(TOGGLE_PREVIEW_EVENT)),
+      },
+      {
+        id: 'open-folder',
+        label: 'Open folder from disk…',
+        hint: isFolderPickerSupported()
+          ? 'Map a local folder of Markdown into the vault'
+          : 'Requires Chrome 86+, Edge 86+, or another Chromium-based browser',
+        glyph: '\u{1F4C2}',
+        keywords: 'open folder disk import local markdown files directory',
+        run: () => {
+          if (!isFolderPickerSupported()) {
+            window.alert(
+              'The File System Access API is not available in this browser.\n' +
+                'Try Chrome 86+, Edge 86+, or another Chromium-based browser.',
+            );
+            return;
+          }
+          void openFolder()
+            .then((entries) => {
+              if (entries.length === 0) {
+                window.alert(
+                  'No importable Markdown or text files were found in the selected folder.',
+                );
+                return;
+              }
+              const summary = vault.importNotes(entries);
+              const lines: string[] = [];
+              if (summary.added > 0) lines.push(`${summary.added} note(s) added.`);
+              if (summary.renamed.length > 0) {
+                lines.push(
+                  `${summary.renamed.length} note(s) kept as copies (path collision with different content).`,
+                );
+              }
+              if (summary.unchanged > 0) {
+                lines.push(`${summary.unchanged} note(s) unchanged (already in vault).`);
+              }
+              window.alert(lines.join('\n') || 'No changes.');
+            })
+            .catch((err: unknown) => {
+              // AbortError = user cancelled the picker — silent.
+              if (err instanceof DOMException && err.name === 'AbortError') return;
+              const message = err instanceof Error ? err.message : String(err);
+              window.alert(`Could not import folder: ${message}`);
+            });
+        },
       },
     ];
     return list;

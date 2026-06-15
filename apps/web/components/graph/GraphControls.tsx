@@ -2,16 +2,41 @@
 
 /**
  * The left-hand control rail for the graph: mode toggle (global/local), local
- * depth, colour mode, the live physics sliders (link distance, repel strength,
- * centre gravity, label threshold), view buttons (zoom-to-fit / reset), and the
- * filter controls (tags, folders, link types, updated range) that drive
- * `filterGraph`. Presentational — state lives in the page.
+ * depth, colour mode (type/tag/cluster), the live physics sliders (link
+ * distance, repel strength, centre gravity, label threshold), view buttons
+ * (zoom-to-fit / reset), the filter controls (tags, folders, link types,
+ * updated range) that drive `filterGraph`, and the Groups overlay (v4).
+ * Presentational — state lives in the page.
+ *
+ * v3 (Lumen) additions:
+ * - "Colour by" now includes "Cluster" mode (connected-component colouring).
+ * - New "Graphics" section with:
+ *   - Context view toggle (isolates the selected neighbourhood).
+ *   - Label density quick-preset (sparse / normal / dense).
+ *
+ * v4 (Prism) additions:
+ * - "Groups" section: user-defined named colour groups with a query, add/remove/
+ *   recolour controls, persisted to localStorage by the page. Group colours
+ *   override the base colour mode (first-matching-group-wins).
  */
 
+import { useId } from 'react';
 import { colorForKey } from '../../lib/graph/model';
 import { PHYSICS_BOUNDS, type GraphPhysics } from '../../lib/graph/physics';
 import type { ColorMode } from '../../lib/graph/model';
 import type { FilterAction, GraphFilters, GraphMode } from '../../lib/graph/filters';
+import { GraphTimeline } from './GraphTimeline';
+import type { TimelineState } from '../../lib/graph/timeline';
+import type { NodeGroup } from '../../lib/graph/groups';
+import { GROUP_COLOR_PRESETS, nextGroupColor } from '../../lib/graph/groups';
+
+/** Label density presets: maps to `physics.labelThreshold` values. */
+export type LabelDensity = 'sparse' | 'normal' | 'dense';
+const DENSITY_THRESHOLD: Record<LabelDensity, number> = {
+  sparse: 3.0,
+  normal: 1.6,
+  dense: 0.5,
+};
 
 export interface GraphControlsProps {
   mode: GraphMode;
@@ -36,6 +61,22 @@ export interface GraphControlsProps {
   availableTags: string[];
   availableFolders: string[];
   availableLinkTypes: string[];
+
+  /** Timeline slider state. `null` = no timestamped nodes, hide the control. */
+  timeline: TimelineState | null;
+  onTimelineChange: (patch: Partial<TimelineState>) => void;
+
+  /** v3: Context view toggle. */
+  contextView: boolean;
+  onContextViewChange: (on: boolean) => void;
+
+  /** v3: Current label density preset. */
+  labelDensity: LabelDensity;
+  onLabelDensityChange: (density: LabelDensity) => void;
+
+  /** v4: User-defined colour groups. */
+  groups: readonly NodeGroup[];
+  onGroupsChange: (groups: NodeGroup[]) => void;
 }
 
 export function GraphControls({
@@ -56,7 +97,38 @@ export function GraphControls({
   availableTags,
   availableFolders,
   availableLinkTypes,
+  timeline,
+  onTimelineChange,
+  contextView,
+  onContextViewChange,
+  labelDensity,
+  onLabelDensityChange,
+  groups,
+  onGroupsChange,
 }: GraphControlsProps) {
+  const handleDensityChange = (density: LabelDensity) => {
+    onLabelDensityChange(density);
+    onPhysicsChange({ labelThreshold: DENSITY_THRESHOLD[density] });
+  };
+
+  const handleAddGroup = () => {
+    const newGroup: NodeGroup = {
+      id: `group-${Date.now()}`,
+      name: `Group ${groups.length + 1}`,
+      query: '',
+      color: nextGroupColor(groups.length),
+    };
+    onGroupsChange([...groups, newGroup]);
+  };
+
+  const handleRemoveGroup = (id: string) => {
+    onGroupsChange(groups.filter((g) => g.id !== id));
+  };
+
+  const handleGroupChange = (id: string, patch: Partial<NodeGroup>) => {
+    onGroupsChange(groups.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+  };
+
   return (
     // On mobile the aside is rendered inside a slide-up drawer by the page,
     // so we remove the fixed w-64 and border constraints and let it fill
@@ -108,6 +180,108 @@ export function GraphControls({
           <SegButton active={colorMode === 'tag'} onClick={() => onColorModeChange('tag')}>
             Tag
           </SegButton>
+          <SegButton active={colorMode === 'cluster'} onClick={() => onColorModeChange('cluster')}>
+            Cluster
+          </SegButton>
+        </div>
+        {colorMode === 'cluster' && (
+          <p className="mt-1.5 text-[11px] leading-snug text-neutral-600">
+            Colour by connected component — nodes that link to each other share a colour.
+          </p>
+        )}
+      </div>
+
+      <Divider />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* v4 Groups section                                                    */}
+      {/* ------------------------------------------------------------------ */}
+      <div>
+        <div className="flex items-center justify-between">
+          <Label>Groups</Label>
+          <button
+            type="button"
+            onClick={handleAddGroup}
+            title="Add a new colour group"
+            className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-neutral-500 transition-colors hover:text-neutral-300"
+          >
+            <PlusIcon />
+            Add
+          </button>
+        </div>
+        {groups.length === 0 ? (
+          <p className="mt-2 text-[11px] leading-snug text-neutral-600">
+            No groups. Add one to paint matching nodes a custom colour.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {groups.map((group) => (
+              <GroupRow
+                key={group.id}
+                group={group}
+                onChange={(patch) => handleGroupChange(group.id, patch)}
+                onRemove={() => handleRemoveGroup(group.id)}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Divider />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* v3 Graphics section                                                  */}
+      {/* ------------------------------------------------------------------ */}
+      <div>
+        <Label>Graphics</Label>
+        <div className="mt-2 space-y-3">
+          {/* Context view toggle */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-neutral-400">Context view</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={contextView}
+              onClick={() => onContextViewChange(!contextView)}
+              title={
+                contextView
+                  ? 'Disable context view — show all nodes'
+                  : 'Enable context view — highlight the selected neighbourhood'
+              }
+              className={[
+                'relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-0 transition-colors duration-200',
+                contextView ? 'bg-blue-500' : 'bg-neutral-700',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'mt-px inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200',
+                  contextView ? 'translate-x-4' : 'translate-x-0.5',
+                ].join(' ')}
+              />
+            </button>
+          </div>
+          {contextView && (
+            <p className="text-[11px] leading-snug text-neutral-600">
+              Select a node to isolate its neighbourhood.
+            </p>
+          )}
+
+          {/* Label density */}
+          <div>
+            <span className="text-xs text-neutral-400">Label density</span>
+            <div className="mt-1.5 inline-flex rounded-md border border-neutral-800 p-0.5">
+              {(['sparse', 'normal', 'dense'] as LabelDensity[]).map((d) => (
+                <SegButton
+                  key={d}
+                  active={labelDensity === d}
+                  onClick={() => handleDensityChange(d)}
+                >
+                  {d.charAt(0).toUpperCase() + d.slice(1)}
+                </SegButton>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -226,6 +400,13 @@ export function GraphControls({
       >
         Reset filters
       </button>
+
+      {timeline && (
+        <>
+          <Divider />
+          <GraphTimeline state={timeline} onChange={onTimelineChange} />
+        </>
+      )}
     </aside>
   );
 }
@@ -377,3 +558,142 @@ function DateField({
     </label>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Groups
+// ---------------------------------------------------------------------------
+
+/**
+ * A single group row: colour picker, name field, query field, and remove
+ * button. Self-contained so the parent only handles data changes.
+ */
+function GroupRow({
+  group,
+  onChange,
+  onRemove,
+}: {
+  group: NodeGroup;
+  onChange: (patch: Partial<NodeGroup>) => void;
+  onRemove: () => void;
+}) {
+  const nameId = useId();
+  const queryId = useId();
+
+  return (
+    <li className="rounded-md border border-neutral-800 bg-neutral-900/60 px-2.5 py-2">
+      {/* Row 1: colour swatch + name input + remove button */}
+      <div className="flex items-center gap-2">
+        {/* Colour picker: visually shown as a coloured disc */}
+        <label
+          title="Group colour"
+          className="relative shrink-0 cursor-pointer"
+          style={{ width: 18, height: 18 }}
+        >
+          <span
+            className="block h-full w-full rounded-full border border-neutral-700"
+            style={{ backgroundColor: group.color }}
+            aria-hidden="true"
+          />
+          <input
+            type="color"
+            value={group.color}
+            onChange={(e) => onChange({ color: e.target.value })}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            aria-label="Group colour"
+          />
+        </label>
+
+        {/* Name input */}
+        <label htmlFor={nameId} className="sr-only">
+          Group name
+        </label>
+        <input
+          id={nameId}
+          type="text"
+          value={group.name}
+          placeholder="Name"
+          onChange={(e) => onChange({ name: e.target.value })}
+          className="min-w-0 flex-1 rounded border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-xs text-neutral-200 placeholder-neutral-600 focus:border-neutral-600 focus:outline-none"
+        />
+
+        {/* Remove button */}
+        <button
+          type="button"
+          onClick={onRemove}
+          title="Remove group"
+          className="shrink-0 text-neutral-600 transition-colors hover:text-rose-400"
+          aria-label="Remove group"
+        >
+          <TrashIcon />
+        </button>
+      </div>
+
+      {/* Row 2: query input */}
+      <div className="mt-1.5">
+        <label htmlFor={queryId} className="sr-only">
+          Query
+        </label>
+        <input
+          id={queryId}
+          type="text"
+          value={group.query}
+          placeholder="#tag  or  path:folder/  or  title text"
+          onChange={(e) => onChange({ query: e.target.value })}
+          className="w-full rounded border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-[11px] text-neutral-300 placeholder-neutral-700 focus:border-neutral-600 focus:outline-none"
+        />
+      </div>
+
+      {/* Colour preset swatches for quick recolouring */}
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {GROUP_COLOR_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => onChange({ color: preset })}
+            title={preset}
+            aria-label={`Set colour to ${preset}`}
+            className="h-3.5 w-3.5 rounded-full border transition-transform hover:scale-110 focus:outline-none focus:ring-1 focus:ring-white/40"
+            style={{
+              backgroundColor: preset,
+              borderColor: group.color === preset ? 'white' : 'transparent',
+            }}
+          />
+        ))}
+      </div>
+    </li>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      className="h-3 w-3"
+      aria-hidden="true"
+    >
+      <path d="M6 2v8M2 6h8" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      className="h-3.5 w-3.5"
+      aria-hidden="true"
+    >
+      <path d="M2 3.5h10M5 3.5V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M4.5 3.5l.5 7.5h4l.5-7.5" />
+    </svg>
+  );
+}
+
+export { DENSITY_THRESHOLD };

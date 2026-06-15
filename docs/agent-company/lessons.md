@@ -293,3 +293,106 @@ stop repeating mistakes. Newest at the top within each section.
   `window === globalThis` in browsers). Augment DOM types with
   `declare global { interface Window { … } }` — never re-declare a DOM interface
   partially (creates a conflicting parallel type).
+
+## Wave 4 — time-slider (Nova)
+
+### Additive overlay vs hard-filter for timeline scrubbing
+
+- **Symptom concern:** removing nodes from the force layout while scrubbing
+  causes constant layout thrash — nodes re-enter at random positions every time
+  the window moves, making the animation disorienting.
+- **Root cause / rule:** the time-slider must operate as a _dimming overlay_ (like
+  `searchIds`) rather than a hard filter that changes `payload.nodes`. The graph
+  layout stays completely stable; only canvas alpha changes. This means
+  `timelineIds: Set<string> | null` travels the same path as `searchIds` —
+  computed from index nodes, passed through a ref inside `nodeCanvasObject`, and
+  combined with hover/search dimming. Never rebuild `payload` or `model` on
+  timeline scrub.
+
+### Dual-range slider with two overlapping `<input type=range>` inputs
+
+- **Approach:** render two `<input type=range>` stacked via `position: absolute`
+  and `opacity: 0` so the browser owns hit-testing on each thumb. Position custom
+  visual thumbs absolutely at the computed `left: X%`. Swap z-index dynamically
+  when the start handle is past the midpoint so the "end" handle stays on top
+  and the two never get stuck. This is CSS-only, zero extra deps.
+
+### Animation loop with a ref to avoid stale closures
+
+- **Rule:** `setInterval` closures capture the state at the time the interval is
+  created. For an animation that reads ever-changing state, keep a `stateRef`
+  that is updated on every render; the interval reads `stateRef.current`. This
+  avoids needing to re-register the interval on every state change (which would
+  reset the cadence and create micro-gaps in the animation).
+
+## Wave 5 — visual / cluster polish (Lumen)
+
+### `react-force-graph-2d` does not expose `pixelRatio` as a React prop
+
+- **Symptom:** adding `pixelRatio={window.devicePixelRatio}` to `<ForceGraph2D>`
+  caused a TS2322 type error: "Property 'pixelRatio' does not exist on type …".
+- **Root cause:** the upstream `force-graph` library handles DPR internally;
+  `react-force-graph-2d` never exposed it as a configurable prop, and its `.d.ts`
+  doesn't include it.
+- **Fix / rule:** don't pass `pixelRatio` to the component. Retina-crispness
+  improvements instead come from: (a) scaling all drawn sizes by `1 / globalScale`,
+  and (b) using radial gradient fills and halo-shadow labels which look good even
+  without explicit DPR scaling.
+
+### Context view as an alpha overlay (not a layout change)
+
+- **Rule:** the "context view" (isolate selected neighbourhood) must be implemented
+  as a per-node `ctx.globalAlpha` adjustment inside `nodeCanvasObject`, reading the
+  focus set through a stable ref — exactly like timeline and search dimming. This
+  keeps the layout completely stable, composes correctly with all other dimming
+  modes (search, timeline, hover), and avoids re-creating the callback on every
+  selection change. Never add a separate force-graph data rebuild for visual-only
+  effects.
+
+### Cluster colouring: compute outside `buildRenderModel`, pass in as a map
+
+- **Rule:** `buildRenderModel` is a pure, engine-agnostic transformer. Cluster
+  detection (connected-components BFS) depends on the graph topology and produces
+  a `Map<nodeId, color>`. The cleanest wiring is: (a) compute clusters in the page
+  with `buildClusterColors(payload.nodes, payload.edges)` as a separate `useMemo`,
+  (b) pass the resulting `clusterNodeColor` map into `buildRenderModel` as an
+  option. This keeps the model builder framework-free and makes it trivial to swap
+  in a richer community-detection algorithm later without touching `model.ts`.
+
+## Wave 6 — Groups overlay (Prism)
+
+### Groups as a colour overlay, not a new colour mode
+
+- **Rule:** user-defined colour groups must be an _overlay_ on top of the base
+  colour mode (type/tag/cluster), not a fourth mode. This keeps the base modes
+  fully intact and lets users combine groups with any mode. Implementation:
+  (a) compute a `Map<nodeId, groupColor>` in a separate `useMemo` keyed only on
+  `[groups, payload.nodes]`, (b) pass it as `groupNodeColor` to
+  `buildRenderModel`, which applies it as a final override after the base colour
+  is set. Zero changes to `ForceGraphCanvas` — group colours land in
+  `node.color`, so the canvas draws them without any extra logic.
+
+### Proxy-node trick for group matching before render model is built
+
+- **Rule:** `computeGroupColors` needs rendered node shape (needs `tagKey`,
+  `path`) but `buildRenderModel` hasn't run yet. Solution: map `payload.nodes`
+  (engine `GraphNode[]`) to lightweight proxy objects with just `{id, title,
+tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
+  proxy map is then passed into `buildRenderModel`. One pass of the node list
+  for matching + one pass inside the model builder = O(2N) total, not O(N²).
+
+### Group matching: avoid localStorage access during SSR
+
+- **Rule:** `loadGroups()` guards with `typeof localStorage === 'undefined'`
+  before accessing it, so it is safe to call as a `useState` initialiser in a
+  `'use client'` component. No `useEffect` needed for the initial read.
+  `saveGroups()` carries the same guard for defensive depth. This pattern is
+  correct for any browser-only storage helper used in Next.js App Router.
+
+### Colour inputs as invisible overlays on styled discs
+
+- **Rule:** `<input type="color">` is styled via `opacity: 0; position: absolute`
+  layered over a styled `<span>` disc. The user sees the colour, the browser
+  handles the native picker. No third-party colour-picker dependency, no canvas
+  rendering. The `onChange` just updates the group's `color` string, which then
+  propagates through the normal memo chain.

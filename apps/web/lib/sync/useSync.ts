@@ -11,6 +11,14 @@
  *
  * The pending count is derived from the persisted sync index (dirty entries);
  * last-sync metadata and conflicts persist in `localStorage` via `syncMeta`.
+ *
+ * ## deviceId binding
+ *
+ * When a bearer token is present (user is signed in), the `deviceId` from the
+ * auth token MUST be used for the push request. The server enforces that the
+ * push `deviceId` matches the authenticated device. Pass `deviceId` (from
+ * `useAuth`) into `UseSyncOptions.deviceId` whenever a token is present.
+ * When offline or not signed in, the locally generated id from syncMeta is used.
  */
 
 import { runSync, type ResolvedConflict, type SyncResult } from '@graphvault/sync-core';
@@ -31,6 +39,11 @@ export interface UseSyncOptions {
   token?: string;
   /** The adopted server vault id, if registered. */
   vaultId?: string;
+  /**
+   * The device id bound to the current auth token. Must match what the server
+   * recorded at login/register. Required when `token` is present.
+   */
+  deviceId?: string;
 }
 
 export interface UseSync {
@@ -41,7 +54,7 @@ export interface UseSync {
   error: string | null;
   /** True while a sync cycle is in flight. */
   busy: boolean;
-  /** Whether a sync can run (server reachable config + a vault id). */
+  /** Whether a sync can run (server configured + a vault id + a bearer token). */
   canSync: boolean;
   /** Run one sync cycle now. Resolves to the result, or null on error. */
   syncNow(): Promise<SyncResult | null>;
@@ -60,7 +73,7 @@ function countDirty(): number {
 }
 
 export function useSync(options: UseSyncOptions): UseSync {
-  const { serverUrl, token, vaultId } = options;
+  const { serverUrl, token, vaultId, deviceId: authDeviceId } = options;
   const vault = useVaultContext();
 
   const [status, setStatus] = useState<SyncStatus>('idle');
@@ -74,13 +87,21 @@ export function useSync(options: UseSyncOptions): UseSync {
     setPendingCount(countDirty());
   }, []);
 
-  const canSync = Boolean(serverUrl && (vaultId ?? meta?.vaultId));
+  const resolvedVaultId = vaultId ?? meta?.vaultId;
+  // canSync requires a server URL, a vault id, AND a bearer token.
+  const canSync = Boolean(serverUrl && resolvedVaultId && token);
 
   const syncNow = useCallback(async (): Promise<SyncResult | null> => {
     const current = meta ?? loadSyncMeta();
     const targetVault = vaultId ?? current.vaultId;
+
+    if (!token) {
+      setError('Not signed in. Sign in from the Settings page to sync.');
+      setStatus('error');
+      return null;
+    }
     if (!targetVault) {
-      setError('No vault registered on the server yet.');
+      setError('No vault registered on the server yet. Register a vault in Settings.');
       setStatus('error');
       return null;
     }
@@ -88,9 +109,17 @@ export function useSync(options: UseSyncOptions): UseSync {
     setStatus('syncing');
     setError(null);
 
+    // The server enforces that push.deviceId matches the authenticated device.
+    // Use the auth-bound deviceId when available.
+    const effectiveDeviceId = authDeviceId ?? current.deviceId;
+    const effectiveDeviceName = current.deviceName;
+
     const mutator: VaultMutator = {
       notes: () => vault.notes.map((n) => ({ ...n })),
-      upsert: (path, content) => {
+      upsert: (path, content, _mtime) => {
+        // _mtime is provided by the sync engine (server mtime). The web vault's
+        // updateContent / createNote always sets mtime to Date.now() — acceptable
+        // because the sync index records the canonical server mtime separately.
         if (vault.getNote(path)) {
           vault.updateContent(path, content);
         } else {
@@ -107,13 +136,15 @@ export function useSync(options: UseSyncOptions): UseSync {
 
     try {
       const result = await runSync(local, remote, targetVault, {
-        deviceId: current.deviceId,
-        deviceName: current.deviceName,
+        deviceId: effectiveDeviceId,
+        deviceName: effectiveDeviceName,
       });
 
       const nextMeta: SyncMeta = {
         ...current,
         vaultId: targetVault,
+        // Anchor the auth-bound deviceId so subsequent syncs also use it.
+        deviceId: authDeviceId ?? current.deviceId,
         lastSyncAt: new Date().toISOString(),
         lastRevision: result.newRevision,
         // Accumulate conflicts; the user clears them by merging/deleting copies.
@@ -130,7 +161,7 @@ export function useSync(options: UseSyncOptions): UseSync {
       setPendingCount(countDirty());
       return null;
     }
-  }, [meta, serverUrl, token, vault, vaultId]);
+  }, [meta, serverUrl, token, vault, vaultId, authDeviceId]);
 
   return {
     status,

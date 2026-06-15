@@ -35,11 +35,17 @@ At the end of each milestone, report:
 
 ## Non-goals for v0 (do NOT build these)
 
-- ❌ Mobile clients (desktop + web only).
-- ❌ AI features.
+- ❌ Mobile clients (desktop + web only; the web app is fully responsive).
 - ❌ Plugin marketplace.
 - ❌ Public multi-user collaboration (single user / small trusted team is enough).
 - ❌ WYSIWYG-only editor — **Markdown is first-class**.
+
+> **Direction update (owner, post-v0):** AI features and external connectors
+> (email, cloud storage, etc.) are now **in scope** — but only **privacy-first**:
+> opt-in, **off by default**, with a privacy spectrum (local/on-device model →
+> bring-your-own-key → never hosted-by-us by default). Note content must never
+> leave the device unless the user explicitly enables a provider. This preserves
+> the local-first, zero-telemetry promise. See `docs/ROADMAP.md` M21–M22.
 
 ## Tech stack
 

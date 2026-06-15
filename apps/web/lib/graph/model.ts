@@ -90,7 +90,7 @@ export function distinctSorted(values: Iterable<string>): string[] {
 export type NodeCategory = 'note' | 'attachment' | 'unresolved';
 
 /** The way nodes are coloured on the canvas. */
-export type ColorMode = 'type' | 'tag';
+export type ColorMode = 'type' | 'tag' | 'cluster';
 
 /**
  * Colour + label for each node category. The legend renders straight from this
@@ -135,6 +135,12 @@ export interface RenderNode {
   tagKey?: string;
   /** Real notes carry their vault path so a double-click can deep-link to it. */
   path?: string;
+  /**
+   * Pre-computed cluster colour for "cluster" colour mode. Set when
+   * `buildRenderModel` is called with `colorMode: 'cluster'` and a
+   * `clusterNodeColor` map. Undefined otherwise.
+   */
+  clusterColor?: string;
 }
 
 /** A link enriched for rendering. */
@@ -162,6 +168,19 @@ export interface BuildRenderModelOptions {
    * faint node at their target. Defaults to `true`.
    */
   includeUnresolved?: boolean;
+  /**
+   * Pre-computed node-id → hex colour map for cluster colouring. Required
+   * when `colorMode === 'cluster'`. Nodes absent from the map receive
+   * `GRAPH_NEUTRAL`.
+   */
+  clusterNodeColor?: Map<string, string>;
+  /**
+   * Pre-computed node-id → hex colour map from user-defined Groups. When a
+   * node appears in this map its colour overrides the base `colorMode` colour
+   * (first-matching-group-wins semantics applied upstream). Placeholder nodes
+   * (attachments / unresolved) are never overridden by groups.
+   */
+  groupNodeColor?: Map<string, string>;
 }
 
 const CATEGORY_ORDER: NodeCategory[] = ['note', 'attachment', 'unresolved'];
@@ -182,6 +201,8 @@ export function buildRenderModel(
 ): RenderModel {
   const colorMode = options.colorMode ?? 'type';
   const includeUnresolved = options.includeUnresolved ?? true;
+  const clusterNodeColor = options.clusterNodeColor;
+  const groupNodeColor = options.groupNodeColor;
 
   const noteIds = new Set(nodes.map((n) => n.id));
 
@@ -219,7 +240,18 @@ export function buildRenderModel(
 
   const renderNodes: RenderNode[] = nodes.map((n) => {
     const tagKey = n.tags[0];
-    const color = colorMode === 'tag' ? colorForKey(tagKey) : colorForCategory('note');
+    let color: string;
+    if (colorMode === 'tag') {
+      color = colorForKey(tagKey);
+    } else if (colorMode === 'cluster') {
+      color = clusterNodeColor?.get(n.id) ?? GRAPH_NEUTRAL;
+    } else {
+      color = colorForCategory('note');
+    }
+    // Groups override the base colour mode (first-matching-group-wins,
+    // computed upstream in computeGroupColors).
+    const groupColor = groupNodeColor?.get(n.id);
+    if (groupColor) color = groupColor;
     return {
       id: n.id,
       title: n.title,
@@ -228,6 +260,7 @@ export function buildRenderModel(
       degree: degree.get(n.id) ?? 0,
       tagKey,
       path: n.path,
+      clusterColor: clusterNodeColor?.get(n.id),
     };
   });
 

@@ -1,22 +1,33 @@
 'use client';
 
 /**
- * Graph view (Milestones 7 + 11 "wow" + v2 power features). Builds the
- * `@graphvault/engine` index in the browser from the current vault, then
- * renders a force-directed graph with:
+ * Graph view (Milestones 7 + 11 "wow" + v2 power features + v3 Lumen visuals).
+ * Builds the `@graphvault/engine` index in the browser from the current vault,
+ * then renders a force-directed graph with:
  *
  * v1 (preserved):
  * - Live physics, colour-by-type (or by-tag), filters, global/local mode toggle
  * - Hover/selection highlighting, glow on the focused node + neighbours
  * - Selection side panel, zoom-to-fit on engine settle
  *
- * v2 additions:
+ * v2 (preserved):
  * - In-graph search (press `/`): highlights + dims non-matches, live count
  * - Drag-to-pin: drag fixes a node; pin glyph shows; click pinned node to unpin
  * - "Unpin all" control, zoom-in / zoom-out buttons
  * - Link curvature for multi-edges
  * - Label suppression at high node counts for performance
  * - Better empty + filtered-zero states
+ *
+ * v3 (Lumen) additions:
+ * - Cluster / community colouring: colour-by-connected-component via a pure
+ *   `buildClusterColors` helper in `lib/graph/clusters.ts`.
+ * - Context view: emphasise the selected neighbourhood (aggressive dimming of
+ *   all other nodes) — toggle in the new "Graphics" control section.
+ * - Label density quick-preset (sparse / normal / dense) in Graphics section.
+ * - Radial-gradient node fill, soft outer ring, halo labels for legibility.
+ * - DPR-aware canvas (crisp on retina / HiDPI).
+ * - Edge opacity by relationship type (wikilink > markdown > typed-relation).
+ * - Accurate cluster legend.
  *
  * Mobile layout (< md / 768 px):
  * - The left GraphControls panel collapses to a slide-up drawer toggled by a
@@ -30,7 +41,7 @@
 
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
   buildIndex,
@@ -40,7 +51,7 @@ import {
   type GraphPayload,
 } from '@graphvault/engine';
 
-import { GraphControls } from '../../components/graph/GraphControls';
+import { GraphControls, type LabelDensity } from '../../components/graph/GraphControls';
 import { GraphLegend } from '../../components/graph/GraphLegend';
 import { GraphSearch } from '../../components/graph/GraphSearch';
 import { GraphZoomControls } from '../../components/graph/GraphZoomControls';
@@ -51,6 +62,13 @@ import { buildRenderModel, distinctSorted, notesToInputs } from '../../lib/graph
 import type { ColorMode } from '../../lib/graph/model';
 import { clampPhysics, DEFAULT_PHYSICS, type GraphPhysics } from '../../lib/graph/physics';
 import { matchNodes } from '../../lib/graph/search';
+import {
+  buildTimelineState,
+  timelineVisibleIds,
+  type TimelineState,
+} from '../../lib/graph/timeline';
+import { buildClusterColors, type ClusterColorInfo } from '../../lib/graph/clusters';
+import { computeGroupColors, loadGroups, saveGroups, type NodeGroup } from '../../lib/graph/groups';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 
 // Canvas/DOM-only renderer: never server-rendered.
@@ -74,6 +92,14 @@ export default function GraphPage() {
   const [physics, setPhysics] = useState<GraphPhysics>(DEFAULT_PHYSICS);
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [timeline, setTimeline] = useState<TimelineState | null>(null);
+
+  // v3: Graphics toggles
+  const [contextView, setContextView] = useState(false);
+  const [labelDensity, setLabelDensity] = useState<LabelDensity>('normal');
+
+  // v4: User-defined colour groups — initialised from localStorage on first render.
+  const [groups, setGroups] = useState<NodeGroup[]>(() => loadGroups());
 
   // Mobile drawer states
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
@@ -84,6 +110,39 @@ export default function GraphPage() {
   // unrelated re-renders (hover, selection) don't trigger a reparse.
   const index = useMemo(() => buildIndex(notesToInputs(vault.notes)), [vault.notes]);
   const totalNodes = index.nodes.size;
+
+  // Rebuild the timeline domain whenever the set of notes changes. We preserve
+  // the existing window and enabled/playing state where possible so scrubbing
+  // isn't disrupted by a background vault update.
+  useEffect(() => {
+    const nodes = [...index.nodes.values()];
+    const fresh = buildTimelineState(nodes);
+    if (!fresh) {
+      setTimeline(null);
+      return;
+    }
+    setTimeline((prev) => {
+      if (!prev) return fresh;
+      // Keep user's window if it still falls within the (potentially wider) new domain.
+      const windowStart = Math.max(fresh.domainStart, Math.min(prev.windowStart, fresh.domainEnd));
+      const windowEnd = Math.max(windowStart, Math.min(prev.windowEnd, fresh.domainEnd));
+      return {
+        ...fresh,
+        windowStart,
+        windowEnd,
+        enabled: prev.enabled,
+        playing: false, // stop animation on vault change
+      };
+    });
+  }, [index]);
+
+  // Compute the set of node IDs visible in the timeline window. Used to dim
+  // out-of-window nodes on the canvas, similar to the search highlight.
+  const timelineIds = useMemo(() => {
+    if (!timeline) return null;
+    const nodes = [...index.nodes.values()];
+    return timelineVisibleIds(nodes, timeline.windowStart, timeline.windowEnd, timeline.enabled);
+  }, [index, timeline]);
 
   // Facets available for the filter controls, derived from the full index.
   const facets = useMemo(() => {
@@ -127,11 +186,53 @@ export default function GraphPage() {
     return filtered;
   }, [index, filters, mode, selectedId, localDepth]);
 
+  // v3: Compute cluster colours when cluster mode is active. Re-computes only
+  // when the payload (nodes + links) changes, not on hover/selection updates.
+  const clusterInfo: ClusterColorInfo | null = useMemo(() => {
+    if (colorMode !== 'cluster') return null;
+    return buildClusterColors(payload.nodes, payload.edges);
+  }, [colorMode, payload]);
+
+  // v4: Compute group colours. We need render-ready nodes to call matchesQuery
+  // (which checks tagKey and path), so we first build the render model without
+  // group colours, then compute the group map, then rebuild with the map.
+  // To avoid two full passes of buildRenderModel we compute the group map from
+  // the preliminary render-node list derived from payload.nodes directly. This
+  // keeps the memo chain efficient: group map only rebuilds when groups or the
+  // payload change, never on hover/selection.
+  const groupNodeColor: Map<string, string> = useMemo(() => {
+    if (groups.length === 0) return new Map();
+    // Build a lightweight proxy list: we only need id, title, tagKey and path
+    // for matching, which are directly available from GraphNode.
+    const proxyNodes = payload.nodes.map((n) => ({
+      id: n.id,
+      title: n.title,
+      category: 'note' as const,
+      color: '',
+      degree: 0,
+      tagKey: n.tags[0],
+      path: n.path,
+    }));
+    return computeGroupColors(proxyNodes, groups);
+  }, [groups, payload.nodes]);
+
+  // Persist groups to localStorage whenever they change (after initial load).
+  // We use a plain effect rather than useCallback so it fires on every update.
+  useEffect(() => {
+    saveGroups(groups);
+  }, [groups]);
+
   // Render model: enrich nodes with category/colour/degree and synthesize
   // placeholder nodes for unresolved targets.
   const model = useMemo(
-    () => buildRenderModel(payload.nodes, payload.edges, { colorMode, includeUnresolved: true }),
-    [payload, colorMode],
+    () =>
+      buildRenderModel(payload.nodes, payload.edges, {
+        colorMode,
+        includeUnresolved: true,
+        clusterNodeColor: clusterInfo?.nodeColor,
+        groupNodeColor: groupNodeColor.size > 0 ? groupNodeColor : undefined,
+      }),
+    [payload, colorMode, clusterInfo, groupNodeColor],
   );
 
   // In-graph search: compute the match set from the current query.
@@ -167,6 +268,10 @@ export default function GraphPage() {
     setPhysics((prev) => clampPhysics(prev, patch));
   };
 
+  const handleTimelineChange = useCallback((patch: Partial<TimelineState>) => {
+    setTimeline((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
   const handlePinnedChange = useCallback((pinned: Set<string>) => {
     setPinnedIds(new Set(pinned));
   }, []);
@@ -178,8 +283,7 @@ export default function GraphPage() {
     // more importantly, we call zoomToFit to re-engage the simulation.
     // The actual fx/fy clearing happens the next time the model rebuilds, since
     // model change triggers a full node array rebuild in the canvas.
-    // For an immediate effect, we trigger a model recompute by toggling a dummy
-    // state change and rely on the canvas's model-change effect.
+    // For an immediate effect, we trigger a model recompute by nudging physics.
     setPinnedIds(new Set());
     // Force canvas data rebuild by nudging the physics (harmless, reverts).
     setPhysics((p) => ({ ...p }));
@@ -214,13 +318,21 @@ export default function GraphPage() {
       availableTags={facets.tags}
       availableFolders={facets.folders}
       availableLinkTypes={facets.linkTypes}
+      timeline={timeline}
+      onTimelineChange={handleTimelineChange}
+      contextView={contextView}
+      onContextViewChange={setContextView}
+      labelDensity={labelDensity}
+      onLabelDensityChange={setLabelDensity}
+      groups={groups}
+      onGroupsChange={setGroups}
     />
   );
 
   return (
     <div className="flex h-full min-h-0 flex-col md:flex-row">
       {/* ================================================================ */}
-      {/* DESKTOP: left rail controls (always visible ≥ md)                */}
+      {/* DESKTOP: left rail controls (always visible >= md)                */}
       {/* ================================================================ */}
       <div className="hidden md:flex">{controlsPanel}</div>
 
@@ -285,6 +397,14 @@ export default function GraphPage() {
               availableTags={facets.tags}
               availableFolders={facets.folders}
               availableLinkTypes={facets.linkTypes}
+              timeline={timeline}
+              onTimelineChange={handleTimelineChange}
+              contextView={contextView}
+              onContextViewChange={setContextView}
+              labelDensity={labelDensity}
+              onLabelDensityChange={setLabelDensity}
+              groups={groups}
+              onGroupsChange={setGroups}
             />
           </div>
         </>
@@ -315,7 +435,26 @@ export default function GraphPage() {
               </p>
             </div>
           </div>
-          <NodeCount shown={shownNodes} total={totalNodes} truncated={payload.truncated} />
+          <div className="flex items-center gap-2">
+            {/* v3: active-mode pills */}
+            {contextView && (
+              <span className="hidden rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-medium text-blue-300 sm:inline">
+                context
+              </span>
+            )}
+            {colorMode === 'cluster' && (
+              <span className="hidden rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-300 sm:inline">
+                cluster
+              </span>
+            )}
+            {/* v4: groups active pill */}
+            {groups.length > 0 && (
+              <span className="hidden rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-medium text-rose-300 sm:inline">
+                {groups.length} {groups.length === 1 ? 'group' : 'groups'}
+              </span>
+            )}
+            <NodeCount shown={shownNodes} total={totalNodes} truncated={payload.truncated} />
+          </div>
         </header>
 
         <div className="relative min-h-0 flex-1">
@@ -336,12 +475,16 @@ export default function GraphPage() {
                 onSelect={handleSelect}
                 onOpen={(node) => node.path && openNote(node.path)}
                 searchIds={searchIds}
+                timelineIds={timelineIds}
                 onPinnedChange={handlePinnedChange}
+                contextView={contextView}
               />
               <GraphLegend
                 colorMode={colorMode}
                 categories={model.presentCategories}
                 tags={facets.tags}
+                clusterInfo={clusterInfo}
+                groups={groups}
               />
               {/* Floating overlay controls: search (top-right) and zoom (bottom-right). */}
               <div className="pointer-events-none absolute inset-0 flex flex-col p-2 sm:p-3">

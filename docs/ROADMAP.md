@@ -73,11 +73,14 @@
 
 - ✅ In-graph search (`/`, highlight/zoom to matches), drag-to-pin nodes, zoom buttons, 200+ label cap perf
 
-## Milestone 16 — True local desktop (Tauri) 🟡
+## Milestone 16 — Desktop app 🟡
 
-- ✅ Tauri 2 shell scaffold (`apps/desktop`) wrapping the web export + `TauriStorageAdapter` on the storage seam
-- ⬜ Build installers on each OS (`pnpm --filter @graphvault/desktop build`; needs Rust + tauri-cli)
-- ⬜ Native file watching; open an existing folder as a vault
+- ✅ **Installable PWA** — manifest + offline service worker + icons + Install button;
+  runs as a standalone desktop app from any modern browser, auto-updating (the
+  "run it right now, any OS" path)
+- ✅ Tauri 2 shell scaffold (`apps/desktop`) wrapping the web export + `TauriStorageAdapter`
+- ⬜ CI workflow to build signed Win/Mac/Linux Tauri installers
+- ⬜ Native file watching; open an existing folder as a vault (web: "Open folder" ✅)
 
 ## Milestone 17 — Polish, onboarding & launch 🟡
 
@@ -87,6 +90,61 @@
 - ✅ Docs: quickstart, self-hosting, security model, data portability; public-launch README (scrubbed); one-command install table
 - ⬜ Full accessibility audit (focus order, contrast, screen-reader)
 - ⬜ "Finished product" QA gauntlet + tagged release
+
+## Milestone 18 — Universal storage providers (your data, literally anywhere) 🟡
+
+Extend the `StorageAdapter` seam so a vault of plain `.md` files can live on any
+backend the user chooses. Client-side where possible; credential-bearing
+providers go through the self-hosted server (keys never touch the browser).
+
+- ✅ Seam + localStorage + File System Access (disk) + Tauri (native disk)
+- ⬜ WebDAV adapter (Nextcloud / self-hosted — broad coverage, no OAuth)
+- ⬜ S3-compatible adapter (AWS S3 / MinIO / Backblaze / R2) via server-proxied creds
+- ⬜ Azure Blob + Google Cloud Storage adapters (server-proxied)
+- ⬜ Google Drive + OneDrive (OAuth, app-folder scope; tokens server-side)
+- ⬜ Settings provider picker with safe copy-verify-switch migration (reuse existing)
+
+## Milestone 19 — Browser extension (web-clipper → note) 🟡
+
+- 🟡 MV3 extension: clip page/selection → Markdown → save (download / open in app)
+- ⬜ Post directly to the self-hosted sync server (once auth lands end-to-end)
+- ⬜ Chrome / Edge / Firefox store packaging
+
+## Milestone 20 — Embed everywhere / integrations ⬜
+
+Make GraphVault the most _usable_ knowledge tool — it goes where you are.
+
+- ⬜ One-click importers from Obsidian / Notion / Roam / Logseq / plain folders
+- ⬜ Embeddable read-only graph widget (`<iframe>` / web component) for sharing
+- ⬜ Public shareable graph snapshots (opt-in, no account)
+- ⬜ CLI + local HTTP API for power users / automation
+- ⬜ URL scheme + share targets (clip from any app)
+
+## Milestone 21 — AI assistant (privacy-first, opt-in) 🟡
+
+Off by default. A privacy dial the user controls; note content never leaves the
+device unless the user enables a provider.
+
+- ✅ Provider abstraction with a **privacy spectrum**: local (Ollama / OpenAI-
+  compatible localhost) → bring-your-own-key (Anthropic / OpenAI) → off (default,
+  no network)
+- ✅ Assistant panel: summarize / outline / find connections / suggest links &
+  tags / "organize this" — confirm-before-send, output sanitised via DOMPurify
+- ✅ Clear in-UI privacy notice + per-action consent; no telemetry; keys in
+  sessionStorage, redacted from errors, never logged; button hidden when off
+- ⬜ Graph intelligence: AI-suggested clusters / related-notes / gap-finding as
+  overlays on the graph (clusters helper already shipped — see graph graphics)
+
+## Milestone 22 — Connectors (email & everything, privacy-graded) 🟡
+
+Opt-in, credential-bearing flows go through the self-hosted server; each
+connector shows its privacy posture.
+
+- ✅ Connector framework + privacy posture (`local` / `server` / `byo`) + Settings panel
+- ✅ RSS / Atom / OPML import (phase 1, `local` — paste/upload, parsed on-device)
+- ⬜ Email (IMAP / Gmail / Outlook via OAuth) → server-side creds, phase 2
+- ⬜ URL-fetch / web-clip via server proxy (avoids CORS, keeps creds off the browser)
+- ⬜ Generic webhook / "connect anything" recipe layer; per-connector audit log
 
 ---
 

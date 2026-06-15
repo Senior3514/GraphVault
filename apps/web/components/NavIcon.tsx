@@ -6,7 +6,7 @@
  * stay crisp when the sidebar collapses to an icon-only rail.
  */
 
-export type NavGlyph = 'vault' | 'graph' | 'sync' | 'settings';
+export type NavGlyph = 'home' | 'vault' | 'graph' | 'sync' | 'settings';
 
 export function NavIcon({ glyph, className }: { glyph: NavGlyph; className?: string }) {
   return (
@@ -20,6 +20,13 @@ export function NavIcon({ glyph, className }: { glyph: NavGlyph; className?: str
       className={className}
       aria-hidden="true"
     >
+      {glyph === 'home' && (
+        <>
+          <path d="M4 11 12 4l8 7" />
+          <path d="M6 10v9h12v-9" />
+          <path d="M10 19v-5h4v5" />
+        </>
+      )}
       {glyph === 'vault' && (
         <>
           <path d="M5 3h11l3 3v15H5z" />

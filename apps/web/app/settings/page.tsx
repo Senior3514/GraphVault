@@ -8,12 +8,17 @@
  * New sections (M8 / security milestone):
  *  - Storage location: active adapter + switch to File System Access API.
  *  - Vault encryption: enable/disable AES-256-GCM at-rest encryption.
+ *
+ * New section (M22 / connectors):
+ *  - Connectors: privacy-graded opt-in import connectors (phase 1: local only).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { GraphVaultClient } from '../../lib/api/client';
+import { useAuth } from '../../lib/api/useAuth';
 import { useServerSettings } from '../../lib/api/useServerSettings';
+import { loadSyncMeta, saveSyncMeta } from '../../lib/sync';
 import {
   buildVaultZip,
   exportNotesToJson,
@@ -30,6 +35,16 @@ import {
 } from '../../lib/vault/store';
 import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
 import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/exportToDirectory';
+import { useAISettings } from '../../components/assistant/useAISettings';
+import type { AISettings, ByokBackend } from '../../lib/ai/types';
+import { LOCAL_IMPORT_CONNECTORS } from '../../lib/connectors/registry';
+import { rssOpmlConnector } from '../../lib/connectors/rssOpml';
+import {
+  PRIVACY_POSTURE_COLORS,
+  PRIVACY_POSTURE_LABELS,
+  ConnectorError,
+} from '../../lib/connectors/types';
+import type { LocalImportConnector } from '../../lib/connectors/types';
 
 /** Trigger a browser download of `data` under `filename`. */
 function downloadBlob(data: BlobPart, filename: string, type: string) {
@@ -53,6 +68,7 @@ function stamp(): string {
 export default function SettingsPage() {
   const { serverUrl, setServerUrl, loaded } = useServerSettings();
   const vault = useVaultContext();
+  const auth = useAuth();
   const [draftUrl, setDraftUrl] = useState('');
   const [saved, setSaved] = useState(false);
   const [test, setTest] = useState<string | null>(null);
@@ -245,6 +261,12 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* Account / authentication */}
+      <AuthSection auth={auth} serverUrl={serverUrl} />
+
+      {/* Vault registration (only once signed in) */}
+      {auth.isSignedIn && <VaultRegistrationSection auth={auth} serverUrl={serverUrl} />}
+
       {/* ------------------------------------------------------------------ */}
       {/* Storage location                                                    */}
       {/* ------------------------------------------------------------------ */}
@@ -384,10 +406,22 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* AI assistant                                                        */}
+      {/* ------------------------------------------------------------------ */}
+      <AIAssistantSection />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Connectors (M22)                                                    */}
+      {/* ------------------------------------------------------------------ */}
+      <ConnectorsSection vault={vault} />
+
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5 text-xs text-neutral-500">
         <h2 className="text-sm font-semibold text-neutral-200">Privacy</h2>
         <p className="mt-2">
-          No telemetry. The app only contacts the sync server URL you configure above.
+          No telemetry. The app only contacts the sync server URL you configure above, the AI
+          provider you explicitly enable (if any), and no third-party URLs in the browser —
+          connectors in phase 1 are 100% client-side (user-provided content only).
         </p>
       </section>
     </main>
@@ -762,6 +796,888 @@ function EncryptionSection() {
           </span>
         )}
       </div>
+    </section>
+  );
+}
+
+// ---- Sync auth + vault registration (from sync wiring) ----
+function Msg({ kind, text }: { kind: 'ok' | 'err' | 'info'; text: string }) {
+  const cls =
+    kind === 'ok' ? 'text-emerald-400' : kind === 'err' ? 'text-red-400' : 'text-neutral-400';
+  return <span className={`text-xs ${cls}`}>{text}</span>;
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
+type AuthForm = 'none' | 'login' | 'register';
+
+function AuthSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serverUrl: string }) {
+  const [form, setForm] = useState<AuthForm>('none');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const clearForm = useCallback(() => {
+    setEmail('');
+    setPassword('');
+    setMsg(null);
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent, mode: 'login' | 'register') => {
+    e.preventDefault();
+    if (!email || !password) {
+      setMsg({ kind: 'err', text: 'Email and password are required.' });
+      return;
+    }
+    if (!serverUrl) {
+      setMsg({ kind: 'err', text: 'Save a server URL first.' });
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      if (mode === 'login') {
+        await auth.login({ email, password, serverUrl });
+      } else {
+        await auth.register({ email, password, serverUrl });
+      }
+      setMsg({
+        kind: 'ok',
+        text: mode === 'login' ? 'Signed in.' : 'Account created and signed in.',
+      });
+      clearForm();
+      setForm('none');
+    } catch (err) {
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Request failed.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLogout = () => {
+    auth.logout();
+    setMsg(null);
+    setForm('none');
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <h2 className="text-sm font-semibold text-neutral-200">Account</h2>
+
+      {auth.isSignedIn ? (
+        <div className="mt-3 space-y-2">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+            <dt>Status</dt>
+            <dd className="text-emerald-400">Signed in</dd>
+            <dt>User ID</dt>
+            <dd className="truncate text-neutral-200">{auth.userId}</dd>
+            <dt>Device ID</dt>
+            <dd className="truncate text-neutral-200">{auth.deviceId}</dd>
+          </dl>
+          <p className="text-xs text-neutral-500">
+            Token is stored in sessionStorage and cleared when the tab closes. Sign in again on each
+            session to sync.
+          </p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-2 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700"
+          >
+            Sign out
+          </button>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <p className="text-xs text-neutral-500">
+            Sign in or create an account on your server to enable sync. Your password is only sent
+            to the server URL configured above over a secure connection. The token is stored in
+            sessionStorage (cleared on tab close) — never in a cookie or logged anywhere.
+          </p>
+
+          {form === 'none' && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setForm('login');
+                  clearForm();
+                }}
+                className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white"
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setForm('register');
+                  clearForm();
+                }}
+                className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
+              >
+                Create account
+              </button>
+            </div>
+          )}
+
+          {(form === 'login' || form === 'register') && (
+            <form
+              onSubmit={(e) => void handleSubmit(e, form)}
+              className="mt-3 space-y-3"
+              noValidate
+            >
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="auth-email"
+                >
+                  Email
+                </label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={busy}
+                  placeholder="you@example.com"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="auth-password"
+                >
+                  Password
+                  {form === 'register' && (
+                    <span className="ml-1 text-neutral-600">(min. 10 characters)</span>
+                  )}
+                </label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={form === 'login' ? 'current-password' : 'new-password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={busy}
+                  placeholder={form === 'register' ? 'Choose a strong password…' : 'Your password…'}
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={busy || !email || !password}
+                  className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+                >
+                  {busy
+                    ? form === 'login'
+                      ? 'Signing in…'
+                      : 'Creating account…'
+                    : form === 'login'
+                      ? 'Sign in'
+                      : 'Create account'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm('none');
+                    clearForm();
+                  }}
+                  disabled={busy}
+                  className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {msg && (
+            <div className="mt-2">
+              <Msg kind={msg.kind} text={msg.text} />
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Vault registration section
+// ---------------------------------------------------------------------------
+
+function VaultRegistrationSection({
+  auth,
+  serverUrl,
+}: {
+  auth: ReturnType<typeof useAuth>;
+  serverUrl: string;
+}) {
+  const [vaults, setVaults] = useState<{ id: string; name: string }[] | null>(null);
+  const [loadingVaults, setLoadingVaults] = useState(false);
+  const [newVaultName, setNewVaultName] = useState('');
+  const [registering, setRegistering] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
+  const [activeVaultId, setActiveVaultId] = useState<string | null>(null);
+  const didLoad = useRef(false);
+
+  // Load the current selected vault from syncMeta.
+  useEffect(() => {
+    const meta = loadSyncMeta();
+    setActiveVaultId(meta.vaultId ?? null);
+  }, []);
+
+  // Fetch the user's vaults from the server.
+  const fetchVaults = useCallback(async () => {
+    if (!auth.token) return;
+    setLoadingVaults(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      const list = await client.listVaults();
+      setVaults(list);
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: `Could not load vaults: ${err instanceof Error ? err.message : 'request failed'}`,
+      });
+      setVaults([]);
+    } finally {
+      setLoadingVaults(false);
+    }
+  }, [auth.token, serverUrl]);
+
+  // Load vaults once on first render when signed in.
+  useEffect(() => {
+    if (!didLoad.current && auth.isSignedIn && auth.token) {
+      didLoad.current = true;
+      void fetchVaults();
+    }
+  }, [auth.isSignedIn, auth.token, fetchVaults]);
+
+  const registerVault = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newVaultName.trim();
+    if (!name) return;
+    if (!auth.token) return;
+    setRegistering(true);
+    setMsg(null);
+    try {
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      const result = await client.registerVault(name);
+      // Persist the vault id to syncMeta so useSync picks it up.
+      const meta = loadSyncMeta();
+      saveSyncMeta({ ...meta, vaultId: result.vaultId });
+      setActiveVaultId(result.vaultId);
+      setMsg({ kind: 'ok', text: `Vault "${result.name}" registered (id: ${result.vaultId}).` });
+      setNewVaultName('');
+      // Refresh the vault list.
+      await fetchVaults();
+    } catch (err) {
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Registration failed.' });
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const adoptVault = (id: string) => {
+    const meta = loadSyncMeta();
+    saveSyncMeta({ ...meta, vaultId: id });
+    setActiveVaultId(id);
+    setMsg({ kind: 'ok', text: 'Vault adopted. "Sync now" on the Sync Status page to sync.' });
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-neutral-200">Server vault</h2>
+        <button
+          type="button"
+          onClick={() => void fetchVaults()}
+          disabled={loadingVaults}
+          className="text-xs text-neutral-500 hover:text-neutral-300 disabled:opacity-50"
+        >
+          {loadingVaults ? 'Loading…' : 'Refresh'}
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-neutral-500">
+        A server vault holds your notes on the server. Register a new one or adopt an existing vault
+        to start syncing. The active vault is stored locally and persists across sessions.
+      </p>
+
+      {activeVaultId && (
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+          <dt>Active vault</dt>
+          <dd className="truncate text-emerald-400">{activeVaultId}</dd>
+        </dl>
+      )}
+
+      {/* Existing vaults list */}
+      {vaults !== null && vaults.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {vaults.map((v) => (
+            <li
+              key={v.id}
+              className="flex items-center justify-between rounded border border-neutral-800 bg-neutral-950/30 px-3 py-2 text-xs"
+            >
+              <div>
+                <span className="text-neutral-200">{v.name}</span>
+                <span className="ml-2 truncate text-neutral-600">{v.id}</span>
+              </div>
+              {v.id === activeVaultId ? (
+                <span className="text-emerald-500">Active</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => adoptVault(v.id)}
+                  className="text-neutral-400 hover:text-neutral-200"
+                >
+                  Use this
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {vaults !== null && vaults.length === 0 && !msg && (
+        <p className="mt-2 text-xs text-neutral-500">
+          No vaults on this server yet. Register one below.
+        </p>
+      )}
+
+      {/* Register new vault */}
+      <form onSubmit={(e) => void registerVault(e)} className="mt-4 flex gap-2">
+        <input
+          type="text"
+          value={newVaultName}
+          onChange={(e) => setNewVaultName(e.target.value)}
+          placeholder="My vault"
+          disabled={registering}
+          className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+        />
+        <button
+          type="submit"
+          disabled={registering || !newVaultName.trim()}
+          className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+        >
+          {registering ? 'Registering…' : 'Register vault'}
+        </button>
+      </form>
+
+      <div className="mt-2 min-h-4">{msg && <Msg kind={msg.kind} text={msg.text} />}</div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI assistant settings section
+// ---------------------------------------------------------------------------
+
+function AIAssistantSection() {
+  const { settings, update } = useAISettings();
+  const [showKey, setShowKey] = useState(false);
+
+  const handleKindChange = (kind: AISettings['kind']) => {
+    update({ kind });
+  };
+
+  const handleByokBackendChange = (backend: ByokBackend) => {
+    // When switching to Anthropic, default the model if it looks like an OpenAI model.
+    const modelPatch: Partial<AISettings> = {};
+    if (backend === 'anthropic' && settings.byokModel.startsWith('gpt-')) {
+      modelPatch.byokModel = 'claude-sonnet-4-6';
+    } else if (backend === 'openai-compatible' && settings.byokModel.startsWith('claude-')) {
+      modelPatch.byokModel = 'gpt-4o-mini';
+    }
+    update({ byokBackend: backend, ...modelPatch });
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <h2 className="text-sm font-semibold text-neutral-200">AI assistant</h2>
+
+      {/* Unmissable privacy notice */}
+      <div className="mt-2 rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-300">
+        <strong>Privacy notice:</strong> your notes leave your device only if you enable a cloud
+        provider below. <strong>Local</strong> and <strong>Off</strong> modes keep everything
+        on-device. API keys are stored in sessionStorage only and cleared when the tab closes — they
+        are never logged, synced, or sent anywhere other than the provider you choose.
+      </div>
+
+      {/* Provider selector */}
+      <fieldset className="mt-4">
+        <legend className="mb-2 text-xs font-medium text-neutral-400">Provider</legend>
+        <div className="space-y-1">
+          {(
+            [
+              {
+                kind: 'off' as const,
+                label: 'Off (default)',
+                desc: 'No AI, no network. All assistant features are disabled.',
+              },
+              {
+                kind: 'local' as const,
+                label: 'Local (Ollama / llama.cpp)',
+                desc: 'Calls a localhost OpenAI-compatible endpoint. Notes never leave your machine.',
+              },
+              {
+                kind: 'byok' as const,
+                label: 'Bring your own key',
+                desc: 'Send requests to your own Anthropic or OpenAI-compatible account.',
+              },
+            ] satisfies { kind: AISettings['kind']; label: string; desc: string }[]
+          ).map(({ kind, label, desc }) => (
+            <label
+              key={kind}
+              className={[
+                'flex cursor-pointer items-start gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+                settings.kind === kind
+                  ? 'bg-neutral-800 text-neutral-100'
+                  : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200',
+              ].join(' ')}
+            >
+              <input
+                type="radio"
+                name="ai-provider-kind"
+                value={kind}
+                checked={settings.kind === kind}
+                onChange={() => handleKindChange(kind)}
+                className="mt-0.5 accent-sky-500"
+              />
+              <span>
+                <span className="font-medium">{label}</span>
+                <span className="ml-1 text-xs text-neutral-500"> — {desc}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* Local config */}
+      {settings.kind === 'local' && (
+        <div className="mt-4 space-y-3">
+          <div>
+            <label
+              className="mb-1 block text-xs font-medium text-neutral-400"
+              htmlFor="ai-local-ep"
+            >
+              Endpoint
+            </label>
+            <input
+              id="ai-local-ep"
+              type="url"
+              value={settings.localEndpoint}
+              onChange={(e) => update({ localEndpoint: e.target.value })}
+              placeholder="http://localhost:11434/v1"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
+            />
+            <p className="mt-1 text-xs text-neutral-600">
+              Ollama default: <code className="text-neutral-500">http://localhost:11434/v1</code>
+            </p>
+          </div>
+          <div>
+            <label
+              className="mb-1 block text-xs font-medium text-neutral-400"
+              htmlFor="ai-local-model"
+            >
+              Model
+            </label>
+            <input
+              id="ai-local-model"
+              type="text"
+              value={settings.localModel}
+              onChange={(e) => update({ localModel: e.target.value })}
+              placeholder="llama3"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* BYOK config */}
+      {settings.kind === 'byok' && (
+        <div className="mt-4 space-y-3">
+          {/* Backend selector */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Backend</label>
+            <div className="flex gap-3 text-sm">
+              {[
+                { backend: 'anthropic' as ByokBackend, label: 'Anthropic (Claude)' },
+                { backend: 'openai-compatible' as ByokBackend, label: 'OpenAI-compatible' },
+              ].map(({ backend, label }) => (
+                <label
+                  key={backend}
+                  className="flex cursor-pointer items-center gap-1.5 text-neutral-300"
+                >
+                  <input
+                    type="radio"
+                    name="byok-backend"
+                    value={backend}
+                    checked={settings.byokBackend === backend}
+                    onChange={() => handleByokBackendChange(backend)}
+                    className="accent-sky-500"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* API key */}
+          <div>
+            <label
+              className="mb-1 block text-xs font-medium text-neutral-400"
+              htmlFor="ai-byok-key"
+            >
+              API key
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="ai-byok-key"
+                type={showKey ? 'text' : 'password'}
+                value={settings.byokKey}
+                onChange={(e) => update({ byokKey: e.target.value })}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={settings.byokBackend === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
+                className="flex-1 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey((s) => !s)}
+                className="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs text-neutral-400 hover:text-neutral-200"
+                aria-label={showKey ? 'Hide key' : 'Show key'}
+              >
+                {showKey ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-neutral-600">
+              Stored in sessionStorage only — cleared when the tab closes. Never logged.
+            </p>
+          </div>
+
+          {/* Endpoint (OpenAI-compatible only) */}
+          {settings.byokBackend === 'openai-compatible' && (
+            <div>
+              <label
+                className="mb-1 block text-xs font-medium text-neutral-400"
+                htmlFor="ai-byok-ep"
+              >
+                Endpoint
+              </label>
+              <input
+                id="ai-byok-ep"
+                type="url"
+                value={settings.byokEndpoint}
+                onChange={(e) => update({ byokEndpoint: e.target.value })}
+                placeholder="https://api.openai.com/v1"
+                className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
+              />
+            </div>
+          )}
+
+          {/* Model */}
+          <div>
+            <label
+              className="mb-1 block text-xs font-medium text-neutral-400"
+              htmlFor="ai-byok-model"
+            >
+              Model
+            </label>
+            <input
+              id="ai-byok-model"
+              type="text"
+              value={settings.byokModel}
+              onChange={(e) => update({ byokModel: e.target.value })}
+              placeholder={
+                settings.byokBackend === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-4o-mini'
+              }
+              className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500"
+            />
+            {settings.byokBackend === 'anthropic' && (
+              <p className="mt-1 text-xs text-neutral-600">
+                Default: <code className="text-neutral-500">claude-sonnet-4-6</code>. Any model your
+                API key has access to works.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Status pill */}
+      <div className="mt-4">
+        <span
+          className={[
+            'inline-block rounded px-2 py-0.5 text-xs font-medium',
+            settings.kind === 'off'
+              ? 'bg-neutral-800 text-neutral-500'
+              : settings.kind === 'local'
+                ? 'bg-emerald-950 text-emerald-300'
+                : 'bg-sky-950 text-sky-300',
+          ].join(' ')}
+        >
+          {settings.kind === 'off'
+            ? 'AI is off — no network calls will be made'
+            : settings.kind === 'local'
+              ? 'Local inference — notes stay on-device'
+              : 'Cloud key — notes sent to your provider'}
+        </span>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Connectors section (M22 — phase 1: local-only)
+// ---------------------------------------------------------------------------
+
+/** Privacy posture badge shown before a connector runs. */
+function PostureBadge({ posture }: { posture: 'local' | 'server' | 'byo' }) {
+  const colors = PRIVACY_POSTURE_COLORS[posture];
+  return (
+    <span
+      className={[
+        'inline-block rounded border px-2 py-0.5 text-xs font-medium',
+        colors.bg,
+        colors.text,
+        colors.border,
+      ].join(' ')}
+    >
+      {posture === 'local' ? 'On-device' : posture === 'server' ? 'Via your server' : 'BYO cred'}
+    </span>
+  );
+}
+
+/**
+ * The RSS / Atom / OPML import sub-panel. Shown inside ConnectorsSection when
+ * the user chooses to use the RSS connector.
+ */
+function RssImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext> }) {
+  const [xmlInput, setXmlInput] = useState('');
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const connector: LocalImportConnector = rssOpmlConnector;
+
+  const runImport = async (source: string, sourceName?: string) => {
+    if (!source.trim()) {
+      setMsg({ kind: 'err', text: 'Paste XML content or upload a file first.' });
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const connectorNotes = connector.parse(source);
+      const summary = vault.importNotes(connectorNotes);
+      const parts: string[] = [];
+      if (summary.added) parts.push(`${summary.added} note${summary.added !== 1 ? 's' : ''} added`);
+      if (summary.renamed.length)
+        parts.push(`${summary.renamed.length} kept as copies (no overwrite)`);
+      if (summary.unchanged) parts.push(`${summary.unchanged} unchanged`);
+      const label = sourceName ? `"${sourceName}"` : 'feed';
+      setMsg({
+        kind: 'ok',
+        text: `Imported from ${label}: ${parts.join(', ') || 'nothing new'}.`,
+      });
+      setXmlInput('');
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text:
+          err instanceof ConnectorError || err instanceof Error ? err.message : 'Import failed.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      await runImport(text, file.name);
+    } catch {
+      setMsg({ kind: 'err', text: 'Could not read file.' });
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) void handleFile(file);
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      {/* Instructions */}
+      <p className="text-xs text-neutral-500">
+        Paste RSS 2.0, Atom, or OPML XML below, or upload a{' '}
+        <code className="text-neutral-400">.xml</code> /{' '}
+        <code className="text-neutral-400">.opml</code> file. Each feed item becomes one note under{' '}
+        <code className="text-neutral-400">connectors/rss/</code>. Import is collision-safe —
+        existing notes are never overwritten.
+      </p>
+
+      {/* Paste area */}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-neutral-400" htmlFor="rss-xml-input">
+          Paste XML
+        </label>
+        <textarea
+          id="rss-xml-input"
+          rows={6}
+          value={xmlInput}
+          onChange={(e) => setXmlInput(e.target.value)}
+          disabled={busy}
+          placeholder={'<?xml version="1.0"?>\n<rss version="2.0">\n  ...\n</rss>'}
+          spellCheck={false}
+          className="w-full resize-y rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 font-mono text-xs text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={() => void runImport(xmlInput)}
+          disabled={busy || !xmlInput.trim()}
+          className="mt-2 rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+        >
+          {busy ? 'Importing…' : 'Import from pasted XML'}
+        </button>
+      </div>
+
+      {/* File upload drag-and-drop */}
+      <div>
+        <p className="mb-2 text-xs text-neutral-500">Or upload a file:</p>
+        <div
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          aria-label="Drop RSS/OPML file here to import"
+          className={[
+            'flex min-h-[5rem] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors',
+            dragOver
+              ? 'border-neutral-400 bg-neutral-800/60'
+              : 'border-neutral-700 bg-neutral-900/20 hover:border-neutral-600',
+          ].join(' ')}
+        >
+          <p className="select-none text-xs text-neutral-500">
+            {dragOver ? 'Drop to import' : 'Drop .xml / .opml here'}
+          </p>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+          >
+            Upload file…
+          </button>
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept={connector.acceptedExtensions.join(',')}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(file);
+            e.target.value = '';
+          }}
+        />
+      </div>
+
+      {/* Result message */}
+      <div className="min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The full Connectors settings section. Lists all available connectors with
+ * their privacy posture, description, and an expand/collapse panel per connector.
+ */
+function ConnectorsSection({ vault }: { vault: ReturnType<typeof useVaultContext> }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const toggle = (id: string) => setOpenId((prev) => (prev === id ? null : id));
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <h2 className="text-sm font-semibold text-neutral-200">Connectors</h2>
+
+      {/* Privacy preamble */}
+      <div className="mt-2 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+        <strong>Privacy model:</strong> connectors are opt-in and off by default. Each connector
+        shows its privacy posture before it runs. Phase 1 connectors are{' '}
+        <strong>on-device only</strong> — no network calls, no credentials. Future phases will add
+        server-proxied connectors (email, webhooks) where credentials stay on your self-hosted
+        server and never reach the browser.
+      </div>
+
+      {/* Connector list */}
+      <ul className="mt-4 space-y-3">
+        {LOCAL_IMPORT_CONNECTORS.filter((c) => c.isAvailable()).map((c) => (
+          <li
+            key={c.id}
+            className="rounded-lg border border-neutral-800 bg-neutral-950/30 px-4 py-3"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-neutral-200">{c.name}</span>
+                  <PostureBadge posture={c.privacyPosture} />
+                </div>
+                <p className="mt-1 text-xs text-neutral-500">{c.description}</p>
+                <p className="mt-1 text-xs text-neutral-600">
+                  {PRIVACY_POSTURE_LABELS[c.privacyPosture]}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => toggle(c.id)}
+                className={[
+                  'shrink-0 rounded-md px-3 py-1.5 text-sm transition-colors',
+                  openId === c.id
+                    ? 'bg-neutral-700 text-neutral-200 hover:bg-neutral-600'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700',
+                ].join(' ')}
+                aria-expanded={openId === c.id}
+              >
+                {openId === c.id ? 'Close' : 'Use'}
+              </button>
+            </div>
+
+            {/* Expand the import UI for this connector */}
+            {openId === c.id && c.id === 'rss-opml-import' && <RssImportPanel vault={vault} />}
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-4 text-xs text-neutral-600">
+        More connectors (email, calendar, bookmarks) are planned for phase 2. They will route
+        through your self-hosted server so credentials never touch the browser.
+      </p>
     </section>
   );
 }

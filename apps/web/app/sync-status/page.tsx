@@ -1,23 +1,41 @@
 'use client';
 
 /**
- * Sync status overview, wired to the real sync engine (Milestone 5).
+ * Sync status overview — wired to the real sync engine and auth state.
  *
- * - Server connection/health is checked against the configured server URL
- *   (overridable in Settings) via the existing `GraphVaultClient`.
- * - "Sync now" runs a real `@graphvault/sync-core` cycle through the web
- *   adapters (`useSync`): it scans the local vault, pulls/pushes, and resolves
- *   conflicts into conflict copies.
+ * - Server health is checked via the existing `GraphVaultClient`.
+ * - Auth state is read from `useAuth`: shows whether the user is signed in and
+ *   provides a link to Settings to sign in or register a vault.
+ * - "Sync now" runs a real `@graphvault/sync-core` cycle (SCAN→PULL→PUSH→SETTLE)
+ *   through the web adapters (useSync): it scans the local vault, pulls/pushes,
+ *   and resolves conflicts into conflict copies. Never silently loses data.
  * - Last sync time, pending change count, and the conflicts list reflect real
- *   persisted local state. Auth (sign-in) and vault registration land in later
- *   milestones, so those remain clearly-labelled placeholders.
+ *   persisted local state from localStorage (sync index + sync metadata).
+ *
+ * ## Enabling sync
+ *
+ *   1. Go to Settings and configure the server URL.
+ *   2. Sign in or register an account on your server.
+ *   3. Register a server vault (or adopt an existing one) in Settings.
+ *   4. Return here and click "Sync now".
+ *
+ * ## Offline / error handling
+ *
+ *   - Server unreachable: health check shows "Offline"; sync is disabled.
+ *   - Not signed in: sync is disabled with a clear message; token in sessionStorage
+ *     is lost on tab close, so sign in again on each new session.
+ *   - No vault registered: sync is disabled with guidance.
+ *   - Sync error: shown inline; the vault is never partially written (the local
+ *     index is only committed after a successful SETTLE).
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 
 import { GraphVaultClient, type HealthInfo } from '../../lib/api/client';
+import { useAuth } from '../../lib/api/useAuth';
 import { useServerSettings } from '../../lib/api/useServerSettings';
-import { useSync } from '../../lib/sync';
+import { useSync, loadSyncMeta } from '../../lib/sync';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 
 type HealthState =
@@ -27,11 +45,24 @@ type HealthState =
   | { kind: 'error'; message: string };
 
 export default function SyncStatusPage() {
-  const { serverUrl, loaded } = useServerSettings();
+  const { serverUrl, loaded: settingsLoaded } = useServerSettings();
   const vault = useVaultContext();
+  const auth = useAuth();
   const [health, setHealth] = useState<HealthState>({ kind: 'idle' });
 
-  const sync = useSync({ serverUrl });
+  // Read the stored vault id so we can pass it to useSync.
+  const [storedVaultId, setStoredVaultId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const meta = loadSyncMeta();
+    setStoredVaultId(meta.vaultId);
+  }, []);
+
+  const sync = useSync({
+    serverUrl,
+    token: auth.token ?? undefined,
+    vaultId: storedVaultId,
+    deviceId: auth.deviceId ?? undefined,
+  });
 
   const check = useCallback(async () => {
     setHealth({ kind: 'checking' });
@@ -44,16 +75,30 @@ export default function SyncStatusPage() {
   }, [serverUrl]);
 
   useEffect(() => {
-    if (loaded) void check();
-  }, [loaded, check]);
+    if (settingsLoaded) void check();
+  }, [settingsLoaded, check]);
 
   const online = health.kind === 'ok';
+
+  // Determine why sync is blocked, for a specific user-facing message.
+  const syncBlockReason: string | null = !auth.loaded
+    ? null // still loading
+    : !auth.isSignedIn
+      ? 'Not signed in'
+      : !storedVaultId && !sync.canSync
+        ? 'No vault registered'
+        : !online
+          ? 'Server offline'
+          : null;
 
   return (
     <main className="mx-auto w-full max-w-3xl overflow-auto px-8 py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">Sync status</h1>
       <p className="mt-1 text-sm text-neutral-500">Self-hosted sync. Your notes, your server.</p>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* Server connection                                                   */}
+      {/* ------------------------------------------------------------------ */}
       <section className="mt-8 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-neutral-200">Server connection</h2>
@@ -73,6 +118,13 @@ export default function SyncStatusPage() {
             <div>
               <Badge tone="red">Offline</Badge>
               <p className="mt-2 text-xs text-neutral-500">{health.message}</p>
+              <p className="mt-1 text-xs text-neutral-600">
+                Configure the server URL in{' '}
+                <Link href="/settings" className="underline hover:text-neutral-400">
+                  Settings
+                </Link>
+                .
+              </p>
             </div>
           )}
           {health.kind === 'ok' && (
@@ -88,26 +140,65 @@ export default function SyncStatusPage() {
               </dl>
             </div>
           )}
+
+          {/* Account status row */}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
             <span>Account:</span>
-            <Badge tone="neutral">Not signed in</Badge>
-            <span>Sign-in &amp; vault registration arrive in a later milestone.</span>
+            {!auth.loaded ? (
+              <Badge tone="neutral">Loading…</Badge>
+            ) : auth.isSignedIn ? (
+              <>
+                <Badge tone="green">Signed in</Badge>
+                <span className="text-neutral-600">{auth.userId}</span>
+              </>
+            ) : (
+              <>
+                <Badge tone="neutral">Not signed in</Badge>
+                <Link href="/settings" className="underline hover:text-neutral-400">
+                  Sign in or register in Settings
+                </Link>
+              </>
+            )}
           </div>
+
+          {/* Vault status row */}
+          {auth.isSignedIn && (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+              <span>Vault:</span>
+              {storedVaultId ? (
+                <>
+                  <Badge tone="green">Registered</Badge>
+                  <span className="truncate text-neutral-600 max-w-[16rem]">{storedVaultId}</span>
+                </>
+              ) : (
+                <>
+                  <Badge tone="neutral">None</Badge>
+                  <Link href="/settings" className="underline hover:text-neutral-400">
+                    Register a vault in Settings
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* Sync controls                                                       */}
+      {/* ------------------------------------------------------------------ */}
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-neutral-200">Sync</h2>
           <button
             type="button"
-            disabled={sync.busy || !online || !sync.canSync}
+            disabled={sync.busy || !sync.canSync}
             onClick={() => void sync.syncNow()}
             className="rounded bg-emerald-700 px-3 py-1 text-xs font-medium text-emerald-50 hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
           >
             {sync.busy ? 'Syncing…' : 'Sync now'}
           </button>
         </div>
+
         <p className="mt-2 text-sm text-neutral-400">
           {sync.lastSyncAt ? (
             <>
@@ -118,17 +209,54 @@ export default function SyncStatusPage() {
             'Never synced. Connect to your server and run a sync to reconcile this vault.'
           )}
         </p>
-        {!sync.canSync && (
-          <p className="mt-2 text-xs text-amber-400/80">
-            No vault is registered on the server yet, so syncing is unavailable. Vault registration
-            lands with account sign-in in a later milestone.
-          </p>
+
+        {/* Blocked reasons */}
+        {!sync.canSync && syncBlockReason && (
+          <div className="mt-2 text-xs">
+            {syncBlockReason === 'Not signed in' && (
+              <p className="text-amber-400/80">
+                Not signed in.{' '}
+                <Link href="/settings" className="underline hover:text-amber-300">
+                  Sign in from Settings
+                </Link>{' '}
+                to enable sync.
+              </p>
+            )}
+            {syncBlockReason === 'No vault registered' && (
+              <p className="text-amber-400/80">
+                No server vault is registered.{' '}
+                <Link href="/settings" className="underline hover:text-amber-300">
+                  Register or adopt a vault in Settings
+                </Link>{' '}
+                to enable sync.
+              </p>
+            )}
+            {syncBlockReason === 'Server offline' && (
+              <p className="text-amber-400/80">
+                Server is not reachable. Check the URL in{' '}
+                <Link href="/settings" className="underline hover:text-amber-300">
+                  Settings
+                </Link>{' '}
+                and ensure the server is running.
+              </p>
+            )}
+          </div>
         )}
+
         {sync.status === 'error' && sync.error && (
           <p className="mt-2 text-xs text-red-400">{sync.error}</p>
         )}
+
+        {sync.status === 'synced' && (
+          <p className="mt-2 text-xs text-emerald-400">
+            Sync complete. All devices converged on the same vault state.
+          </p>
+        )}
       </section>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* Stats                                                               */}
+      {/* ------------------------------------------------------------------ */}
       <section className="mt-6 grid grid-cols-3 gap-4">
         <Stat label="Notes in vault" value={vault.ready ? String(vault.notes.length) : '—'} />
         <Stat
@@ -143,6 +271,9 @@ export default function SyncStatusPage() {
         />
       </section>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* Conflicts list                                                      */}
+      {/* ------------------------------------------------------------------ */}
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5 text-sm">
         <h2 className="text-sm font-semibold text-neutral-200">Conflicts</h2>
         {sync.conflicts.length === 0 ? (

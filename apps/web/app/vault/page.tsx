@@ -78,6 +78,29 @@ export default function VaultPage() {
     if (!vault.ready || bootstrapped.current) return;
     bootstrapped.current = true;
 
+    // ?new= deep-link (e.g. from the browser extension's "Send to GraphVault"):
+    // create a note from the clipped Markdown and open it. Content is rendered
+    // through the DOMPurify-sanitised markdown path, so it is safe to store.
+    const clipped = new URLSearchParams(window.location.search).get('new');
+    if (clipped) {
+      try {
+        const content = decodeURIComponent(clipped);
+        const h1 = content.match(/^#\s+(.+)$/m)?.[1]?.trim();
+        const base = (h1 || `Clipping ${new Date().toISOString().slice(0, 10)}`)
+          .replace(/[\\/:*?"<>|]+/g, '-')
+          .slice(0, 80)
+          .trim();
+        let path = `${base}.md`;
+        for (let i = 2; vault.getNote(path as NotePath); i++) path = `${base} (${i}).md`;
+        const created = vault.createNote(path, content);
+        actions.openTab(created.path, h1 || base);
+        window.history.replaceState({}, '', '/vault');
+        return;
+      } catch {
+        // Fall through to normal bootstrap if the clip can't be created.
+      }
+    }
+
     if (layout.tabs.length > 0) {
       // Rehydrate drafts from vault for each persisted tab.
       for (const tab of layout.tabs) {
