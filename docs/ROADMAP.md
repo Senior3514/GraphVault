@@ -109,7 +109,9 @@ providers go through the self-hosted server (keys never touch the browser).
 - ✅ Seam + localStorage + File System Access (disk) + Tauri (native disk)
 - ✅ WebDAV adapter (Nextcloud / any) via self-hosted server proxy — creds never in browser
 - ✅ S3-compatible adapter (AWS S3 / MinIO / Backblaze / R2) via server proxy (from-scratch SigV4)
-- ⬜ Azure Blob + Google Cloud Storage adapters (server-proxied)
+- ✅ Azure Blob + Google Cloud Storage adapters (server-proxied) — Azure Shared
+  Key (HMAC) + GCS XML API via AWS SigV4 interop; creds AES-GCM at rest, never in
+  browser; single-object (`graphvault-vault.json`) proxy like S3
 - ⬜ Google Drive + OneDrive (OAuth, app-folder scope; tokens server-side)
 - ⬜ Settings provider picker with safe copy-verify-switch migration (reuse existing)
 

@@ -638,3 +638,33 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `.`/empty segments — no `fs.realpath` needed. Test the URL-encoded form (`%2e%2e%2f`)
   too, since the router decodes before matching. Bind `127.0.0.1` by default; warn
   loudly when `--host` is non-loopback (exposes the vault).
+
+## Wave 16 — Azure Blob + GCS server-proxied storage adapters
+
+### Azure Shared Key: Content-Length line is empty for empty bodies
+
+- **Rule:** in the Azure Shared Key StringToSign, the Content-Length line must be the
+  empty string when the body is empty (GET/DELETE) and the byte count only for
+  non-empty bodies (PUT). Sending `"0"` for an empty body breaks the signature.
+  Derive it as `payload.length === 0 ? '' : String(len)`. `x-ms-*` headers are
+  lowercased, sorted, and joined into CanonicalizedHeaders; the CanonicalizedResource
+  is `/<account>/<container>/<blob>` plus sorted query params. Implement with
+  `node:crypto` HMAC-SHA256 over the base64-decoded account key — zero new deps.
+
+### GCS interop = free SigV4 reuse
+
+- **Rule:** GCS's S3-compatible XML API accepts AWS SigV4 verbatim, so a GCS
+  server-proxy adapter needs ZERO new signing code — feed `host=storage.googleapis.com`,
+  `region=auto`, `service=s3` into the existing `signS3Request`. The only
+  provider-specific surface is the URL builder + credential schema (HMAC interop
+  access id/secret). When adding S3-alike providers (R2, Backblaze, GCS, MinIO),
+  reuse the signer rather than replicate it.
+
+### Per-credential HKDF info strings extend cleanly to new providers
+
+- **Rule (reaffirmed):** each new credential-bearing provider gets its own versioned
+  HKDF info string — `graphvault-azure-cred-v1`, `graphvault-gcs-cred-v1` — distinct
+  from webdav/s3/ai, so a shared `userId` can never derive the same sub-key across
+  providers. Secrets AES-256-GCM at rest; config GET never returns the plaintext
+  secret (assert this in tests). Keep the single-well-known-object restriction
+  (`graphvault-vault.json`, other keys → 400) for every storage proxy.
