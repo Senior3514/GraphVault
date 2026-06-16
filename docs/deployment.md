@@ -3,7 +3,17 @@
 > Status: Milestone 9 / 10. How to run the self-hosted GraphVault server with
 > Docker Compose on a VPS or NAS, create the first user, configure TLS, and back
 > up / restore your data. For the security rationale behind these steps, see
-> [`security-basics.md`](./security-basics.md).
+> [`security-basics.md`](./security-basics.md). For a concrete, step-by-step VPS
+> hardening checklist (TLS proxy, UFW, fail2ban, a hardened systemd unit,
+> unattended upgrades), see [`hardening.md`](./hardening.md).
+
+> **Production preflight:** on first boot with `NODE_ENV=production` the server
+> runs a safety preflight and **refuses to start** on an insecure config —
+> `GRAPHVAULT_CORS_ORIGIN='*'`, `GRAPHVAULT_REQUIRE_HTTPS=false`, or
+> `GRAPHVAULT_STORAGE=postgres` with no `DATABASE_URL` — printing an actionable
+> message and exiting non-zero. It warns (but boots) on a missing encryption key
+> or binding all interfaces without `GRAPHVAULT_TRUST_PROXY`. See
+> [`hardening.md`](./hardening.md#how-the-preflight-enforces-safe-config).
 
 ## What you deploy
 
@@ -87,19 +97,22 @@ Logging in again later uses the same shape at `POST /v1/auth/login`.
 Set these in `.env` (read automatically by `docker compose`). Defaults shown are
 the compose/app defaults.
 
-| Variable                    | Default      | Used by     | Meaning                                                                 |
-| --------------------------- | ------------ | ----------- | ----------------------------------------------------------------------- |
-| `POSTGRES_USER`             | `graphvault` | db + server | PostgreSQL role; also composed into `DATABASE_URL`.                     |
-| `POSTGRES_PASSWORD`         | _(example)_  | db + server | PostgreSQL password. **Change this.**                                   |
-| `POSTGRES_DB`               | `graphvault` | db + server | PostgreSQL database name.                                               |
-| `GRAPHVAULT_HOST`           | `0.0.0.0`    | server      | Listen host inside the container (must be `0.0.0.0` in Docker).         |
-| `GRAPHVAULT_PORT`           | `4000`       | server      | Listen port.                                                            |
-| `GRAPHVAULT_STORAGE`        | `postgres`   | server      | Storage backend; `postgres` in compose (the app default is `memory`).   |
-| `DATABASE_URL`              | _(composed)_ | server      | Postgres DSN; built from the `POSTGRES_*` vars in compose.              |
-| `GRAPHVAULT_DATA_DIR`       | `/data`      | server      | On-disk blob storage; mapped to the `blob-data` volume.                 |
-| `GRAPHVAULT_CORS_ORIGIN`    | `*`          | server      | Comma-separated allowed origins. Restrict in production.                |
-| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864`   | server      | Max blob upload size in bytes (64 MiB).                                 |
-| `GRAPHVAULT_ENCRYPTION_KEY` | _(unset)_    | server      | Optional 32-byte at-rest blob encryption key (hex/base64). Milestone 8. |
+| Variable                    | Default         | Used by     | Meaning                                                                |
+| --------------------------- | --------------- | ----------- | ---------------------------------------------------------------------- |
+| `POSTGRES_USER`             | `graphvault`    | db + server | PostgreSQL role; also composed into `DATABASE_URL`.                    |
+| `POSTGRES_PASSWORD`         | _(example)_     | db + server | PostgreSQL password. **Change this.**                                  |
+| `POSTGRES_DB`               | `graphvault`    | db + server | PostgreSQL database name.                                              |
+| `GRAPHVAULT_HOST`           | `0.0.0.0`       | server      | Listen host inside the container (must be `0.0.0.0` in Docker).        |
+| `GRAPHVAULT_PORT`           | `4000`          | server      | Listen port.                                                           |
+| `GRAPHVAULT_STORAGE`        | `postgres`      | server      | Storage backend; `postgres` in compose (the app default is `memory`).  |
+| `DATABASE_URL`              | _(composed)_    | server      | Postgres DSN; built from the `POSTGRES_*` vars in compose.             |
+| `GRAPHVAULT_DATA_DIR`       | `/data`         | server      | On-disk blob storage; mapped to the `blob-data` volume.                |
+| `GRAPHVAULT_CORS_ORIGIN`    | _(your origin)_ | server      | Comma-separated allowed origins. **Production preflight rejects `*`.** |
+| `GRAPHVAULT_TRUST_PROXY`    | `true`          | server      | Trust `X-Forwarded-*` from the fronting proxy (compose default).       |
+| `GRAPHVAULT_REQUIRE_HTTPS`  | `true`          | server      | Reject plaintext. **Production preflight rejects `false`.**            |
+| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864`      | server      | Max blob upload size in bytes (64 MiB); blob PUT + WebDAV/S3 proxy.    |
+| `GRAPHVAULT_MAX_JSON_BYTES` | `1048576`       | server      | Max body size for JSON / non-blob routes (1 MiB).                      |
+| `GRAPHVAULT_ENCRYPTION_KEY` | _(unset)_       | server      | Optional 32-byte at-rest blob key (base64). Preflight warns if unset.  |
 
 > The app itself defaults `GRAPHVAULT_HOST` to `127.0.0.1` and
 > `GRAPHVAULT_STORAGE` to `memory`; the Docker image and compose file override

@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { NavIcon, type NavGlyph } from './NavIcon';
+import { ThemeToggle } from './ThemeToggle';
 
 interface NavItem {
   href: string;
@@ -131,6 +132,9 @@ export function Sidebar({ collapsed, onToggle, mobileDrawerClose }: SidebarProps
         style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
         <CommandHint collapsed={collapsed} />
+        {/* Light/Dark/System theme control (M17). Collapsed → single cycling
+            icon button; expanded → segmented control. */}
+        <ThemeToggle collapsed={collapsed} />
         {collapsed ? (
           <button
             type="button"

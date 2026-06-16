@@ -4,6 +4,7 @@
     { "path": "./packages/shared" },
     { "path": "./packages/engine" },
     { "path": "./packages/sync-core" },
+    { "path": "./packages/mcp" },
     { "path": "./apps/server" }
   ]
 }

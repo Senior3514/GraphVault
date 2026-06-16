@@ -59,6 +59,13 @@ export interface ServerConfig {
    * single upload can't exhaust memory. Default 64 MiB.
    */
   maxBlobBytes: number;
+  /**
+   * Max body size in bytes for JSON / non-blob routes. Much smaller than
+   * `maxBlobBytes` so a giant JSON payload to an auth or push route can't
+   * exhaust memory; the blob PUT route opts into the larger `maxBlobBytes` cap
+   * explicitly. Default 1 MiB.
+   */
+  maxJsonBytes: number;
   /** Max requests per window per client for general routes (rate limiting). */
   rateLimitMax: number;
   /** Rate-limit window, in milliseconds. */
@@ -87,6 +94,27 @@ export interface ServerConfig {
    * Default: 200.
    */
   aiDailyCap: number;
+  /**
+   * Max time (ms) the server waits to fully receive a request before aborting it.
+   * Caps slow-client / Slowloris-style sockets that trickle bytes. Default 30s.
+   */
+  requestTimeoutMs: number;
+  /**
+   * How long (ms) an idle keep-alive connection is held open before the server
+   * closes it. Should exceed any fronting proxy's keep-alive to avoid races.
+   * Default 72s.
+   */
+  keepAliveTimeoutMs: number;
+  /**
+   * Max time (ms) a socket may stay open without the headers being completed.
+   * 0 disables Node's HTTP `connectionsCheckingInterval`/timeout. Default 60s.
+   */
+  connectionTimeoutMs: number;
+  /**
+   * Max length of a single URL path parameter (e.g. a `:hash`). Bounds router
+   * work and rejects absurdly long params early. Default 256.
+   */
+  maxParamLength: number;
 }
 
 function storageBackend(value: string | undefined): StorageBackend {
@@ -105,6 +133,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     storage: storageBackend(env.GRAPHVAULT_STORAGE),
     databaseUrl: env.DATABASE_URL,
     maxBlobBytes: num(env.GRAPHVAULT_MAX_BLOB_BYTES, 64 * 1024 * 1024),
+    maxJsonBytes: num(env.GRAPHVAULT_MAX_JSON_BYTES, 1024 * 1024),
     rateLimitMax: num(env.GRAPHVAULT_RATE_LIMIT_MAX, 300),
     rateLimitWindowMs: num(env.GRAPHVAULT_RATE_LIMIT_WINDOW, 60_000),
     authRateLimitMax: num(env.GRAPHVAULT_AUTH_RATE_LIMIT_MAX, 10),
@@ -112,5 +141,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     requireHttps: bool(env.GRAPHVAULT_REQUIRE_HTTPS, isProduction),
     encryptionKey: encryptionKey(env.GRAPHVAULT_ENCRYPTION_KEY),
     aiDailyCap: num(env.GRAPHVAULT_AI_DAILY_CAP, 200),
+    requestTimeoutMs: num(env.GRAPHVAULT_REQUEST_TIMEOUT_MS, 30_000),
+    keepAliveTimeoutMs: num(env.GRAPHVAULT_KEEP_ALIVE_TIMEOUT_MS, 72_000),
+    connectionTimeoutMs: num(env.GRAPHVAULT_CONNECTION_TIMEOUT_MS, 60_000),
+    maxParamLength: num(env.GRAPHVAULT_MAX_PARAM_LENGTH, 256),
   };
 }

@@ -10,6 +10,29 @@ const config: Config = {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      /**
+       * Drive the `neutral` ramp from CSS variables (defined in globals.css) so
+       * the thousands of existing `bg-neutral-950 text-neutral-100` utilities
+       * adapt per theme automatically — no per-component rewrite. Dark uses the
+       * stock Tailwind triples; light uses an inverted ramp so semantics hold
+       * (`neutral-950` is always "page background", `neutral-50` "strongest
+       * text"). Accents (sky/amber/red) are unchanged — they read on both.
+       */
+      colors: {
+        neutral: {
+          50: 'rgb(var(--n-50) / <alpha-value>)',
+          100: 'rgb(var(--n-100) / <alpha-value>)',
+          200: 'rgb(var(--n-200) / <alpha-value>)',
+          300: 'rgb(var(--n-300) / <alpha-value>)',
+          400: 'rgb(var(--n-400) / <alpha-value>)',
+          500: 'rgb(var(--n-500) / <alpha-value>)',
+          600: 'rgb(var(--n-600) / <alpha-value>)',
+          700: 'rgb(var(--n-700) / <alpha-value>)',
+          800: 'rgb(var(--n-800) / <alpha-value>)',
+          900: 'rgb(var(--n-900) / <alpha-value>)',
+          950: 'rgb(var(--n-950) / <alpha-value>)',
+        },
+      },
       fontFamily: {
         sans: [
           'ui-sans-serif',

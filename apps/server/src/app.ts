@@ -36,10 +36,22 @@ export async function buildApp(
   options: AppOptions = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({
-    bodyLimit: Math.max(config.maxBlobBytes, 1024 * 1024),
+    // Global cap applies to JSON / non-blob routes. The blob PUT route opts into
+    // the larger `maxBlobBytes` cap via a per-route `bodyLimit` (see blobs.ts),
+    // so a giant JSON payload can't exhaust memory on the auth/push endpoints.
+    bodyLimit: config.maxJsonBytes,
     // Behind a reverse proxy that terminates TLS, trust X-Forwarded-* so client
     // IPs (rate limiting) and proto (HTTPS detection) are read correctly.
     trustProxy: config.trustProxy,
+    // --- connection hardening (env-configurable; safe defaults in config.ts) ---
+    // Bound how long a single request may take to arrive (Slowloris defense) and
+    // how long idle keep-alive sockets and header-less connections live, so a
+    // hostile or broken client can't pin server resources open indefinitely.
+    requestTimeout: config.requestTimeoutMs,
+    keepAliveTimeout: config.keepAliveTimeoutMs,
+    connectionTimeout: config.connectionTimeoutMs,
+    // Reject absurdly long URL path params early (e.g. a forged `:hash`).
+    maxParamLength: config.maxParamLength,
     logger: {
       level: config.nodeEnv === 'production' ? 'info' : 'debug',
       // No remote log shipping by default — logs stay local.
@@ -168,18 +180,19 @@ export async function buildApp(
     requireHttps: config.requireHttps,
     trustProxy: config.trustProxy,
     maxBlobBytes: config.maxBlobBytes,
+    maxJsonBytes: config.maxJsonBytes,
   }));
 
   // --- Milestone 2: auth, vaults, sync, blobs ---
   registerAuthRoutes(app, services, config);
   registerVaultRoutes(app, services);
-  registerBlobRoutes(app, services);
+  registerBlobRoutes(app, services, config);
 
   // --- Milestone 18: WebDAV proxy storage ---
-  registerWebDavRoutes(app, services);
+  registerWebDavRoutes(app, services, config);
 
   // --- Milestone 18: S3-compatible storage proxy ---
-  registerS3Routes(app, services);
+  registerS3Routes(app, services, config);
 
   // --- Milestone 22: URL web-clipper (server-side fetch + HTML→Markdown) ---
   registerClipRoutes(app, services);
