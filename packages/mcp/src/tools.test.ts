@@ -192,6 +192,7 @@ function makeConfig(over: Partial<McpConfig>): McpConfig {
     token: 't',
     vaultId: undefined,
     vaultName: undefined,
+    deviceId: undefined,
     indexTtlMs: 1000,
     ...over,
   };

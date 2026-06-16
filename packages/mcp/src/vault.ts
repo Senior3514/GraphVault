@@ -105,6 +105,14 @@ export class VaultManager {
     return this.resolvedVaultId;
   }
 
+  /**
+   * Drop the cached snapshot so the next {@link getSnapshot} rebuilds from the
+   * server. Call this after a successful write so subsequent reads reflect it.
+   */
+  invalidate(): void {
+    this.snapshot = undefined;
+  }
+
   /** Return a fresh-enough snapshot, rebuilding it when the cache is stale. */
   async getSnapshot(): Promise<VaultSnapshot> {
     const current = this.snapshot;
