@@ -115,5 +115,50 @@ deployment writeup (Milestone 10 docs). The hardening below is implemented here:
 
 `GET /v1/server-info` reports non-sensitive config flags (storage backend,
 `encryptionAtRest`, rate-limit settings, `requireHttps`, `trustProxy`,
-`maxBlobBytes`) so ops/clients can confirm the deployment. It never exposes
-secrets, keys, or connection strings.
+`maxBlobBytes`, and a `storageProxies` block listing the available cloud-storage
+proxies plus whether their credentials are encrypted at rest with a persistent
+key) so ops/clients can confirm the deployment. It never exposes secrets, keys,
+account names, or connection strings.
+
+## Server-proxied cloud storage (BFF)
+
+A GraphVault vault is a single JSON blob (`graphvault-vault.json`). You can keep
+that blob in any of several cloud-storage backends **without the browser ever
+holding the provider credentials** — the server stores them encrypted at rest
+and proxies the one object. Each adapter exposes exactly three operations
+(`GET` / `PUT` / `DELETE`) on the single well-known object; any other key is
+rejected with `400`. Credentials are encrypted with AES-256-GCM, the key derived
+via HKDF from `GRAPHVAULT_ENCRYPTION_KEY` (or a process-lifetime key when unset)
+with a per-provider info string, and are **never** returned to the client.
+
+| Provider             | Routes prefix        | Auth scheme                               | New deps |
+| -------------------- | -------------------- | ----------------------------------------- | -------- |
+| S3-compatible        | `/v1/storage/s3`     | AWS SigV4 (`node:crypto`)                 | none     |
+| WebDAV               | `/v1/storage/webdav` | Basic (encrypted password)                | none     |
+| Azure Blob Storage   | `/v1/storage/azure`  | Shared Key HMAC-SHA256 (`node:crypto`)    | none     |
+| Google Cloud Storage | `/v1/storage/gcs`    | AWS SigV4 over GCS XML API (interop HMAC) | none     |
+
+Each provider has the same endpoint shape:
+
+```
+POST   /v1/storage/<p>/config      # store/update credentials (encrypted at rest)
+GET    /v1/storage/<p>/config      # read NON-secret info (no key is ever returned)
+DELETE /v1/storage/<p>/config      # remove credentials
+GET    /v1/storage/<p>/object/graphvault-vault.json   # download the vault blob
+PUT    /v1/storage/<p>/object/graphvault-vault.json   # upload the vault blob
+DELETE /v1/storage/<p>/object/graphvault-vault.json   # delete the vault blob
+```
+
+**Azure Blob Storage** — config: `account`, `container`, `accountKey` (base64
+account key; the secret), optional `endpoint` (for Azurite/testing; defaults to
+`https://<account>.blob.core.windows.net`). Requests use the Shared Key scheme
+with `x-ms-version: 2021-08-06` and `x-ms-blob-type: BlockBlob` on PUT.
+
+**Google Cloud Storage** — config: `bucket`, `accessId` + `secret` (a GCS HMAC
+interop key pair; the secret is encrypted), optional `prefix`. Requests target
+the GCS S3-compatible XML API (`https://storage.googleapis.com`) signed with AWS
+SigV4 (`service=s3`, `region=auto`). Create an HMAC key in the Cloud console
+under _Cloud Storage → Settings → Interoperability_.
+
+No additional environment variables are required for any provider — users
+configure their credentials via the `POST .../config` endpoint after signing in.

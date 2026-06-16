@@ -13,6 +13,8 @@ import { registerVaultRoutes } from './routes/vaults.js';
 import { registerBlobRoutes } from './routes/blobs.js';
 import { registerWebDavRoutes } from './routes/webdav.js';
 import { registerS3Routes } from './routes/s3.js';
+import { registerAzureRoutes } from './routes/azure.js';
+import { registerGcsRoutes } from './routes/gcs.js';
 import { registerClipRoutes } from './routes/clip.js';
 import { registerAiRoutes } from './routes/ai.js';
 import type { Storage } from './store/types.js';
@@ -181,6 +183,18 @@ export async function buildApp(
     trustProxy: config.trustProxy,
     maxBlobBytes: config.maxBlobBytes,
     maxJsonBytes: config.maxJsonBytes,
+    // Server-proxied storage adapters: the route is always registered, so the
+    // browser can store credentials server-side and never touch the provider.
+    // `credentialsEncryptedAtRest` reports whether a persistent server key backs
+    // the at-rest AES-GCM encryption (vs a process-lifetime key). NEVER exposes
+    // account names, keys, or any secret material.
+    storageProxies: {
+      s3: { available: true },
+      webdav: { available: true },
+      azure: { available: true },
+      gcs: { available: true },
+      credentialsEncryptedAtRest: config.encryptionKey !== undefined,
+    },
   }));
 
   // --- Milestone 2: auth, vaults, sync, blobs ---
@@ -193,6 +207,10 @@ export async function buildApp(
 
   // --- Milestone 18: S3-compatible storage proxy ---
   registerS3Routes(app, services, config);
+
+  // --- Wave 16: Azure Blob + Google Cloud Storage proxies (creds never in browser) ---
+  registerAzureRoutes(app, services, config);
+  registerGcsRoutes(app, services, config);
 
   // --- Milestone 22: URL web-clipper (server-side fetch + HTML→Markdown) ---
   registerClipRoutes(app, services);

@@ -4,6 +4,8 @@ import { AiService } from './ai.js';
 import { AuthService } from './auth.js';
 import { BlobService } from './blob.js';
 import { ClipService } from './clip.js';
+import { AzureService } from './azure.js';
+import { GcsService } from './gcs.js';
 import { S3Service } from './s3.js';
 import { SyncService } from './sync.js';
 import { VaultService } from './vault.js';
@@ -17,6 +19,8 @@ export { SyncService } from './sync.js';
 export { BlobService } from './blob.js';
 export { WebDavService } from './webdav.js';
 export { S3Service } from './s3.js';
+export { AzureService } from './azure.js';
+export { GcsService } from './gcs.js';
 export { ClipService } from './clip.js';
 
 /** The service layer container, decoupled from Fastify and reusable. */
@@ -27,6 +31,8 @@ export interface Services {
   blob: BlobService;
   webdav: WebDavService;
   s3: S3Service;
+  azure: AzureService;
+  gcs: GcsService;
   clip: ClipService;
   ai: AiService;
 }
@@ -45,6 +51,8 @@ export function createServices(
     blob: new BlobService(storage, blobStore),
     webdav: new WebDavService(storage, encryptionKey),
     s3: new S3Service(storage, encryptionKey),
+    azure: new AzureService(storage, encryptionKey),
+    gcs: new GcsService(storage, encryptionKey),
     clip: new ClipService(),
     ai: new AiService(storage, encryptionKey, aiDailyCap),
   };

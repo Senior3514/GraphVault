@@ -139,6 +139,17 @@ more robust against malformed or partially-downloaded archives.
 - **`[[wikilinks]]` and `#tags`**: plain text in the `.md` content;
   re-indexed automatically when the vault loads after import.
 
+## Server-proxied cloud storage targets
+
+Beyond local export/import, the self-hosted server can keep a copy of the whole
+vault (a single `graphvault-vault.json` blob) in an external object store —
+**without the browser ever seeing the provider credentials**. Supported backends:
+S3-compatible, WebDAV, **Azure Blob Storage**, and **Google Cloud Storage**. The
+blob is plain JSON (the same shape as the JSON backup above), so the vault stays
+portable: you can download it from the provider and re-import it anywhere. The
+server stores each provider's credentials encrypted at rest and proxies exactly
+one object — see `apps/server/README.md` for the per-provider setup.
+
 ## Planned
 
 - **Drag-and-drop import** onto the settings page.

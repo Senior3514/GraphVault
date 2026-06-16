@@ -97,26 +97,39 @@ Logging in again later uses the same shape at `POST /v1/auth/login`.
 Set these in `.env` (read automatically by `docker compose`). Defaults shown are
 the compose/app defaults.
 
-| Variable                    | Default         | Used by     | Meaning                                                                |
-| --------------------------- | --------------- | ----------- | ---------------------------------------------------------------------- |
-| `POSTGRES_USER`             | `graphvault`    | db + server | PostgreSQL role; also composed into `DATABASE_URL`.                    |
-| `POSTGRES_PASSWORD`         | _(example)_     | db + server | PostgreSQL password. **Change this.**                                  |
-| `POSTGRES_DB`               | `graphvault`    | db + server | PostgreSQL database name.                                              |
-| `GRAPHVAULT_HOST`           | `0.0.0.0`       | server      | Listen host inside the container (must be `0.0.0.0` in Docker).        |
-| `GRAPHVAULT_PORT`           | `4000`          | server      | Listen port.                                                           |
-| `GRAPHVAULT_STORAGE`        | `postgres`      | server      | Storage backend; `postgres` in compose (the app default is `memory`).  |
-| `DATABASE_URL`              | _(composed)_    | server      | Postgres DSN; built from the `POSTGRES_*` vars in compose.             |
-| `GRAPHVAULT_DATA_DIR`       | `/data`         | server      | On-disk blob storage; mapped to the `blob-data` volume.                |
-| `GRAPHVAULT_CORS_ORIGIN`    | _(your origin)_ | server      | Comma-separated allowed origins. **Production preflight rejects `*`.** |
-| `GRAPHVAULT_TRUST_PROXY`    | `true`          | server      | Trust `X-Forwarded-*` from the fronting proxy (compose default).       |
-| `GRAPHVAULT_REQUIRE_HTTPS`  | `true`          | server      | Reject plaintext. **Production preflight rejects `false`.**            |
-| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864`      | server      | Max blob upload size in bytes (64 MiB); blob PUT + WebDAV/S3 proxy.    |
-| `GRAPHVAULT_MAX_JSON_BYTES` | `1048576`       | server      | Max body size for JSON / non-blob routes (1 MiB).                      |
-| `GRAPHVAULT_ENCRYPTION_KEY` | _(unset)_       | server      | Optional 32-byte at-rest blob key (base64). Preflight warns if unset.  |
+| Variable                    | Default         | Used by     | Meaning                                                                   |
+| --------------------------- | --------------- | ----------- | ------------------------------------------------------------------------- |
+| `POSTGRES_USER`             | `graphvault`    | db + server | PostgreSQL role; also composed into `DATABASE_URL`.                       |
+| `POSTGRES_PASSWORD`         | _(example)_     | db + server | PostgreSQL password. **Change this.**                                     |
+| `POSTGRES_DB`               | `graphvault`    | db + server | PostgreSQL database name.                                                 |
+| `GRAPHVAULT_HOST`           | `0.0.0.0`       | server      | Listen host inside the container (must be `0.0.0.0` in Docker).           |
+| `GRAPHVAULT_PORT`           | `4000`          | server      | Listen port.                                                              |
+| `GRAPHVAULT_STORAGE`        | `postgres`      | server      | Storage backend; `postgres` in compose (the app default is `memory`).     |
+| `DATABASE_URL`              | _(composed)_    | server      | Postgres DSN; built from the `POSTGRES_*` vars in compose.                |
+| `GRAPHVAULT_DATA_DIR`       | `/data`         | server      | On-disk blob storage; mapped to the `blob-data` volume.                   |
+| `GRAPHVAULT_CORS_ORIGIN`    | _(your origin)_ | server      | Comma-separated allowed origins. **Production preflight rejects `*`.**    |
+| `GRAPHVAULT_TRUST_PROXY`    | `true`          | server      | Trust `X-Forwarded-*` from the fronting proxy (compose default).          |
+| `GRAPHVAULT_REQUIRE_HTTPS`  | `true`          | server      | Reject plaintext. **Production preflight rejects `false`.**               |
+| `GRAPHVAULT_MAX_BLOB_BYTES` | `67108864`      | server      | Max blob upload size in bytes (64 MiB); blob PUT + cloud-storage proxies. |
+| `GRAPHVAULT_MAX_JSON_BYTES` | `1048576`       | server      | Max body size for JSON / non-blob routes (1 MiB).                         |
+| `GRAPHVAULT_ENCRYPTION_KEY` | _(unset)_       | server      | Optional 32-byte at-rest blob key (base64). Preflight warns if unset.     |
 
 > The app itself defaults `GRAPHVAULT_HOST` to `127.0.0.1` and
 > `GRAPHVAULT_STORAGE` to `memory`; the Docker image and compose file override
 > these to `0.0.0.0` and `postgres` for a real deployment.
+
+### Server-proxied cloud storage (optional)
+
+In addition to the built-in sync store, the server can proxy a single vault blob
+to an external object store so the **browser never holds the provider
+credentials**. Four backends are supported, all dependency-free:
+S3-compatible, WebDAV, **Azure Blob Storage** (Shared Key), and **Google Cloud
+Storage** (S3-compatible XML API with HMAC interop keys, AWS SigV4). No extra
+environment variables are required — users enter their credentials in Settings,
+which are stored encrypted at rest (set `GRAPHVAULT_ENCRYPTION_KEY` so they
+survive restarts) and proxied via `/v1/storage/{s3,webdav,azure,gcs}`. See
+`apps/server/README.md` for the per-provider config fields. `GET /v1/server-info`
+reports which proxies are available under `storageProxies`.
 
 ## Reverse proxy / TLS
 

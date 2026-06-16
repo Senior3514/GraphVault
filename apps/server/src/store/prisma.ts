@@ -1,11 +1,13 @@
 import type { FileState } from '@graphvault/shared';
 import type {
   AiConfigRecord,
+  AzureConfigRecord,
   BlobRecord,
   ChangesPage,
   DeviceRecord,
   FileChange,
   FileRecord,
+  GcsConfigRecord,
   S3ConfigRecord,
   Storage,
   TokenRecord,
@@ -71,6 +73,22 @@ export class PrismaStorage implements Storage {
    * TODO(M18-follow-up): add Prisma schema migration for `s3_configs`.
    */
   private readonly _s3Configs = new Map<string, S3ConfigRecord>();
+
+  /**
+   * In-process store for Azure Blob Storage configs.
+   *
+   * Same trade-off as WebDAV / S3: sufficient for single-instance dev deployments.
+   * TODO(Wave16-follow-up): add Prisma schema migration for `azure_configs`.
+   */
+  private readonly _azureConfigs = new Map<string, AzureConfigRecord>();
+
+  /**
+   * In-process store for Google Cloud Storage configs.
+   *
+   * Same trade-off as WebDAV / S3.
+   * TODO(Wave16-follow-up): add Prisma schema migration for `gcs_configs`.
+   */
+  private readonly _gcsConfigs = new Map<string, GcsConfigRecord>();
 
   /**
    * In-process store for AI proxy configs.
@@ -261,6 +279,34 @@ export class PrismaStorage implements Storage {
 
   async deleteS3Config(userId: string): Promise<void> {
     this._s3Configs.delete(userId);
+  }
+
+  // ---- Azure Blob Storage config (in-process map; see TODO above) ----
+
+  async getAzureConfig(userId: string): Promise<AzureConfigRecord | null> {
+    return this._azureConfigs.get(userId) ?? null;
+  }
+
+  async upsertAzureConfig(record: AzureConfigRecord): Promise<void> {
+    this._azureConfigs.set(record.userId, { ...record });
+  }
+
+  async deleteAzureConfig(userId: string): Promise<void> {
+    this._azureConfigs.delete(userId);
+  }
+
+  // ---- Google Cloud Storage config (in-process map; see TODO above) ----
+
+  async getGcsConfig(userId: string): Promise<GcsConfigRecord | null> {
+    return this._gcsConfigs.get(userId) ?? null;
+  }
+
+  async upsertGcsConfig(record: GcsConfigRecord): Promise<void> {
+    this._gcsConfigs.set(record.userId, { ...record });
+  }
+
+  async deleteGcsConfig(userId: string): Promise<void> {
+    this._gcsConfigs.delete(userId);
   }
 
   // ---- AI proxy config (in-process map; see TODO above) ----
