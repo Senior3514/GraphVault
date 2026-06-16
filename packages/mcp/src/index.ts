@@ -3,8 +3,9 @@
  * @graphvault/mcp — executable entry point.
  *
  * A standalone stdio Model Context Protocol server that exposes a user's
- * self-hosted GraphVault vault to external agents (e.g. Claude Desktop) over a
- * set of READ-ONLY tools. No write or delete tools are exposed in this slice.
+ * self-hosted GraphVault vault to external agents (e.g. Claude Desktop). The
+ * read tools are always available; conflict-safe write tools (create/update/
+ * append/delete) are registered only when GRAPHVAULT_DEVICE_ID is configured.
  *
  * Configuration is taken entirely from environment variables (see config.ts);
  * the server fails fast with a clear message when misconfigured. The bearer
@@ -21,6 +22,7 @@ import { ConfigError, loadConfig } from './config.js';
 import { registerTools } from './server.js';
 import { bindTools } from './tools.js';
 import { VaultManager } from './vault.js';
+import { bindWriteTools } from './writes.js';
 
 /** Log a diagnostic line to stderr (never stdout — that carries the protocol). */
 function logErr(message: string): void {
@@ -42,16 +44,20 @@ async function main(): Promise<void> {
   const client = new GraphVaultClient(config);
   const manager = new VaultManager(client, config);
   const tools = bindTools(manager);
+  const writeTools = bindWriteTools(manager, client, config);
 
   const server = new McpServer({
     name: 'graphvault',
     version: '0.0.0',
   });
-  registerTools(server, tools);
+  registerTools(server, tools, writeTools);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  logErr(`connected (server=${config.serverUrl}). Tools are read-only.`);
+  const writeMode = writeTools.enabled
+    ? 'writes ENABLED (conflict-safe create/update/append/delete)'
+    : 'read-only (set GRAPHVAULT_DEVICE_ID to enable writes)';
+  logErr(`connected (server=${config.serverUrl}). ${writeMode}.`);
 }
 
 main().catch((err) => {

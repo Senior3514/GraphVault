@@ -14,8 +14,11 @@
 import {
   apiErrorSchema,
   changesResponseSchema,
+  pushResponseSchema,
   type ChangesResponse,
   type FileState,
+  type PushOp,
+  type PushResponse,
   type VaultRef,
 } from '@graphvault/shared';
 import type { McpConfig } from './config.js';
@@ -162,6 +165,97 @@ export class GraphVaultClient {
       since = maxRevision;
     }
     return states;
+  }
+
+  /**
+   * Fetch the server's CURRENT authoritative {@link FileState} for a single
+   * path, or `null` when the server has no state for it. The returned state
+   * carries the `revision` used as `baseRevision` for a conflict-safe push.
+   *
+   * This pages through `/changes` and keeps the entry with the highest
+   * `revision` for `path` (including tombstones), so a caller can tell whether
+   * a note exists, is deleted, or is absent.
+   */
+  async getFileState(vaultId: string, path: string, pageSize = 1000): Promise<FileState | null> {
+    let latest: FileState | null = null;
+    let since = 0;
+    for (let page = 0; page < 100_000; page++) {
+      const resp = await this.getChangesPage(vaultId, since, pageSize);
+      for (const state of resp.changes) {
+        if (state.path !== path) continue;
+        if (latest === null || state.revision >= latest.revision) {
+          latest = state;
+        }
+      }
+      if (!resp.hasMore || resp.changes.length === 0) break;
+      const maxRevision = resp.changes.reduce(
+        (max, s) => (s.revision > max ? s.revision : max),
+        since,
+      );
+      if (maxRevision <= since) break; // no forward progress; stop to avoid a loop.
+      since = maxRevision;
+    }
+    return latest;
+  }
+
+  /**
+   * `PUT /v1/blobs/:hash` — upload raw content bytes. The server recomputes and
+   * verifies the SHA-256, so a mismatched hash is rejected. Idempotent: an
+   * existing blob is accepted unchanged.
+   */
+  async putBlob(hash: string, bytes: Uint8Array): Promise<void> {
+    await this.writeRequest(`/v1/blobs/${encodeURIComponent(hash)}`, {
+      method: 'PUT',
+      body: bytes,
+      contentType: 'application/octet-stream',
+    });
+  }
+
+  /**
+   * `POST /v1/vaults/:id/push` — submit ops. The server only fast-forward
+   * accepts ops whose `baseRevision` matches the current server revision;
+   * otherwise it returns a conflict and does NOT clobber. The caller MUST
+   * inspect `conflicts` before treating a push as successful.
+   */
+  async push(vaultId: string, deviceId: string, ops: PushOp[]): Promise<PushResponse> {
+    const res = await this.writeRequest(`/v1/vaults/${encodeURIComponent(vaultId)}/push`, {
+      method: 'POST',
+      body: JSON.stringify({ deviceId, ops }),
+      contentType: 'application/json',
+    });
+    const body: unknown = await res.json();
+    const parsed = pushResponseSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new GraphVaultApiError('Malformed /push response', res.status);
+    }
+    return parsed.data;
+  }
+
+  /**
+   * Perform a write (PUT/POST) request and throw a {@link GraphVaultApiError}
+   * on any non-2xx response or transport failure. The token is never included
+   * in the thrown message.
+   */
+  private async writeRequest(
+    path: string,
+    opts: { method: 'PUT' | 'POST'; body: Uint8Array | string; contentType: string },
+  ): Promise<Response> {
+    const url = `${this.baseUrl}${path}`;
+    let res: Response;
+    try {
+      res = await this.fetchImpl(url, {
+        method: opts.method,
+        headers: { ...this.authHeaders(), 'content-type': opts.contentType },
+        body: opts.body,
+      });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new GraphVaultApiError(`Network error contacting GraphVault server: ${reason}`, 0);
+    }
+    if (!res.ok) {
+      throw await this.toApiError(res);
+    }
+    return res;
   }
 
   /** `GET /v1/blobs/:hash` — raw bytes for a content hash. */

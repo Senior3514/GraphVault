@@ -27,6 +27,14 @@ const envSchema = z.object({
   /** Resolve the vault id by name via GET /v1/vaults when no id is supplied. */
   GRAPHVAULT_VAULT_NAME: z.string().min(1).optional(),
   /**
+   * Device id bound to GRAPHVAULT_TOKEN. REQUIRED for the write tools
+   * (create/update/append/delete); the push endpoint rejects a deviceId that
+   * does not match the authenticated device. When absent, read tools still
+   * work but every write tool returns a clear "writes disabled" error. Never
+   * logged.
+   */
+  GRAPHVAULT_DEVICE_ID: z.string().min(1).optional(),
+  /**
    * Index cache time-to-live in milliseconds. After this the index is
    * rebuilt on the next tool call so agents see recent edits. Default 30s.
    */
@@ -39,6 +47,8 @@ export interface McpConfig {
   token: string;
   vaultId: string | undefined;
   vaultName: string | undefined;
+  /** Device id for writes; undefined disables the write tools. */
+  deviceId: string | undefined;
   indexTtlMs: number;
 }
 
@@ -87,6 +97,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): McpConfig {
     token: data.GRAPHVAULT_TOKEN,
     vaultId: data.GRAPHVAULT_VAULT_ID,
     vaultName: data.GRAPHVAULT_VAULT_NAME,
+    deviceId: data.GRAPHVAULT_DEVICE_ID,
     indexTtlMs: data.GRAPHVAULT_INDEX_TTL_MS ?? DEFAULT_INDEX_TTL_MS,
   };
 }

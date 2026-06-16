@@ -78,3 +78,13 @@ test('loadConfig coerces a custom index TTL', () => {
   const cfg = loadConfig({ ...BASE_ENV, GRAPHVAULT_INDEX_TTL_MS: '5000' } as NodeJS.ProcessEnv);
   assert.equal(cfg.indexTtlMs, 5000);
 });
+
+test('loadConfig leaves deviceId undefined when GRAPHVAULT_DEVICE_ID is unset (writes off)', () => {
+  const cfg = loadConfig({ ...BASE_ENV } as NodeJS.ProcessEnv);
+  assert.equal(cfg.deviceId, undefined);
+});
+
+test('loadConfig reads GRAPHVAULT_DEVICE_ID for writes', () => {
+  const cfg = loadConfig({ ...BASE_ENV, GRAPHVAULT_DEVICE_ID: 'device-1' } as NodeJS.ProcessEnv);
+  assert.equal(cfg.deviceId, 'device-1');
+});

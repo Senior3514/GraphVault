@@ -11,6 +11,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { DEFAULT_DEPTH, DEFAULT_LIMIT, MAX_DEPTH, MAX_LIMIT, type BoundTools } from './tools.js';
+import { contentHashSchema } from '@graphvault/shared';
+import type { BoundWriteTools } from './writes.js';
 
 /** A non-empty, vault-relative note path. */
 const notePathSchema = z
@@ -38,12 +40,18 @@ function errorResult(err: unknown): CallToolResult {
 }
 
 /**
- * Register all six read-only tools on `server`, delegating to `tools`.
+ * Register the read-only tools, and — when writes are enabled — the
+ * conflict-safe write tools, on `server`.
  *
  * @param server the MCP server instance.
- * @param tools  handlers bound to a live vault manager.
+ * @param tools  read handlers bound to a live vault manager.
+ * @param writeTools write handlers; only registered when `writeTools.enabled`.
  */
-export function registerTools(server: McpServer, tools: BoundTools): void {
+export function registerTools(
+  server: McpServer,
+  tools: BoundTools,
+  writeTools: BoundWriteTools,
+): void {
   server.registerTool(
     'list_notes',
     {
@@ -163,7 +171,107 @@ export function registerTools(server: McpServer, tools: BoundTools): void {
     },
     async () => {
       try {
-        return jsonResult(await tools.vaultStats());
+        const stats = await tools.vaultStats();
+        return jsonResult({ ...stats, writesEnabled: writeTools.enabled });
+      } catch (err) {
+        return errorResult(err);
+      }
+    },
+  );
+
+  // Write tools are only registered when a device id is configured. This keeps
+  // the tool surface honest: an agent connected to a read-only deployment never
+  // sees create/update/append/delete in the tool picker.
+  if (!writeTools.enabled) {
+    return;
+  }
+
+  const writeNotePathSchema = z
+    .string()
+    .min(1)
+    .describe('Vault-relative POSIX path of the note; must end in .md, e.g. "inbox/idea.md".');
+
+  server.registerTool(
+    'create_note',
+    {
+      title: 'Create a note',
+      description:
+        'Create a new Markdown note. FAILS if a non-deleted note already exists at `path` ' +
+        '(never overwrites). Use update_note to change an existing note. Conflict-safe.',
+      inputSchema: {
+        path: writeNotePathSchema,
+        content: z.string().describe('Full Markdown content of the new note.'),
+      },
+    },
+    async (args) => {
+      try {
+        return jsonResult(await writeTools.createNote(args));
+      } catch (err) {
+        return errorResult(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'update_note',
+    {
+      title: 'Update a note',
+      description:
+        'Replace the content of an EXISTING note. FAILS if the note does not exist. ' +
+        'Optionally pass `expectedHash` (the current `sha256:<hex>` content hash) for ' +
+        'optimistic concurrency: the write is rejected if the server hash differs. ' +
+        'Conflict-safe — a concurrent edit is reported, never overwritten.',
+      inputSchema: {
+        path: writeNotePathSchema,
+        content: z.string().describe('New full Markdown content for the note.'),
+        expectedHash: contentHashSchema
+          .optional()
+          .describe('If given, must equal the current server content hash, else the write fails.'),
+      },
+    },
+    async (args) => {
+      try {
+        return jsonResult(await writeTools.updateNote(args));
+      } catch (err) {
+        return errorResult(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'append_to_note',
+    {
+      title: 'Append to a note',
+      description:
+        'Append text to an EXISTING note (read-modify-write, newline-separated). FAILS if the ' +
+        'note does not exist. Conflict-safe — a concurrent edit between read and write is ' +
+        'reported as a conflict, never overwritten.',
+      inputSchema: {
+        path: writeNotePathSchema,
+        content: z.string().describe('Markdown text to append (a separating newline is added).'),
+      },
+    },
+    async (args) => {
+      try {
+        return jsonResult(await writeTools.appendToNote(args));
+      } catch (err) {
+        return errorResult(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'delete_note',
+    {
+      title: 'Delete a note',
+      description:
+        'Delete (tombstone) an EXISTING note. FAILS if the note does not exist. Conflict-safe ' +
+        'against concurrent edits.',
+      inputSchema: { path: writeNotePathSchema },
+    },
+    async (args) => {
+      try {
+        return jsonResult(await writeTools.deleteNote(args));
       } catch (err) {
         return errorResult(err);
       }
