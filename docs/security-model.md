@@ -147,8 +147,34 @@ as open questions in [`sync-protocol.md §9`](./sync-protocol.md).
 - **Input validation**: all request bodies are validated against zod schemas in
   `@graphvault/shared`; oversized requests and malformed paths are rejected.
 
+## Production safety preflight (fail-fast config audit)
+
+On startup with `NODE_ENV=production` the server audits its own configuration
+([`preflight.ts`](../apps/server/src/preflight.ts)) and **refuses to boot** on an
+insecure setup, exiting non-zero with an actionable message:
+
+- `GRAPHVAULT_CORS_ORIGIN='*'` — an open CORS policy in production.
+- `GRAPHVAULT_REQUIRE_HTTPS=false` — plaintext would be accepted.
+- `GRAPHVAULT_STORAGE=postgres` with no `DATABASE_URL`.
+
+It warns (but boots) on a missing `GRAPHVAULT_ENCRYPTION_KEY` or binding all
+interfaces without `GRAPHVAULT_TRUST_PROXY`. Dev/test are unaffected. This turns
+a quietly-insecure deployment into a loud boot failure.
+
+## Connection hardening
+
+The Fastify instance bounds slow-client and idle-socket abuse with
+env-configurable `requestTimeout`, `keepAliveTimeout`, `connectionTimeout`, and
+`maxParamLength` (safe defaults in `config.ts`). Body limits are split: a tight
+global cap for JSON/non-blob routes (`GRAPHVAULT_MAX_JSON_BYTES`, 1 MiB default)
+so a giant payload to auth/push can't exhaust memory, while the blob PUT and the
+WebDAV/S3 vault-upload proxies opt into the larger `GRAPHVAULT_MAX_BLOB_BYTES`
+cap. SIGTERM/SIGINT trigger a graceful `app.close()` drain.
+
 ## Hardening checklist (operators)
 
-See [`security-basics.md — Hardening checklist`](./security-basics.md#hardening-checklist)
-for the full operator checklist including TLS, database passwords, CORS, rate
-limiting, backups, and container security.
+See [`hardening.md`](./hardening.md) for the full VPS checklist — TLS reverse
+proxy, UFW, fail2ban, a hardened systemd unit, unattended upgrades, backups, and
+how the preflight enforces safe config — and
+[`security-basics.md`](./security-basics.md#hardening-checklist) for the original
+operator notes.

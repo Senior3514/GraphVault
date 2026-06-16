@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { ServerConfig } from '../config.js';
 import type { AuthContext } from '../services/auth.js';
 import type { Services } from '../services/index.js';
 
@@ -7,7 +8,11 @@ import type { Services } from '../services/index.js';
  * recomputes the hash on PUT and rejects mismatches. All blob routes require a
  * valid bearer token (blobs are private to the deployment).
  */
-export function registerBlobRoutes(app: FastifyInstance, services: Services): void {
+export function registerBlobRoutes(
+  app: FastifyInstance,
+  services: Services,
+  config: ServerConfig,
+): void {
   const auth = (request: FastifyRequest): Promise<AuthContext> =>
     services.auth.authenticate(request.headers.authorization);
 
@@ -31,7 +36,10 @@ export function registerBlobRoutes(app: FastifyInstance, services: Services): vo
       .send(bytes);
   });
 
-  app.put('/v1/blobs/:hash', async (request, reply) => {
+  // The blob PUT is the only route that legitimately carries large bodies, so it
+  // opts into the larger `maxBlobBytes` cap while every other route keeps the
+  // tighter global JSON limit.
+  app.put('/v1/blobs/:hash', { bodyLimit: config.maxBlobBytes }, async (request, reply) => {
     await auth(request);
     const { hash } = request.params as { hash: string };
     const body = request.body;
