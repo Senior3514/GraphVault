@@ -127,7 +127,8 @@ Make GraphVault the most _usable_ knowledge tool — it goes where you are.
 - ✅ One-click importers: Obsidian / Notion / Roam / Logseq / plain folders
 - ✅ Embeddable read-only graph (`/embed?s=…`, privacy-safe snapshot) + Share button
 - ⬜ Public shareable graph snapshots (opt-in, no account)
-- ✅ CLI (`@graphvault/cli`: list / search / stats / graph) — local HTTP API ⬜
+- ✅ CLI (`@graphvault/cli`: list / search / stats / graph) + local HTTP API
+  (`graphvault serve`: read-only JSON over `node:http`, localhost-default, zero-dep)
 - ✅ URL scheme (`web+graphvault:`) + PWA share_target (`/share`) — clip from any app
 
 ## Milestone 21 — AI assistant (privacy-first, opt-in) 🟡
@@ -148,8 +149,10 @@ device unless the user enables a provider.
   (encrypted), never the browser; **OpenRouter** as default gateway (400+ models)
   - per-key spend caps. (Research-backed: client-stored secrets are extractable.)
 - ✅ MCP server — expose the vault to external agents (Claude) for interoperability
-  (`@graphvault/mcp`: read-only stdio server over the self-hosted HTTP API; tools
-  list/read/search notes, backlinks, local graph, vault stats; reuses the engine)
+  (`@graphvault/mcp`: stdio server over the self-hosted HTTP API; read tools —
+  list/read/search notes, backlinks, local graph, vault stats; reuses the engine.
+  Conflict-safe **write** tools — create/update/append/delete — opt-in via
+  `GRAPHVAULT_DEVICE_ID`; never clobbers (server returns conflicts, no blind retry))
 
 ## Milestone 22 — Connectors (email & everything, privacy-graded) 🟡
 

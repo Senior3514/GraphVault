@@ -598,3 +598,43 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   **sequentially** in the shared tree with strict disjoint directory ownership and
   commit between each; this preserves conflict-free delegation without the
   concurrent-install/git-index races that parallel-in-one-tree would cause.
+
+## Wave 15 — programmable vault (MCP write tools + CLI HTTP API)
+
+### Conflict-safe writes need the raw per-path FileState (incl. tombstones), not the read view
+
+- **Symptom/risk:** the MCP read path (`latestMarkdownStates`) drops tombstones and
+  non-markdown — wrong for writes, where a prior tombstone's `revision` must become
+  the new note's `baseRevision`, or the push is rejected `STALE_BASE`.
+- **Fix / rule:** writes use a dedicated `client.getFileState(path)` that keeps the
+  highest-revision entry for the path **including** deleted tombstones. `baseRevision`
+  = that revision (or `0` if absent). Push is fast-forward-only server-side; surface
+  any `conflicts` entry as an error ("NOT applied — no data overwritten"), **never**
+  blind-retry with a bumped base. Invalidate the index cache only on confirmed apply.
+  `append_to_note` must read at the same revision it pushes as base so a concurrent
+  edit between read and write is caught as a conflict, not silently lost.
+
+### TS strict: narrow the nullable field in the type guard, and avoid `BodyInit`/loose-JSON types
+
+- A guard `state is FileState` does NOT make `state.hash` non-null under
+  `noUncheckedIndexedAccess`/strict — use `state is FileState & { hash: string }`.
+- `BodyInit` and a recursive `Json` interface both bite here: type a write helper's
+  body as `Uint8Array | string` (not `BodyInit`, which isn't in the Node lib types),
+  and for fetch-based tests prefer a single `json(r): Promise<any>` helper (one
+  `eslint-disable no-explicit-any`) over a `[key:string]: Json` index signature
+  (which collides with named array members like `length`/`some`).
+
+### A long-running CLI subcommand must branch before the shared one-shot vault read
+
+- **Rule:** `graphvault serve` runs indefinitely; every other command shares an
+  upfront synchronous `readVault`. Branch out to `serveCommand` (which owns its own
+  `readVault` + `server.close()` on SIGINT/SIGTERM → exit 0) BEFORE that shared read,
+  or the persistent command is shoehorned through the one-shot path.
+
+### Vault-API path-traversal hardening is purely string-level (engine never touches disk)
+
+- **Rule:** engine ids are vault-relative POSIX strings, so a read-only vault HTTP API
+  guards traversal by rejecting `..` segments, backslashes, and NUL and collapsing
+  `.`/empty segments — no `fs.realpath` needed. Test the URL-encoded form (`%2e%2e%2f`)
+  too, since the router decodes before matching. Bind `127.0.0.1` by default; warn
+  loudly when `--host` is non-loopback (exposes the vault).
