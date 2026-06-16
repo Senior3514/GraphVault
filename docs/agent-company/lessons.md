@@ -524,3 +524,77 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   element to a local variable and add an explicit null guard before use, or
   define the type with a minimum-length tuple. Do not rely on a length-check
   type guard to narrow array element access in TypeScript strict mode.
+
+## Wave 14 — MCP server + VPS hardening + Prism2 theming (sequential specialist slices)
+
+### MCP SDK forces zod ≥3.25 (the `zod/v3` subpath)
+
+- **Symptom:** importing `@modelcontextprotocol/sdk/server/mcp.js` under the repo's
+  `zod@3.24.1` throws `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+- **Root cause:** the SDK (via `zod-to-json-schema@3.25.x`) `require`s the `zod/v3`
+  subpath, which only exists in zod **3.25+**.
+- **Fix / rule:** when adding the MCP SDK, bump zod to `^3.25.0` (still satisfies
+  every existing `^3.24.1` specifier, so one hoisted zod serves the whole
+  workspace) and pin the SDK to a 1.x that keeps zod on the v3 line (`^1.22.0`)
+  unless you intentionally migrate the repo to zod v4.
+
+### stdio MCP servers must keep stdout pristine
+
+- **Rule:** stdout carries the JSON-RPC frames; any stray `console.log` there
+  corrupts the protocol stream. All diagnostics AND the config fail-fast message
+  go to **stderr**, and the process exits non-zero on bad config so the MCP host
+  detects the failure (verified: exit 1, token value never printed — only the
+  env-var _name_ appears in the "Required" message).
+
+### Lowering Fastify's global `bodyLimit` has blast radius beyond blob PUT
+
+- **Symptom/risk:** splitting the body cap into a small JSON limit + large blob
+  limit also throttles the WebDAV/S3 vault-upload _proxy_ PUTs (they carry a whole
+  vault JSON, previously covered by the 64 MiB global) → large-vault sync breaks.
+- **Fix / rule:** any route that legitimately carries large bodies needs an
+  explicit per-route `bodyLimit: maxBlobBytes` — audit all `.put`/proxy routes
+  when tightening the global limit, not just the obvious blob route.
+
+### Compose `read_only: true` must pair with `tmpfs`; keep keep-alive above the proxy
+
+- **Rule:** a read-only root filesystem needs `tmpfs` for `/tmp` (Node scratch,
+  prisma `db push`); postgres additionally needs `/run`, `/var/run/postgresql`
+  tmpfs and a few caps re-added after `cap_drop: ALL`. Set the server's
+  `keepAliveTimeout` (default 72s) **above** the fronting nginx upstream
+  keep-alive (60s) to avoid spurious 502s from socket reuse races.
+
+### Theme the whole app by driving Tailwind's stock `neutral` ramp from CSS vars
+
+- **Rule:** redefining `colors.neutral.{50..950}` as
+  `rgb(var(--n-XXX) / <alpha-value>)`, with a dark `:root` ramp and an **inverted**
+  `[data-theme='light']` ramp (`light --n-950 := dark --n-50`, …), flips thousands
+  of existing `bg-neutral-950 text-neutral-100` utilities automatically — near-zero
+  blast radius, no per-component rewrite. Inverting preserves contrast semantics.
+- **Gotcha:** `theme('colors.neutral.700')` outside an `@apply` context emits
+  `rgb(var(--n-700) / <alpha-value>)` with the alpha placeholder unresolved →
+  invalid CSS. For raw CSS props (e.g. `scrollbar-color`) reference the variable
+  directly: `rgb(var(--n-700))`.
+- **No-flash:** an inline `<head>` script setting
+  `document.documentElement.dataset.theme` before paint is CSP-safe under the
+  existing `script-src 'self' 'unsafe-inline'` (no `'unsafe-eval'`, no vercel.json
+  change). Add `suppressHydrationWarning` to `<html>` since the attribute is set
+  pre-hydration.
+
+### Toolchain: corepack does not put a bare `pnpm` on PATH
+
+- **Symptom:** the root `build:web` script (and any nested bare `pnpm --filter …`)
+  fails with `sh: 1: pnpm: not found` when pnpm is only available via
+  `corepack pnpm`.
+- **Fix / rule:** put a one-line `pnpm`→`corepack pnpm` shim dir on PATH before
+  running root scripts that shell out to bare `pnpm`, or invoke per-package builds
+  directly via `corepack pnpm --filter`.
+
+### Integration: worktree isolation needs a git repo at the agent's cwd
+
+- **Symptom:** `Agent` with `isolation: "worktree"` failed with "not in a git
+  repository" even though the project dir was a fresh clone — the harness recorded
+  the session root as non-git at startup.
+- **Fix / rule:** when worktree isolation is unavailable, run specialists
+  **sequentially** in the shared tree with strict disjoint directory ownership and
+  commit between each; this preserves conflict-free delegation without the
+  concurrent-install/git-index races that parallel-in-one-tree would cause.

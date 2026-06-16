@@ -69,6 +69,10 @@
 - ✅ Strict CSP (`<meta>` + `vercel.json` headers) + X-Content-Type-Options / Referrer-Policy / X-Frame-Options / Permissions-Policy
 - ✅ Performance: virtualized note list + debounced search
 - ✅ Automatic backups / version history (IndexedDB, non-destructive restore) — data-loss safety net
+- ✅ VPS deployment hardening: production-config safety preflight (fail-fast on
+  insecure prod), graceful shutdown, connection/timeout limits, split JSON vs
+  blob body caps, hardened Dockerfile/compose (non-root, cap_drop, read-only +
+  tmpfs, healthcheck), `docs/hardening.md` (nginx TLS, UFW, fail2ban, systemd)
 - ⬜ Lazy-load graph; CSP Trusted Types (CSP shipped)
 
 ## Milestone 14b — Graph v2 extras ✅
@@ -92,7 +96,7 @@
 - ✅ Docs: quickstart, self-hosting, security model, data portability; public-launch README (scrubbed); one-command install table
 - ✅ Accessibility pass: focus traps + restoration, skip-link, ARIA + live regions, WCAG AA
 - ✅ QA gauntlet + review (data-loss / privacy / security CLEAR; 2 fixes applied)
-- ⬜ Light/dark theming via design tokens (system preference + persisted override)
+- ✅ Light/dark theming via design tokens (system preference + persisted override) — "Prism2": CSS-variable neutral ramp, no-flash boot, segmented Light/Dark/System toggle
 - ⬜ "+ to add files" primary action: bottom-thumb FAB (mobile) + file-tree header (desktop)
 - ⬜ Tagged v0.1.0 release → native installers via CI
 
@@ -143,7 +147,9 @@ device unless the user enables a provider.
 - ⬜ **Server-side AI proxy (BFF)** — keys live on the user's self-hosted server
   (encrypted), never the browser; **OpenRouter** as default gateway (400+ models)
   - per-key spend caps. (Research-backed: client-stored secrets are extractable.)
-- ⬜ MCP server — expose the vault to external agents (Claude) for interoperability
+- ✅ MCP server — expose the vault to external agents (Claude) for interoperability
+  (`@graphvault/mcp`: read-only stdio server over the self-hosted HTTP API; tools
+  list/read/search notes, backlinks, local graph, vault stats; reuses the engine)
 
 ## Milestone 22 — Connectors (email & everything, privacy-graded) 🟡
 
