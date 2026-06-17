@@ -28,6 +28,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 
+import { useLayout } from '../lib/layout/useLayout';
 import { fuzzyMatch } from '../lib/vault/fuzzy';
 import { isFolderPickerSupported, openFolder } from '../lib/vault/openFolder';
 import { useVaultContext } from '../lib/vault/VaultProvider';
@@ -61,6 +62,7 @@ const MAX_NOTE_RESULTS = 6;
 export function CommandPalette() {
   const router = useRouter();
   const vault = useVaultContext();
+  const { layout, toggleFocusMode } = useLayout();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
@@ -180,6 +182,14 @@ export function CommandPalette() {
         run: () => window.dispatchEvent(new Event(TOGGLE_PREVIEW_EVENT)),
       },
       {
+        id: 'toggle-focus-mode',
+        label: layout.focusMode ? 'Exit focus mode' : 'Toggle focus mode',
+        hint: 'Distraction-free editing (hide chrome, centre the editor)',
+        glyph: '⤢',
+        keywords: 'focus mode distraction free zen writing hide chrome centre editor',
+        run: () => toggleFocusMode(),
+      },
+      {
         id: 'open-folder',
         label: 'Open folder from disk…',
         hint: isFolderPickerSupported()
@@ -236,7 +246,7 @@ export function CommandPalette() {
       },
     ];
     return list;
-  }, [vault, go, openNote]);
+  }, [vault, go, openNote, layout.focusMode, toggleFocusMode]);
 
   const items = useMemo<Item[]>(() => {
     const q = query.trim();
