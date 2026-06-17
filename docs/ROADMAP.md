@@ -113,7 +113,9 @@ providers go through the self-hosted server (keys never touch the browser).
   Key (HMAC) + GCS XML API via AWS SigV4 interop; creds AES-GCM at rest, never in
   browser; single-object (`graphvault-vault.json`) proxy like S3
 - ⬜ Google Drive + OneDrive (OAuth, app-folder scope; tokens server-side)
-- ⬜ Settings provider picker with safe copy-verify-switch migration (reuse existing)
+- ✅ Settings provider picker with safe copy-verify-switch migration — all
+  server-proxied providers (WebDAV, S3, Azure Blob, GCS) selectable from Settings;
+  web `StorageAdapter`s talk only to the self-hosted proxy (creds never in browser)
 
 ## Milestone 19 — Browser extension (web-clipper → note) 🟡
 

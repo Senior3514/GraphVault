@@ -668,3 +668,32 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   providers. Secrets AES-256-GCM at rest; config GET never returns the plaintext
   secret (assert this in tests). Keep the single-well-known-object restriction
   (`graphvault-vault.json`, other keys → 400) for every storage proxy.
+
+## Wave 17 — web Azure/GCS storage adapters + Settings picker
+
+### Trust the deployed server source over any brief for wire contracts
+
+- **Symptom:** a client config form built to a spec/brief (GCS fields
+  `accessKeyId`/`secretAccessKey`/`endpoint`) silently 400s because the actual
+  route expects different field names (`accessId`/`secret`/`prefix`, no endpoint).
+- **Rule:** before writing client config forms or adapters, READ
+  `apps/server/src/routes/<provider>.ts` + the `services/*ConfigInfo` response
+  interface and match field names byte-for-byte. The server is the source of truth;
+  a brief can be stale.
+
+### When a provider's zod schemas live route-locally (not in @graphvault/shared)
+
+- **Rule:** if `packages/**` is out of scope and the new provider's schemas were
+  defined route-locally on the server, do NOT extend the schema-validated
+  `GraphVaultClient`. Use plain bearer-token `fetch` helpers for config CRUD
+  (`postStorageConfig`/`getStorageConfig`/`deleteStorageConfig`) and keep validation
+  server-side. Secrets live only in the in-flight request body, never persisted in
+  the browser. (Follow-up: promote the wire types into `@graphvault/shared`.)
+
+### Factor shared proxy-adapter plumbing once, mirror per provider
+
+- **Rule:** Azure/GCS/S3 web adapters differ only in `id`/`label`/proxy path —
+  token+serverUrl session reads, `isNote` guards, JSON (de)serialise, and the
+  load/save/clear/isAvailable proxy flow are identical. Extract a single
+  apps/web-local `proxyAdapterHelpers.ts` (no new dep) and keep each adapter a thin
+  shell, rather than copy-pasting the whole s3Adapter three times.
