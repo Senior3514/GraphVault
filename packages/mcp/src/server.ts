@@ -7,12 +7,14 @@
  * connected agent gets a clear message instead of crashing the transport.
  */
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { DEFAULT_DEPTH, DEFAULT_LIMIT, MAX_DEPTH, MAX_LIMIT, type BoundTools } from './tools.js';
 import { contentHashSchema } from '@graphvault/shared';
 import type { BoundWriteTools } from './writes.js';
+import { NOTE_MIME_TYPE, NOTE_URI_PREFIX, type BoundResources } from './resources.js';
+import type { BoundPrompts } from './prompts.js';
 
 /** A non-empty, vault-relative note path. */
 const notePathSchema = z
@@ -276,5 +278,96 @@ export function registerTools(
         return errorResult(err);
       }
     },
+  );
+}
+
+/**
+ * Register vault notes as MCP resources under a single `graphvault://note/{...}`
+ * template. The list callback enumerates the cached vault index; the read
+ * callback returns the note's markdown as `text/markdown`. Both are read-only.
+ *
+ * A read failure (unknown/traversal URI) is surfaced by throwing, which the SDK
+ * turns into a JSON-RPC error for the host — the transport stays up.
+ */
+export function registerResources(server: McpServer, resources: BoundResources): void {
+  const template = new ResourceTemplate(`${NOTE_URI_PREFIX}{+path}`, {
+    list: async () => {
+      const list = await resources.list();
+      return {
+        resources: list.map((r) => ({
+          uri: r.uri,
+          name: r.name,
+          title: r.title,
+          mimeType: r.mimeType,
+        })),
+      };
+    },
+  });
+
+  server.registerResource(
+    'note',
+    template,
+    {
+      title: 'Vault note',
+      description:
+        'A Markdown note in the GraphVault vault, addressable as ' +
+        `${NOTE_URI_PREFIX}<vault-relative-path>. Read-only.`,
+      mimeType: NOTE_MIME_TYPE,
+    },
+    async (uri) => {
+      // The read handler reuses the cached snapshot and validates the path from
+      // the URI (no traversal; must be a known note, else a clear not-found).
+      const contents = await resources.read(uri.href);
+      return {
+        contents: [{ uri: contents.uri, mimeType: contents.mimeType, text: contents.text }],
+      };
+    },
+  );
+}
+
+/**
+ * Register the ready-made prompt templates. Each pulls real vault context via
+ * the bound prompt handlers and is read-only (always available).
+ */
+export function registerPrompts(server: McpServer, prompts: BoundPrompts): void {
+  const promptPathSchema = z
+    .string()
+    .min(1)
+    .describe('Vault-relative POSIX path of the note, e.g. "notes/ideas/graphs.md".');
+
+  server.registerPrompt(
+    'summarize_note',
+    {
+      title: 'Summarize a note',
+      description: 'Embed a note from the vault and ask for a concise summary with key takeaways.',
+      argsSchema: { path: promptPathSchema },
+    },
+    async ({ path }) => prompts.summarizeNote(path),
+  );
+
+  server.registerPrompt(
+    'find_connections',
+    {
+      title: 'Find connections',
+      description:
+        'Embed a note plus its backlinks and 1-hop neighbors, and ask for related notes and ' +
+        'likely missing links.',
+      argsSchema: { path: promptPathSchema },
+    },
+    async ({ path }) => prompts.findConnections(path),
+  );
+
+  server.registerPrompt(
+    'search_and_synthesize',
+    {
+      title: 'Search and synthesize',
+      description:
+        'Search the vault for a query, embed the top matching notes, and ask for a synthesis ' +
+        'with citations to note paths.',
+      argsSchema: {
+        query: z.string().min(1).describe('Text to search the vault for.'),
+      },
+    },
+    async ({ query }) => prompts.searchAndSynthesize(query),
   );
 }

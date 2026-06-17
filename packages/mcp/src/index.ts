@@ -19,10 +19,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { GraphVaultClient } from './client.js';
 import { ConfigError, loadConfig } from './config.js';
-import { registerTools } from './server.js';
+import { registerPrompts, registerResources, registerTools } from './server.js';
 import { bindTools } from './tools.js';
 import { VaultManager } from './vault.js';
 import { bindWriteTools } from './writes.js';
+import { bindResources } from './resources.js';
+import { bindPrompts } from './prompts.js';
 
 /** Log a diagnostic line to stderr (never stdout — that carries the protocol). */
 function logErr(message: string): void {
@@ -45,12 +47,18 @@ async function main(): Promise<void> {
   const manager = new VaultManager(client, config);
   const tools = bindTools(manager);
   const writeTools = bindWriteTools(manager, client, config);
+  const resources = bindResources(manager);
+  const prompts = bindPrompts(manager);
 
   const server = new McpServer({
     name: 'graphvault',
     version: '0.0.0',
   });
   registerTools(server, tools, writeTools);
+  // Resources (notes as attachable resources) and prompts are read-only and
+  // always available, regardless of whether writes are enabled.
+  registerResources(server, resources);
+  registerPrompts(server, prompts);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

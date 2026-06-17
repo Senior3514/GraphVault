@@ -47,6 +47,43 @@ reimplemented here. The vault is loaded once and cached with a short TTL
 (`GRAPHVAULT_INDEX_TTL_MS`, default 30s), so recent edits become visible to
 agents without restarting the server.
 
+## Resources
+
+Every note is also exposed as an MCP **resource** so hosts like Claude Desktop
+can browse and attach notes natively (instead of only via the `read_note` tool).
+Resources are **read-only** and always available.
+
+- **URI scheme:** `graphvault://note/<vault-relative-path>`, where each path
+  segment is percent-encoded so slashes separate path levels and characters like
+  spaces or `#` round-trip safely — e.g. `notes/graph theory.md` becomes
+  `graphvault://note/notes/graph%20theory.md`.
+- **List:** enumerates every note in the cached vault index, each with its `uri`,
+  `name` (the vault-relative path), `title`, and `mimeType: text/markdown`.
+- **Read:** returns the note's raw Markdown as the resource contents
+  (`mimeType: text/markdown`). The path is validated from the URI — traversal
+  (`..`), absolute, and non-note URIs are rejected, and an unknown note returns a
+  clear not-found error.
+
+Resources share the same TTL-cached snapshot as the tools, so they reflect recent
+edits.
+
+## Prompts
+
+A few ready-made, parameterized **prompt templates** pull real vault context so a
+host can one-click a useful workflow. All are read-only and always available.
+
+| Prompt                  | Args    | Builds a prompt that…                                                                                        |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| `summarize_note`        | `path`  | embeds the note's Markdown and asks for a concise summary with key takeaways.                                |
+| `find_connections`      | `path`  | embeds the note plus its backlinks and 1-hop neighbors, and asks for related notes and likely missing links. |
+| `search_and_synthesize` | `query` | searches the vault, embeds the top matching notes, and asks for a synthesis with citations to note paths.    |
+
+Each prompt reuses the existing read/graph helpers to fetch context (no duplicate
+fetching) and errors cleanly when given an unknown note path.
+
+In Claude Desktop, resources appear in the attachment/resource picker and prompts
+appear as one-click slash commands once the server is connected.
+
 ## Configuration
 
 All configuration comes from environment variables (see `.env.example`):
@@ -113,7 +150,9 @@ read tools are registered.
 If the package is installed globally (it exposes a `graphvault-mcp` bin), you
 can instead use `"command": "graphvault-mcp"` with no `args`.
 
-Restart Claude Desktop; the GraphVault tools will appear in the tool picker.
+Restart Claude Desktop; the GraphVault tools appear in the tool picker, your
+notes appear as attachable **resources**, and the **prompts** above appear as
+one-click commands.
 
 ## Development
 
@@ -124,7 +163,10 @@ pnpm --filter @graphvault/mcp test       # tsx --test
 ```
 
 Tests cover the HTTP client against a stubbed `fetch`, every read handler
-against an in-memory set of notes, and the write handlers against an in-memory
+against an in-memory set of notes, the write handlers against an in-memory
 fake server (hash computation, no-clobber create, missing-note rejection,
 `expectedHash` mismatch, append read-modify-write, delete tombstone, conflict
-surfaced as an error, and writes-disabled) — no network or live server required.
+surfaced as an error, and writes-disabled), the resource handlers (URI
+round-trip, list enumeration, read content + mimeType, traversal/unknown URI
+rejection), and the prompt builders (each embeds the expected note context;
+unknown path errors cleanly) — no network or live server required.
