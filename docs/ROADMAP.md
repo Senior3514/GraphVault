@@ -130,7 +130,10 @@ Make GraphVault the most _usable_ knowledge tool — it goes where you are.
 
 - ✅ One-click importers: Obsidian / Notion / Roam / Logseq / plain folders
 - ✅ Embeddable read-only graph (`/embed?s=…`, privacy-safe snapshot) + Share button
-- ⬜ Public shareable graph snapshots (opt-in, no account)
+- ✅ Public shareable graph snapshots (opt-in, no account) — server snapshot store
+  (off by default; size/count caps, TTL sweep, hashed delete-token, stricter rate
+  limit) + web "short link" (`/embed?id=&srv=`) with the self-contained `s=` link
+  kept as fallback
 - ✅ CLI (`@graphvault/cli`: list / search / stats / graph) + local HTTP API
   (`graphvault serve`: read-only JSON over `node:http`, localhost-default, zero-dep)
 - ✅ URL scheme (`web+graphvault:`) + PWA share_target (`/share`) — clip from any app

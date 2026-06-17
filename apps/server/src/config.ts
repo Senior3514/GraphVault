@@ -115,6 +115,27 @@ export interface ServerConfig {
    * work and rejects absurdly long params early. Default 256.
    */
   maxParamLength: number;
+  /**
+   * Opt-in public graph-snapshot store. When false (the default) every
+   * `/v1/snapshots*` route returns 404 — the feature is invisible. Snapshots are
+   * unauthenticated public read-only shares of an opaque, already-encoded graph
+   * payload, so the feature is off unless an operator explicitly enables it.
+   */
+  snapshotsEnabled: boolean;
+  /** Max size in bytes of a single snapshot payload (the encoded string). */
+  snapshotMaxBytes: number;
+  /**
+   * Max number of stored snapshots. When exceeded, the oldest snapshots are
+   * evicted (oldest-first) so disk can't grow unbounded.
+   */
+  snapshotMaxCount: number;
+  /**
+   * Snapshot time-to-live, in days. Expired snapshots are swept on read and
+   * never returned. 0 = no expiry.
+   */
+  snapshotTtlDays: number;
+  /** Stricter per-window cap for `POST /v1/snapshots` to deter abuse. */
+  snapshotRateLimitMax: number;
 }
 
 function storageBackend(value: string | undefined): StorageBackend {
@@ -145,5 +166,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     keepAliveTimeoutMs: num(env.GRAPHVAULT_KEEP_ALIVE_TIMEOUT_MS, 72_000),
     connectionTimeoutMs: num(env.GRAPHVAULT_CONNECTION_TIMEOUT_MS, 60_000),
     maxParamLength: num(env.GRAPHVAULT_MAX_PARAM_LENGTH, 256),
+    snapshotsEnabled: bool(env.GRAPHVAULT_SNAPSHOTS_ENABLED, false),
+    snapshotMaxBytes: num(env.GRAPHVAULT_SNAPSHOT_MAX_BYTES, 400_000),
+    snapshotMaxCount: num(env.GRAPHVAULT_SNAPSHOT_MAX_COUNT, 5000),
+    snapshotTtlDays: num(env.GRAPHVAULT_SNAPSHOT_TTL_DAYS, 30),
+    snapshotRateLimitMax: num(env.GRAPHVAULT_SNAPSHOT_RATE_LIMIT_MAX, 20),
   };
 }

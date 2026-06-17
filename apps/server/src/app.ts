@@ -17,7 +17,9 @@ import { registerAzureRoutes } from './routes/azure.js';
 import { registerGcsRoutes } from './routes/gcs.js';
 import { registerClipRoutes } from './routes/clip.js';
 import { registerAiRoutes } from './routes/ai.js';
+import { registerSnapshotRoutes } from './routes/snapshots.js';
 import type { Storage } from './store/types.js';
+import type { SnapshotStore } from './store/snapshot-store.js';
 
 export interface AppOptions {
   /**
@@ -25,6 +27,16 @@ export interface AppOptions {
    * {@link InMemoryStorage}). When omitted, storage is built from `config`.
    */
   storage?: Storage;
+  /**
+   * Inject a snapshot store (tests use {@link InMemorySnapshotStore}). Only used
+   * when the snapshot feature is enabled in `config`; otherwise ignored.
+   */
+  snapshotStore?: SnapshotStore;
+  /**
+   * Inject a clock (ms since epoch) for the snapshot service so tests can age
+   * entries deterministically (TTL / expiry). Defaults to `Date.now`.
+   */
+  snapshotNow?: () => number;
 }
 
 /**
@@ -121,7 +133,19 @@ export async function buildApp(
     storageHandle = await createStorage(config);
     storage = storageHandle.storage;
   }
-  const services = createServices(storage, config.dataDir, config.encryptionKey, config.aiDailyCap);
+  const services = createServices(storage, config.dataDir, {
+    encryptionKey: config.encryptionKey,
+    aiDailyCap: config.aiDailyCap,
+    snapshots: config.snapshotsEnabled
+      ? {
+          maxBytes: config.snapshotMaxBytes,
+          maxCount: config.snapshotMaxCount,
+          ttlDays: config.snapshotTtlDays,
+          now: options.snapshotNow,
+        }
+      : undefined,
+    snapshotStore: options.snapshotStore,
+  });
 
   app.addHook('onClose', async () => {
     if (storageHandle) await storageHandle.close();
@@ -195,6 +219,12 @@ export async function buildApp(
       gcs: { available: true },
       credentialsEncryptedAtRest: config.encryptionKey !== undefined,
     },
+    // Public, opt-in graph-snapshot store. Off by default; only non-sensitive
+    // posture flags are exposed (no payloads, no ids).
+    snapshots: {
+      enabled: config.snapshotsEnabled,
+      maxBytes: config.snapshotMaxBytes,
+    },
   }));
 
   // --- Milestone 2: auth, vaults, sync, blobs ---
@@ -217,6 +247,10 @@ export async function buildApp(
 
   // --- AI proxy (BFF): server-side AI key storage + chat proxy ---
   registerAiRoutes(app, services);
+
+  // --- Wave 18: opt-in public graph-snapshot store (short share links). When
+  //     disabled (the default), no routes are registered → /v1/snapshots* 404s. ---
+  registerSnapshotRoutes(app, services, config);
 
   return app;
 }

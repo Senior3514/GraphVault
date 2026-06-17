@@ -697,3 +697,37 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   load/save/clear/isAvailable proxy flow are identical. Extract a single
   apps/web-local `proxyAdapterHelpers.ts` (no new dep) and keep each adapter a thin
   shell, rather than copy-pasting the whole s3Adapter three times.
+
+## Wave 18 — public opt-in graph-snapshot store + web short share links
+
+### Unauthenticated public-write endpoints: default OFF + layered caps
+
+- **Rule:** a no-account public-write feature (snapshot share store) ships **disabled
+  by default** (`GRAPHVAULT_SNAPSHOTS_ENABLED=false` → routes not even registered, so
+  the feature is invisible/404). When enabled, layer every cap: per-payload size
+  (413), total count with oldest-first eviction (bounded disk), TTL sweep on read,
+  and a STRICTER per-window rate limit on POST (like `/v1/auth/*`). Treat the payload
+  as opaque text — never parse/execute it server-side. Validate the id against a
+  strict `^[A-Za-z0-9_-]{16,32}$` pattern before building any path (traversal guard,
+  defense-in-depth in both service and store).
+
+### No owner? Gate destructive ops behind a one-time token, hashed + constant-time
+
+- **Rule:** with no account, DELETE can't be owner-checked — return a `deleteToken`
+  from POST, store only its SHA-256 hash, and require it on DELETE with a
+  `timingSafeEqual` compare. A party who only knows the public share id cannot grief
+  the snapshot.
+
+### `URL.origin` is the clean SSRF/junk guard for an attacker-controllable origin param
+
+- **Rule:** when a share link carries a `srv=<serverOrigin>` the embed page will fetch
+  from, validate it via `new URL(srv).origin` and require `http:`/`https:` — this
+  rejects non-http(s) schemes and strips any path/query/hash a crafted link added,
+  leaving only `scheme://host:port`. No manual string parsing.
+
+### Client-side cap can pre-empt the server 413 — keep both
+
+- **Note:** the web `encodeSnapshot` cap (200 KB) is below the server default
+  `snapshotMaxBytes` (400 KB), so oversized graphs are rejected client-side first.
+  Still wire + test the 413 path: the server cap is operator-configurable and is the
+  authoritative backstop.
