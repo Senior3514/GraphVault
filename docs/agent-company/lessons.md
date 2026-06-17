@@ -761,3 +761,29 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   endpoints; tokens are never returned in list views. Stricter per-window rate
   limit + service-level size cap on the _rendered_ note (frontmatter adds bytes)
   with the Fastify global bodyLimit as the coarse outer guard.
+
+## Wave 20 — MCP resources + prompts
+
+### SDK 1.29 registration signatures + capability auto-advertise
+
+- **Note:** `@modelcontextprotocol/sdk@1.29.0` current (non-deprecated) signatures:
+  `registerResource(name, ResourceTemplate, config, readCb)` and
+  `registerPrompt(name, { title, description, argsSchema }, cb)`. `ResourceTemplate`
+  requires the `list` key to be present (even if `undefined`). Registering
+  resources/prompts auto-advertises the capabilities — no manual capability wiring.
+  Always read the SDK's installed `dist` types (pnpm virtual store, not a top-level
+  `node_modules/@modelcontextprotocol`) since these APIs shift across 1.x.
+
+### URI-template `{+path}` matches multi-segment, but YOU must guard traversal
+
+- **Rule:** the reserved-expansion `graphvault://note/{+path}` form lets one template
+  match multi-segment note paths, but the template does NOT sanitize — decode and
+  validate each segment yourself (reject `..`/empty/absolute, including encoded
+  `%2e%2e`, and require the path to be a known note) before reading. Percent-encode
+  per segment when generating URIs so spaces/`#` round-trip.
+
+### Prompt-text assertions are case-sensitive
+
+- **Rule:** an emphasized all-caps word ("MISSING") in generated prompt copy won't
+  match a `[Mm]issing` regex — use `/.../i` for word-presence checks on copy you may
+  later restyle.

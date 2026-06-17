@@ -159,7 +159,10 @@ device unless the user enables a provider.
   (`@graphvault/mcp`: stdio server over the self-hosted HTTP API; read tools —
   list/read/search notes, backlinks, local graph, vault stats; reuses the engine.
   Conflict-safe **write** tools — create/update/append/delete — opt-in via
-  `GRAPHVAULT_DEVICE_ID`; never clobbers (server returns conflicts, no blind retry))
+  `GRAPHVAULT_DEVICE_ID`; never clobbers (server returns conflicts, no blind retry).
+  **Resources** — notes as attachable `graphvault://note/<path>` resources (list +
+  read, text/markdown). **Prompts** — `summarize_note`, `find_connections`,
+  `search_and_synthesize` templates that embed real vault context)
 
 ## Milestone 22 — Connectors (email & everything, privacy-graded) 🟡
 
