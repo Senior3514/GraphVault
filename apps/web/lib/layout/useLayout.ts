@@ -32,6 +32,20 @@ function makeTabId(): string {
   return Math.random().toString(36).slice(2, 9);
 }
 
+/**
+ * Focus mode is consumed by more than one independent `useLayout()` instance
+ * (the app shell that hides the rail/sidebar, and the workspace that hides the
+ * side panes + centres the editor). React state isn't shared across those
+ * instances, so a toggle in one is broadcast on this window event and every
+ * mounted hook syncs its local `focusMode` to match. Persistence still flows
+ * through the normal localStorage path. SSR-safe: dispatch/listen are guarded.
+ */
+export const FOCUS_MODE_EVENT = 'graphvault:focus-mode';
+
+interface FocusModeEventDetail {
+  focusMode: boolean;
+}
+
 export interface LayoutActions {
   /** The current layout snapshot. */
   layout: WorkspaceLayout;
@@ -58,6 +72,10 @@ export interface LayoutActions {
   // --- Split mode ---
   setSplitMode(mode: SplitMode): void;
   setSecondaryTab(tabId: string | null): void;
+
+  // --- Focus mode (distraction-free editing) ---
+  toggleFocusMode(): void;
+  setFocusMode(on: boolean): void;
 }
 
 /** Clamp a number to [min, max]. */
@@ -80,6 +98,24 @@ export function useLayout(): LayoutActions {
   useEffect(() => {
     const saved = loadLayout();
     setLayout(saved);
+  }, []);
+
+  // Keep focus mode in sync across every mounted useLayout instance. A toggle
+  // in one component (e.g. the command palette) broadcasts this event; all
+  // other instances mirror the new value into their own state so the whole
+  // shell reacts together. We only mirror state here — the originating setter
+  // already persisted, so listeners must NOT re-persist (avoids feedback).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onFocusModeChange = (e: Event) => {
+      const detail = (e as CustomEvent<FocusModeEventDetail>).detail;
+      if (!detail) return;
+      setLayout((prev) =>
+        prev.focusMode === detail.focusMode ? prev : { ...prev, focusMode: detail.focusMode },
+      );
+    };
+    window.addEventListener(FOCUS_MODE_EVENT, onFocusModeChange);
+    return () => window.removeEventListener(FOCUS_MODE_EVENT, onFocusModeChange);
   }, []);
 
   const update = useCallback(
@@ -248,6 +284,34 @@ export function useLayout(): LayoutActions {
     [update],
   );
 
+  // --- Focus mode ---
+  // Broadcast after persisting so sibling useLayout instances mirror the new
+  // value. Note: focus mode is purely presentational — it never touches
+  // `widths`, `panels`, or `tabs`, so toggling it off restores the exact prior
+  // layout (stored pane sizes are preserved).
+  const broadcastFocusMode = useCallback((on: boolean) => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent<FocusModeEventDetail>(FOCUS_MODE_EVENT, { detail: { focusMode: on } }),
+    );
+  }, []);
+
+  const setFocusMode = useCallback(
+    (on: boolean) => {
+      update((prev) => (prev.focusMode === on ? prev : { ...prev, focusMode: on }));
+      broadcastFocusMode(on);
+    },
+    [update, broadcastFocusMode],
+  );
+
+  const toggleFocusMode = useCallback(() => {
+    update((prev) => {
+      const next = !prev.focusMode;
+      broadcastFocusMode(next);
+      return { ...prev, focusMode: next };
+    });
+  }, [update, broadcastFocusMode]);
+
   return {
     layout,
     togglePanel,
@@ -263,6 +327,8 @@ export function useLayout(): LayoutActions {
     updateTabTitle,
     setSplitMode,
     setSecondaryTab,
+    toggleFocusMode,
+    setFocusMode,
   };
 }
 

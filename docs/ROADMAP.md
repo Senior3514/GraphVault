@@ -44,7 +44,9 @@
 - ✅ Collapse / expand / maximize-restore controls per pane; layout persisted
 - ✅ Editor tabs: open/close/reorder, dirty indicator, "+"; split view (editor+preview / two notes)
 - ✅ Per-tab autosave that flushes before switch/close/unmount (no lost edits)
-- ⬜ Pop-out windows / focus mode (nice-to-have)
+- ✅ Focus mode — distraction-free editing (hide rail/sidebar/details, center
+  editor; `Cmd/Ctrl+Shift+F` + Esc + palette; persisted, non-destructive)
+- ⬜ Pop-out windows (nice-to-have)
 
 ## Milestone 13 — Command palette & power editing ✅
 

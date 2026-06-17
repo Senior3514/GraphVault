@@ -57,15 +57,20 @@ export function WorkspaceLayout({
   const { layout, maximizePane, restorePane, setNoteListWidth, setDetailsWidth, togglePanel } =
     actions;
 
-  const { widths, panels, maximized } = layout;
+  const { widths, panels, maximized, focusMode } = layout;
 
   // Mobile: which pane is currently visible
   const [mobilePane, setMobilePane] = useState<MobilePane>('editor');
 
   // Which panes are visible in the current maximized state?
-  const showNoteList = panels.noteList && (maximized === null || maximized === 'noteList');
+  // Focus mode hides the side panes entirely (without mutating the persisted
+  // `panels`/`widths`, so exiting restores them exactly) and centres the
+  // editor column to a comfortable reading width.
+  const showNoteList =
+    !focusMode && panels.noteList && (maximized === null || maximized === 'noteList');
   const showEditor = maximized === null || maximized === 'editor';
-  const showDetails = panels.details && (maximized === null || maximized === 'details');
+  const showDetails =
+    !focusMode && panels.details && (maximized === null || maximized === 'details');
 
   const handleNoteListResize = useCallback(
     (delta: number) => setNoteListWidth(widths.noteList + delta),
@@ -112,14 +117,25 @@ export function WorkspaceLayout({
         )}
 
         {/* Collapsed noteList button */}
-        {!panels.noteList && maximized === null && (
+        {!focusMode && !panels.noteList && maximized === null && (
           <CollapsedTab label="Notes" onClick={() => togglePanel('noteList')} side="left" />
         )}
 
         {/* ===== Editor Panel ===== */}
-        {showEditor && (
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">{editorSlot}</div>
-        )}
+        {/* In focus mode the editor column is centred with auto margins and a
+            comfortable max reading width; otherwise it fills the remaining
+            space. The inner wrapper keeps the tab bar + editor fully
+            functional. */}
+        {showEditor &&
+          (focusMode ? (
+            <div className="flex min-w-0 flex-1 justify-center overflow-hidden">
+              <div className="flex min-w-0 w-full max-w-3xl flex-col overflow-hidden">
+                {editorSlot}
+              </div>
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">{editorSlot}</div>
+          ))}
 
         {/* ===== Details Panel ===== */}
         {showDetails && maximized === null && showEditor && (
@@ -149,7 +165,7 @@ export function WorkspaceLayout({
         )}
 
         {/* Collapsed details button */}
-        {!panels.details && maximized === null && (
+        {!focusMode && !panels.details && maximized === null && (
           <CollapsedTab label="Details" onClick={() => togglePanel('details')} side="right" />
         )}
       </div>
@@ -158,50 +174,54 @@ export function WorkspaceLayout({
       {/* MOBILE layout (< md) — single visible pane + bottom switcher      */}
       {/* ================================================================ */}
       <div className="flex h-full min-h-0 flex-col md:hidden">
-        {/* Active pane fills all available height above the bottom bar */}
+        {/* Active pane fills all available height above the bottom bar.
+            In focus mode we always show the editor and hide the switcher. */}
         <div className="min-h-0 flex-1 overflow-hidden">
-          {mobilePane === 'notes' && (
+          {(focusMode || mobilePane === 'editor') && (
+            <div className="flex h-full min-w-0 flex-col overflow-hidden">{editorSlot}</div>
+          )}
+          {!focusMode && mobilePane === 'notes' && (
             <div className="flex h-full flex-col overflow-hidden bg-neutral-950">
               {noteListSlot}
             </div>
           )}
-          {mobilePane === 'editor' && (
-            <div className="flex h-full min-w-0 flex-col overflow-hidden">{editorSlot}</div>
-          )}
-          {mobilePane === 'details' && (
+          {!focusMode && mobilePane === 'details' && (
             <div className="flex h-full flex-col overflow-hidden bg-neutral-950">{detailsSlot}</div>
           )}
         </div>
 
-        {/* Bottom segmented control — switch between Notes / Editor / Details */}
-        <nav
-          aria-label="Pane switcher"
-          className="flex shrink-0 border-t border-neutral-800 bg-neutral-950"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-        >
-          {(
-            [
-              { id: 'notes', label: 'Notes', icon: <NotesIcon /> },
-              { id: 'editor', label: 'Editor', icon: <EditorIcon /> },
-              { id: 'details', label: 'Details', icon: <DetailsIcon /> },
-            ] as { id: MobilePane; label: string; icon: ReactNode }[]
-          ).map(({ id, label, icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setMobilePane(id)}
-              aria-label={label}
-              aria-current={mobilePane === id ? 'true' : undefined}
-              className={[
-                'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
-                mobilePane === id ? 'text-sky-400' : 'text-neutral-500 hover:text-neutral-300',
-              ].join(' ')}
-            >
-              {icon}
-              {label}
-            </button>
-          ))}
-        </nav>
+        {/* Bottom segmented control — switch between Notes / Editor / Details.
+            Hidden in focus mode for distraction-free editing. */}
+        {!focusMode && (
+          <nav
+            aria-label="Pane switcher"
+            className="flex shrink-0 border-t border-neutral-800 bg-neutral-950"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
+            {(
+              [
+                { id: 'notes', label: 'Notes', icon: <NotesIcon /> },
+                { id: 'editor', label: 'Editor', icon: <EditorIcon /> },
+                { id: 'details', label: 'Details', icon: <DetailsIcon /> },
+              ] as { id: MobilePane; label: string; icon: ReactNode }[]
+            ).map(({ id, label, icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setMobilePane(id)}
+                aria-label={label}
+                aria-current={mobilePane === id ? 'true' : undefined}
+                className={[
+                  'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
+                  mobilePane === id ? 'text-sky-400' : 'text-neutral-500 hover:text-neutral-300',
+                ].join(' ')}
+              >
+                {icon}
+                {label}
+              </button>
+            ))}
+          </nav>
+        )}
       </div>
     </WorkspaceContext.Provider>
   );

@@ -26,6 +26,7 @@ function merge(base: WorkspaceLayout, override: Partial<WorkspaceLayout>): Works
     panels: { ...base.panels, ...(override.panels ?? {}) },
     widths: { ...base.widths, ...(override.widths ?? {}) },
     tabs: override.tabs ?? base.tabs,
+    focusMode: override.focusMode ?? base.focusMode,
   };
 }
 
@@ -83,5 +84,84 @@ describe('merge (layout hydration)', () => {
     const result = merge(baseWithTab, { maximized: 'editor' });
     assert.equal(result.tabs.length, 1);
     assert.equal(result.maximized, 'editor');
+  });
+});
+
+describe('focus mode', () => {
+  it('defaults to false', () => {
+    assert.equal(DEFAULT_LAYOUT.focusMode, false);
+  });
+
+  it('round-trips through JSON serialise → parse → merge (the storage path)', () => {
+    // Simulate saveLayout(): serialise a layout with focusMode on.
+    const enabled: WorkspaceLayout = { ...DEFAULT_LAYOUT, focusMode: true };
+    const serialised = JSON.stringify(enabled);
+    // Simulate loadLayout(): parse + merge onto defaults.
+    const parsed = JSON.parse(serialised) as Partial<WorkspaceLayout>;
+    const restored = merge(DEFAULT_LAYOUT, parsed);
+    assert.equal(restored.focusMode, true);
+
+    // And toggling back off round-trips too.
+    const disabled = JSON.parse(
+      JSON.stringify({ ...restored, focusMode: false }),
+    ) as Partial<WorkspaceLayout>;
+    assert.equal(merge(DEFAULT_LAYOUT, disabled).focusMode, false);
+  });
+
+  it('older persisted state WITHOUT focusMode yields the default (not undefined)', () => {
+    // An old blob that predates focus mode: the key is simply absent.
+    const oldBlob: Partial<WorkspaceLayout> = {
+      panels: { sidebar: true, noteList: true, details: true },
+      widths: { noteList: 300, details: 320 },
+      maximized: null,
+      tabs: [],
+      activeTabId: null,
+      splitMode: 'none',
+      secondaryTabId: null,
+    };
+    assert.equal('focusMode' in oldBlob, false);
+    const result = merge(DEFAULT_LAYOUT, oldBlob);
+    assert.equal(result.focusMode, false);
+    assert.notEqual(result.focusMode, undefined);
+  });
+
+  it('an explicit focusMode:undefined in the override does not clobber the default', () => {
+    // Defensive: the `?? base.focusMode` coalesce protects against a constructed
+    // Partial that carries focusMode as an explicit undefined value.
+    const override = { focusMode: undefined } as unknown as Partial<WorkspaceLayout>;
+    const result = merge(DEFAULT_LAYOUT, override);
+    assert.equal(result.focusMode, false);
+  });
+
+  it('exiting focus mode preserves stored pane sizes and panel visibility', () => {
+    // User had custom widths + a collapsed details pane, then turned focus mode
+    // on. Focus mode is purely presentational, so turning it off must restore
+    // the EXACT prior widths/panels (nothing was mutated).
+    const customised: WorkspaceLayout = {
+      ...DEFAULT_LAYOUT,
+      widths: { noteList: 333, details: 421 },
+      panels: { sidebar: true, noteList: true, details: false },
+      focusMode: false,
+    };
+
+    // Enter focus mode (only the flag changes).
+    const focused: WorkspaceLayout = { ...customised, focusMode: true };
+    assert.deepEqual(focused.widths, customised.widths);
+    assert.deepEqual(focused.panels, customised.panels);
+
+    // Persist + reload while focused.
+    const reloaded = merge(
+      DEFAULT_LAYOUT,
+      JSON.parse(JSON.stringify(focused)) as Partial<WorkspaceLayout>,
+    );
+    assert.equal(reloaded.focusMode, true);
+    assert.deepEqual(reloaded.widths, customised.widths);
+    assert.deepEqual(reloaded.panels, customised.panels);
+
+    // Exit focus mode — widths + panels are untouched.
+    const exited: WorkspaceLayout = { ...reloaded, focusMode: false };
+    assert.equal(exited.focusMode, false);
+    assert.deepEqual(exited.widths, customised.widths);
+    assert.deepEqual(exited.panels, customised.panels);
   });
 });

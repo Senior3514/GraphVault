@@ -82,6 +82,7 @@ import { NavIcon } from './NavIcon';
 import { OnboardingHint } from './onboarding/OnboardingHint';
 import { Tour } from './onboarding/Tour';
 import { Sidebar } from './Sidebar';
+import { useLayout } from '../lib/layout/useLayout';
 import { VaultProvider } from '../lib/vault/VaultProvider';
 import { AssistantPanel } from './assistant/AssistantPanel';
 import { AssistantButton } from './assistant/AssistantButton';
@@ -108,6 +109,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  // Focus mode (distraction-free editing). Lives in the persisted layout state;
+  // this instance drives hiding the rail/sidebar/mobile-chrome at the shell
+  // level. The workspace pane layout reacts via its own useLayout instance,
+  // kept in sync by the FOCUS_MODE_EVENT broadcast inside the hook.
+  const { layout, toggleFocusMode, setFocusMode } = useLayout();
+  const focusMode = layout.focusMode;
   // Mobile drawer open state (only relevant on small screens)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -165,6 +172,33 @@ function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [toggleCollapsed]);
 
+  // Cmd/Ctrl+Shift+F toggles focus mode (distraction-free editing). Verified
+  // not to collide: Cmd/Ctrl+K (palette), +B (sidebar), +E (preview/split),
+  // and Cmd/Ctrl+Shift+A (AI assistant) are the only other global chords.
+  // Esc exits focus mode (but only when no overlay — palette/drawer/etc. —
+  // is consuming Escape; those mount their own handlers and stopPropagation
+  // isn't used, so we guard by checking focusMode is on and let other Esc
+  // handlers run first by not preventing default unless we act).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        toggleFocusMode();
+        return;
+      }
+      // Esc leaves focus mode. Ignore when a modal/menu is open (it owns Esc)
+      // or when the user is mid-text-entry in an input that isn't the editor.
+      if (e.key === 'Escape' && focusMode) {
+        const overlayOpen = document.querySelector('[role="dialog"][aria-modal="true"]');
+        if (overlayOpen) return;
+        e.preventDefault();
+        setFocusMode(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleFocusMode, setFocusMode, focusMode]);
+
   // Close mobile drawer on outside click / Escape.
   useEffect(() => {
     if (!drawerOpen) return;
@@ -194,17 +228,21 @@ function AppShell({ children }: { children: React.ReactNode }) {
     >
       {/* ------------------------------------------------------------------ */}
       {/* Mobile top bar (visible only below md breakpoint)                   */}
+      {/* Hidden in focus mode for distraction-free editing.                  */}
       {/* ------------------------------------------------------------------ */}
-      <MobileTopBar onMenuOpen={openDrawer} />
+      {!focusMode && <MobileTopBar onMenuOpen={openDrawer} />}
 
       {/* ------------------------------------------------------------------ */}
       {/* Main content row: desktop sidebar + page content                    */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Desktop sidebar — hidden on mobile via `hidden md:flex` */}
-        <div className="hidden md:flex">
-          <Sidebar collapsed={hydrated && collapsed} onToggle={toggleCollapsed} />
-        </div>
+        {/* Desktop sidebar — hidden on mobile via `hidden md:flex`, and
+            hidden entirely in focus mode. */}
+        {!focusMode && (
+          <div className="hidden md:flex">
+            <Sidebar collapsed={hydrated && collapsed} onToggle={toggleCollapsed} />
+          </div>
+        )}
 
         {/* Page content — `id` is the skip-link target from layout.tsx */}
         <div id="main-content" className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -234,6 +272,27 @@ function AppShell({ children }: { children: React.ReactNode }) {
             <Sidebar collapsed={false} onToggle={closeDrawer} mobileDrawerClose={closeDrawer} />
           </div>
         </>
+      )}
+
+      {/* Focus-mode exit affordance: a small fixed pill in the top-right so the
+          user can always leave distraction-free mode (mouse), in addition to
+          Esc and Cmd/Ctrl+Shift+F. Transitions respect reduced motion. */}
+      {focusMode && (
+        <button
+          type="button"
+          onClick={() => setFocusMode(false)}
+          aria-pressed={true}
+          aria-label="Exit focus mode"
+          title="Exit focus mode (Esc)"
+          className="fixed right-3 top-3 z-50 flex items-center gap-2 rounded-full border border-neutral-700/80 bg-neutral-900/80 px-3 py-1.5 text-xs text-neutral-300 shadow-lg backdrop-blur transition-colors hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 motion-reduce:transition-none"
+          style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
+        >
+          <FocusExitIcon />
+          <span className="hidden sm:inline">Exit focus</span>
+          <kbd className="rounded border border-neutral-700 px-1 text-[10px] text-neutral-500">
+            Esc
+          </kbd>
+        </button>
       )}
 
       <CommandPalette />
@@ -331,6 +390,26 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
         </button>
       </div>
     </header>
+  );
+}
+
+function FocusExitIcon() {
+  // "Collapse / exit fullscreen" glyph — inward-pointing corners.
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8 3v3a2 2 0 01-2 2H3m14 0h-3a2 2 0 01-2-2V3M3 12h3a2 2 0 012 2v3m9-5h-3a2 2 0 00-2 2v3"
+      />
+    </svg>
   );
 }
 
