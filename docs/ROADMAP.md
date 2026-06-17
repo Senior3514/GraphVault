@@ -171,7 +171,10 @@ connector shows its privacy posture.
 - ✅ Email import (`.eml` / `.mbox`, client-side, phase 1)
 - ⬜ Live email (IMAP / Gmail / Outlook OAuth) → server-side creds, phase 2
 - ⬜ URL-fetch / web-clip via server proxy (avoids CORS, keeps creds off the browser)
-- ⬜ Generic webhook / "connect anything" recipe layer; per-connector audit log
+- ✅ Generic webhook / "connect anything" + per-connector audit log — per-user
+  inbox tokens (hashed, vault-scoped, owner-minted) → `POST /v1/inbox/:token`
+  lands content as a non-clobbering `Inbox/…` note via the tested blob/sync path;
+  size-capped, rate-limited; authenticated audit log of every inbound event
 
 ---
 
