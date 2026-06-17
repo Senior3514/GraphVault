@@ -74,7 +74,13 @@ import {
 } from '../../lib/graph/clusters';
 import { computeGroupColors, loadGroups, saveGroups, type NodeGroup } from '../../lib/graph/groups';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
-import { buildSnapshot, generateEmbedUrl } from '../../lib/embed/snapshot';
+import { buildSnapshot, encodeSnapshot, generateEmbedUrl } from '../../lib/embed/snapshot';
+import {
+  getServerSnapshotConfig,
+  uploadSnapshot,
+  buildShortEmbedUrl,
+  ShareLinkTooLargeError,
+} from '../../lib/embed/shareLink';
 // M21: AI graph intelligence — privacy-first, off by default.
 import { loadAISettings } from '../../lib/ai/settings';
 import type { AISettings } from '../../lib/ai/types';
@@ -732,11 +738,28 @@ function ControlsIcon() {
 // ---------------------------------------------------------------------------
 
 /**
+ * Read a value from sessionStorage, SSR-safe (returns null when unavailable).
+ * Used to detect a live server connection for the optional short-link path.
+ */
+function readSession(key: string): string | null {
+  try {
+    if (typeof sessionStorage === 'undefined') return null;
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * A button + popover that generates a copyable `/embed?s=…` URL and an
  * `<iframe>` snippet from the current graph payload (filtered nodes + edges).
  *
  * Only nodes and edge topology travel in the URL — NO note content. The
  * snapshot module enforces this invariant (see lib/embed/snapshot.ts).
+ *
+ * When the user is connected to a server whose opt-in snapshot store is enabled,
+ * an additional "Create short link" affordance uploads the snapshot and shows a
+ * short `/embed?id=…&srv=…` URL. The long `s=` link is always the fallback.
  */
 function ShareButton({
   nodes,
@@ -750,8 +773,15 @@ function ShareButton({
   const [iframeSnippet, setIframeSnippet] = useState('');
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
-  const [copied, setCopied] = useState<'url' | 'iframe' | null>(null);
+  const [copied, setCopied] = useState<'url' | 'iframe' | 'short' | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Short server-backed link state (Wave 18). Off unless the user is connected
+  // to a server whose opt-in snapshot store is enabled.
+  const [shortAvailable, setShortAvailable] = useState(false);
+  const [shortUrl, setShortUrl] = useState('');
+  const [shortBusy, setShortBusy] = useState(false);
+  const [shortError, setShortError] = useState('');
 
   // Close on Escape or outside click.
   useEffect(() => {
@@ -788,19 +818,70 @@ function ShareButton({
     } finally {
       setGenerating(false);
     }
+
+    // Probe whether a SHORT, server-backed link is available: the user must be
+    // connected to a server (sessionStorage has both keys) whose opt-in snapshot
+    // store is enabled. Best-effort — any failure simply hides the affordance.
+    try {
+      const token = readSession('gv:auth:token');
+      const serverUrl = readSession('gv:serverUrl');
+      if (token && serverUrl) {
+        const cfg = await getServerSnapshotConfig(serverUrl);
+        setShortAvailable(Boolean(cfg?.enabled));
+      } else {
+        setShortAvailable(false);
+      }
+    } catch {
+      setShortAvailable(false);
+    }
   }, [nodes, edges, embedUrl]);
 
   // Re-generate when nodes/edges change (payload changes).
-  // Reset cached URL so next open regenerates.
+  // Reset cached URLs so next open regenerates.
   useEffect(() => {
     setEmbedUrl('');
     setIframeSnippet('');
+    setShortUrl('');
+    setShortError('');
+    setShortAvailable(false);
     setCopied(null);
   }, [nodes, edges]);
 
+  // Create the short server-backed link: upload the SAME encoded snapshot the
+  // long link uses, then build `${origin}/embed?id=…&srv=…`. On 413/oversize or
+  // any failure, surface a hint and keep the long link as the fallback.
+  const createShortLink = useCallback(async () => {
+    setShortBusy(true);
+    setShortError('');
+    try {
+      const token = readSession('gv:auth:token');
+      const serverUrl = readSession('gv:serverUrl');
+      if (!token || !serverUrl) {
+        throw new Error('Not connected to a server.');
+      }
+      const snapshot = buildSnapshot(nodes, edges);
+      const encoded = await encodeSnapshot(snapshot);
+      const { id } = await uploadSnapshot(serverUrl, encoded);
+      const appOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+      setShortUrl(buildShortEmbedUrl(appOrigin, serverUrl, id));
+    } catch (err) {
+      if (err instanceof ShareLinkTooLargeError) {
+        setShortError(`${err.message}`);
+      } else {
+        setShortError(
+          err instanceof Error
+            ? `Could not create a short link (${err.message}). Use the direct link above.`
+            : 'Could not create a short link. Use the direct link above.',
+        );
+      }
+    } finally {
+      setShortBusy(false);
+    }
+  }, [nodes, edges]);
+
   const copy = useCallback(
-    (which: 'url' | 'iframe') => {
-      const text = which === 'url' ? embedUrl : iframeSnippet;
+    (which: 'url' | 'iframe' | 'short') => {
+      const text = which === 'url' ? embedUrl : which === 'iframe' ? iframeSnippet : shortUrl;
       if (!text) return;
       navigator.clipboard
         .writeText(text)
@@ -812,7 +893,7 @@ function ShareButton({
           /* clipboard unavailable */
         });
     },
-    [embedUrl, iframeSnippet],
+    [embedUrl, iframeSnippet, shortUrl],
   );
 
   return (
@@ -903,6 +984,53 @@ function ShareButton({
                   </button>
                 </div>
               </div>
+
+              {/* Short, server-backed link (Wave 18) — only when connected to a
+                  server whose snapshot store is enabled. */}
+              {shortAvailable && (
+                <div className="border-t border-neutral-900 pt-3">
+                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-neutral-600">
+                    Short link
+                  </label>
+                  {!shortUrl ? (
+                    <div className="space-y-1.5">
+                      <button
+                        type="button"
+                        onClick={createShortLink}
+                        disabled={shortBusy}
+                        className="w-full rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {shortBusy ? 'Creating short link…' : 'Create short link'}
+                      </button>
+                      <p className="text-[10px] text-neutral-700">
+                        Stores this snapshot on your server and returns a compact URL.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1">
+                      <input
+                        readOnly
+                        value={shortUrl}
+                        aria-label="Short share link"
+                        className="min-w-0 flex-1 rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-400 focus:outline-none"
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => copy('short')}
+                        className="shrink-0 rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+                      >
+                        {copied === 'short' ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  )}
+                  {shortError && (
+                    <p className="mt-1.5 text-[10px] text-red-400" role="alert">
+                      {shortError}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <p className="text-[10px] text-neutral-700">
                 Note: embedding on third-party sites requires relaxing the{' '}
