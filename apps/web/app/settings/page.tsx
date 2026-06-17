@@ -38,6 +38,8 @@ import {
   listAdapters,
   s3Adapter,
   webdavAdapter,
+  azureAdapter,
+  gcsAdapter,
 } from '../../lib/vault/store';
 import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
 import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/exportToDirectory';
@@ -289,6 +291,16 @@ export default function SettingsPage() {
       {/* S3-compatible storage (M18)                                         */}
       {/* ------------------------------------------------------------------ */}
       <S3Section auth={auth} serverUrl={serverUrl} />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Azure Blob Storage (M18)                                            */}
+      {/* ------------------------------------------------------------------ */}
+      <AzureSection auth={auth} serverUrl={serverUrl} />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Google Cloud Storage (M18)                                          */}
+      {/* ------------------------------------------------------------------ */}
+      <GcsSection auth={auth} serverUrl={serverUrl} />
 
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Vault</h2>
@@ -586,6 +598,66 @@ function StorageSection() {
     }
   };
 
+  const switchToAzure = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      if (!azureAdapter.isAvailable()) {
+        setMsg({
+          kind: 'err',
+          text: 'Sign in to your GraphVault server first, then configure Azure Blob Storage below.',
+        });
+        return;
+      }
+      // Migrate notes: copy → verify → activate (copy-verify-switch pattern).
+      const source = getActiveAdapter();
+      const result = await migrateAdapter(source, azureAdapter);
+      setActiveId('azure');
+      setMsg({
+        kind: 'ok',
+        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to Azure Blob Storage. Source (${result.from}) preserved — clear it manually when satisfied.`,
+      });
+      await vault.resetVault();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to switch to Azure Blob Storage.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const switchToGcs = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      if (!gcsAdapter.isAvailable()) {
+        setMsg({
+          kind: 'err',
+          text: 'Sign in to your GraphVault server first, then configure Google Cloud Storage below.',
+        });
+        return;
+      }
+      // Migrate notes: copy → verify → activate (copy-verify-switch pattern).
+      const source = getActiveAdapter();
+      const result = await migrateAdapter(source, gcsAdapter);
+      setActiveId('gcs');
+      setMsg({
+        kind: 'ok',
+        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to Google Cloud Storage. Source (${result.from}) preserved — clear it manually when satisfied.`,
+      });
+      await vault.resetVault();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to switch to Google Cloud Storage.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const activeLabel =
     adapters.find((a) => a.id === activeId)?.label ?? 'Browser storage (localStorage)';
 
@@ -623,6 +695,28 @@ function StorageSection() {
           title="Store notes in S3-compatible storage (AWS S3, MinIO, R2, B2). Configure below."
         >
           {busy && activeId !== 's3' ? 'Migrating…' : 'Use S3 storage (server)'}
+        </button>
+
+        {/* Azure option — requires sign-in + server Azure config */}
+        <button
+          type="button"
+          disabled={activeId === 'azure' || busy}
+          onClick={() => void switchToAzure()}
+          className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+          title="Store notes in Azure Blob Storage. Configure below."
+        >
+          {busy && activeId !== 'azure' ? 'Migrating…' : 'Use Azure Blob (server)'}
+        </button>
+
+        {/* GCS option — requires sign-in + server GCS config */}
+        <button
+          type="button"
+          disabled={activeId === 'gcs' || busy}
+          onClick={() => void switchToGcs()}
+          className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+          title="Store notes in Google Cloud Storage. Configure below."
+        >
+          {busy && activeId !== 'gcs' ? 'Migrating…' : 'Use Google Cloud Storage (server)'}
         </button>
 
         {fsApiAvailable ? (
@@ -1325,6 +1419,716 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
                   onClick={() => {
                     setShowForm(false);
                     setSecretAccessKey('');
+                    setMsg(null);
+                  }}
+                  disabled={busy}
+                  className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </>
+      )}
+
+      <div className="mt-2 min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Azure / GCS config helpers (M18)
+//
+// These two providers were added server-side in Wave 16 with locally-defined
+// schemas (not in @graphvault/shared), so the typed GraphVaultClient has no
+// generated methods for them. We POST/GET/DELETE their config directly with a
+// bearer-token fetch — mirroring the storage adapters, which proxy the same way.
+// Secrets live only in the in-flight request body; nothing is stored in the
+// browser.
+// ---------------------------------------------------------------------------
+
+function storageConfigBase(serverUrl: string): string {
+  return `${serverUrl.replace(/\/+$/, '')}/v1/storage`;
+}
+
+/** POST a provider config (secrets included) to the server over TLS. */
+async function postStorageConfig(
+  serverUrl: string,
+  token: string,
+  provider: 'azure' | 'gcs',
+  body: Record<string, unknown>,
+): Promise<void> {
+  const res = await fetch(`${storageConfigBase(serverUrl)}/${provider}/config`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const data = (await res.json()) as { error?: { message?: string } };
+      if (data.error?.message) message = data.error.message;
+    } catch {
+      // keep the generic message
+    }
+    throw new Error(message);
+  }
+}
+
+/** GET non-secret provider config info, or `null` when not configured (404). */
+async function getStorageConfig<T>(
+  serverUrl: string,
+  token: string,
+  provider: 'azure' | 'gcs',
+): Promise<T | null> {
+  const res = await fetch(`${storageConfigBase(serverUrl)}/${provider}/config`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  return (await res.json()) as T;
+}
+
+/** DELETE the provider config. */
+async function deleteStorageConfig(
+  serverUrl: string,
+  token: string,
+  provider: 'azure' | 'gcs',
+): Promise<void> {
+  const res = await fetch(`${storageConfigBase(serverUrl)}/${provider}/config`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok && res.status !== 404) throw new Error(`Request failed (${res.status})`);
+}
+
+// ---------------------------------------------------------------------------
+// Azure Blob Storage section (M18)
+// ---------------------------------------------------------------------------
+
+/** Non-secret Azure config info returned by GET /v1/storage/azure/config. */
+interface AzureConfigInfo {
+  account: string;
+  container: string;
+  endpoint?: string;
+  updatedAt: string;
+}
+
+/**
+ * Azure Blob Storage configuration section.
+ *
+ * Shows the current config status (account, container, endpoint — never the
+ * account key), a form to set/update credentials, and a remove button. The
+ * account key is sent to the server over TLS and stored encrypted at rest; it
+ * is never returned to or stored by the browser.
+ */
+function AzureSection({
+  auth,
+  serverUrl,
+}: {
+  auth: ReturnType<typeof useAuth>;
+  serverUrl: string;
+}) {
+  const [configInfo, setConfigInfo] = useState<AzureConfigInfo | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [account, setAccount] = useState('');
+  const [container, setContainer] = useState('');
+  const [accountKey, setAccountKey] = useState('');
+  const [endpoint, setEndpoint] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const didLoad = useRef(false);
+
+  const fetchConfig = useCallback(async () => {
+    if (!auth.token) return;
+    setLoadingConfig(true);
+    setMsg(null);
+    try {
+      const info = await getStorageConfig<AzureConfigInfo>(serverUrl, auth.token, 'azure');
+      setConfigInfo(info);
+    } catch {
+      setConfigInfo(null);
+    } finally {
+      setLoadingConfig(false);
+    }
+  }, [auth.token, serverUrl]);
+
+  useEffect(() => {
+    if (!didLoad.current && auth.isSignedIn && auth.token) {
+      didLoad.current = true;
+      void fetchConfig();
+    }
+  }, [auth.isSignedIn, auth.token, fetchConfig]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.token) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await postStorageConfig(serverUrl, auth.token, 'azure', {
+        account: account.trim(),
+        container: container.trim(),
+        accountKey,
+        endpoint: endpoint.trim() || undefined,
+      });
+      setMsg({
+        kind: 'ok',
+        text: 'Azure configuration saved. The account key is stored encrypted on the server.',
+      });
+      setShowForm(false);
+      setAccountKey('');
+      await fetchConfig();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to save Azure config.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!auth.token) return;
+    if (!window.confirm('Remove Azure configuration? Notes stored in Azure will not be deleted.'))
+      return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await deleteStorageConfig(serverUrl, auth.token, 'azure');
+      setConfigInfo(null);
+      setMsg({ kind: 'ok', text: 'Azure configuration removed.' });
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to remove config.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-neutral-200">Azure Blob Storage</h2>
+        {auth.isSignedIn && (
+          <button
+            type="button"
+            onClick={() => void fetchConfig()}
+            disabled={loadingConfig}
+            className="text-xs text-neutral-500 hover:text-neutral-300 disabled:opacity-50"
+          >
+            {loadingConfig ? 'Loading…' : 'Refresh'}
+          </button>
+        )}
+      </div>
+
+      <p className="mt-1 text-xs text-neutral-500">
+        Store your vault in an Azure Blob Storage container. The browser talks only to your
+        GraphVault server, which proxies to Azure and signs requests server-side — your account key
+        never leaves the server.
+      </p>
+
+      {/* Security notice */}
+      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+        <strong>Credentials stay on the server.</strong> Your Azure account key is encrypted at rest
+        on your GraphVault server using AES-256-GCM. Request signing happens server-side — the
+        browser handles only its normal GraphVault bearer token.
+      </div>
+
+      {!auth.isSignedIn ? (
+        <p className="mt-3 text-xs text-neutral-500">
+          Sign in to your GraphVault server (Account section above) to configure Azure Blob Storage.
+        </p>
+      ) : (
+        <>
+          {/* Current config display */}
+          {configInfo ? (
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+              <dt>Status</dt>
+              <dd className="text-emerald-400">Configured</dd>
+              <dt>Account</dt>
+              <dd className="truncate text-neutral-200">{configInfo.account}</dd>
+              <dt>Container</dt>
+              <dd className="text-neutral-200">{configInfo.container}</dd>
+              {configInfo.endpoint && (
+                <>
+                  <dt>Endpoint</dt>
+                  <dd className="truncate text-neutral-200">{configInfo.endpoint}</dd>
+                </>
+              )}
+              <dt>Account key</dt>
+              <dd className="text-neutral-600 italic">stored encrypted on server</dd>
+              <dt>Last updated</dt>
+              <dd className="text-neutral-200">
+                {new Date(configInfo.updatedAt).toLocaleString()}
+              </dd>
+            </dl>
+          ) : (
+            <p className="mt-3 text-xs text-neutral-500">
+              No Azure backend configured yet. Add one below.
+            </p>
+          )}
+
+          {/* Action buttons */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm((s) => !s);
+                setMsg(null);
+                if (configInfo) {
+                  setAccount(configInfo.account);
+                  setContainer(configInfo.container);
+                  setEndpoint(configInfo.endpoint ?? '');
+                  setAccountKey('');
+                }
+              }}
+              disabled={busy}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            >
+              {configInfo ? 'Update Azure config' : 'Configure Azure'}
+            </button>
+            {configInfo && (
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={busy}
+                className="rounded-md border border-red-900/60 bg-red-950/30 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/60 disabled:opacity-40"
+              >
+                Remove config
+              </button>
+            )}
+          </div>
+
+          {/* Config form */}
+          {showForm && (
+            <form onSubmit={(e) => void handleSave(e)} className="mt-4 space-y-3" noValidate>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="azure-account"
+                >
+                  Storage account name
+                </label>
+                <input
+                  id="azure-account"
+                  type="text"
+                  value={account}
+                  onChange={(e) => setAccount(e.target.value)}
+                  disabled={busy}
+                  placeholder="mystorageaccount"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="azure-container"
+                >
+                  Container name
+                </label>
+                <input
+                  id="azure-container"
+                  type="text"
+                  value={container}
+                  onChange={(e) => setContainer(e.target.value)}
+                  disabled={busy}
+                  placeholder="graphvault"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="azure-key"
+                >
+                  Account key
+                </label>
+                <input
+                  id="azure-key"
+                  type="password"
+                  autoComplete="new-password"
+                  value={accountKey}
+                  onChange={(e) => setAccountKey(e.target.value)}
+                  disabled={busy}
+                  placeholder={
+                    configInfo
+                      ? 'Enter new account key to update…'
+                      : 'Your Azure account key (base64)'
+                  }
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-neutral-600">
+                  Found under Storage account → Access keys (key1 or key2). Sent to your server over
+                  TLS and stored encrypted — never returned to the browser.
+                </p>
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="azure-endpoint"
+                >
+                  Endpoint URL{' '}
+                  <span className="text-neutral-600">(optional, for Azurite / emulators)</span>
+                </label>
+                <input
+                  id="azure-endpoint"
+                  type="url"
+                  value={endpoint}
+                  onChange={(e) => setEndpoint(e.target.value)}
+                  disabled={busy}
+                  placeholder="http://127.0.0.1:10000/devstoreaccount1"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-neutral-600">
+                  Leave blank for Azure (uses{' '}
+                  <code className="text-neutral-500">
+                    https://&lt;account&gt;.blob.core.windows.net
+                  </code>
+                  ).
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={busy || !account || !container || !accountKey}
+                  className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+                >
+                  {busy ? 'Saving…' : 'Save Azure config'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setAccountKey('');
+                    setMsg(null);
+                  }}
+                  disabled={busy}
+                  className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </>
+      )}
+
+      <div className="mt-2 min-h-4 text-xs">
+        {msg && (
+          <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Google Cloud Storage section (M18)
+// ---------------------------------------------------------------------------
+
+/** Non-secret GCS config info returned by GET /v1/storage/gcs/config. */
+interface GcsConfigInfo {
+  bucket: string;
+  accessId: string;
+  prefix?: string;
+  updatedAt: string;
+}
+
+/**
+ * Google Cloud Storage configuration section.
+ *
+ * Shows the current config status (bucket, HMAC access ID, prefix — never the
+ * secret), a form to set/update credentials, and a remove button. The HMAC
+ * interop secret is sent to the server over TLS and stored encrypted at rest;
+ * it is never returned to or stored by the browser.
+ */
+function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serverUrl: string }) {
+  const [configInfo, setConfigInfo] = useState<GcsConfigInfo | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [bucket, setBucket] = useState('');
+  const [accessId, setAccessId] = useState('');
+  const [secret, setSecret] = useState('');
+  const [prefix, setPrefix] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const didLoad = useRef(false);
+
+  const fetchConfig = useCallback(async () => {
+    if (!auth.token) return;
+    setLoadingConfig(true);
+    setMsg(null);
+    try {
+      const info = await getStorageConfig<GcsConfigInfo>(serverUrl, auth.token, 'gcs');
+      setConfigInfo(info);
+    } catch {
+      setConfigInfo(null);
+    } finally {
+      setLoadingConfig(false);
+    }
+  }, [auth.token, serverUrl]);
+
+  useEffect(() => {
+    if (!didLoad.current && auth.isSignedIn && auth.token) {
+      didLoad.current = true;
+      void fetchConfig();
+    }
+  }, [auth.isSignedIn, auth.token, fetchConfig]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.token) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await postStorageConfig(serverUrl, auth.token, 'gcs', {
+        bucket: bucket.trim(),
+        accessId: accessId.trim(),
+        secret,
+        prefix: prefix.trim() || undefined,
+      });
+      setMsg({
+        kind: 'ok',
+        text: 'GCS configuration saved. The HMAC secret is stored encrypted on the server.',
+      });
+      setShowForm(false);
+      setSecret('');
+      await fetchConfig();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to save GCS config.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!auth.token) return;
+    if (!window.confirm('Remove GCS configuration? Notes stored in GCS will not be deleted.'))
+      return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await deleteStorageConfig(serverUrl, auth.token, 'gcs');
+      setConfigInfo(null);
+      setMsg({ kind: 'ok', text: 'GCS configuration removed.' });
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to remove config.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-neutral-200">Google Cloud Storage</h2>
+        {auth.isSignedIn && (
+          <button
+            type="button"
+            onClick={() => void fetchConfig()}
+            disabled={loadingConfig}
+            className="text-xs text-neutral-500 hover:text-neutral-300 disabled:opacity-50"
+          >
+            {loadingConfig ? 'Loading…' : 'Refresh'}
+          </button>
+        )}
+      </div>
+
+      <p className="mt-1 text-xs text-neutral-500">
+        Store your vault in a Google Cloud Storage bucket via HMAC interop credentials. The browser
+        talks only to your GraphVault server, which proxies to GCS and signs requests server-side —
+        your HMAC secret never leaves the server.
+      </p>
+
+      {/* Security notice */}
+      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+        <strong>Credentials stay on the server.</strong> Your GCS HMAC secret is encrypted at rest
+        on your GraphVault server using AES-256-GCM. Request signing happens server-side — the
+        browser handles only its normal GraphVault bearer token.
+      </div>
+
+      {!auth.isSignedIn ? (
+        <p className="mt-3 text-xs text-neutral-500">
+          Sign in to your GraphVault server (Account section above) to configure Google Cloud
+          Storage.
+        </p>
+      ) : (
+        <>
+          {/* Current config display */}
+          {configInfo ? (
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
+              <dt>Status</dt>
+              <dd className="text-emerald-400">Configured</dd>
+              <dt>Bucket</dt>
+              <dd className="text-neutral-200">{configInfo.bucket}</dd>
+              <dt>HMAC access ID</dt>
+              <dd className="truncate text-neutral-200">{configInfo.accessId}</dd>
+              <dt>HMAC secret</dt>
+              <dd className="text-neutral-600 italic">stored encrypted on server</dd>
+              {configInfo.prefix && (
+                <>
+                  <dt>Key prefix</dt>
+                  <dd className="text-neutral-200">{configInfo.prefix}</dd>
+                </>
+              )}
+              <dt>Last updated</dt>
+              <dd className="text-neutral-200">
+                {new Date(configInfo.updatedAt).toLocaleString()}
+              </dd>
+            </dl>
+          ) : (
+            <p className="mt-3 text-xs text-neutral-500">
+              No GCS backend configured yet. Add one below.
+            </p>
+          )}
+
+          {/* Action buttons */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm((s) => !s);
+                setMsg(null);
+                if (configInfo) {
+                  setBucket(configInfo.bucket);
+                  setAccessId(configInfo.accessId);
+                  setPrefix(configInfo.prefix ?? '');
+                  setSecret('');
+                }
+              }}
+              disabled={busy}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            >
+              {configInfo ? 'Update GCS config' : 'Configure GCS'}
+            </button>
+            {configInfo && (
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={busy}
+                className="rounded-md border border-red-900/60 bg-red-950/30 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/60 disabled:opacity-40"
+              >
+                Remove config
+              </button>
+            )}
+          </div>
+
+          {/* Config form */}
+          {showForm && (
+            <form onSubmit={(e) => void handleSave(e)} className="mt-4 space-y-3" noValidate>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="gcs-bucket"
+                >
+                  Bucket name
+                </label>
+                <input
+                  id="gcs-bucket"
+                  type="text"
+                  value={bucket}
+                  onChange={(e) => setBucket(e.target.value)}
+                  disabled={busy}
+                  placeholder="my-graphvault-bucket"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="gcs-access-id"
+                >
+                  HMAC access ID
+                </label>
+                <input
+                  id="gcs-access-id"
+                  type="text"
+                  autoComplete="username"
+                  value={accessId}
+                  onChange={(e) => setAccessId(e.target.value)}
+                  disabled={busy}
+                  placeholder="GOOG1EXAMPLE..."
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-neutral-600">
+                  Create one under Cloud Storage → Settings → Interoperability → HMAC keys.
+                </p>
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="gcs-secret"
+                >
+                  HMAC secret
+                </label>
+                <input
+                  id="gcs-secret"
+                  type="password"
+                  autoComplete="new-password"
+                  value={secret}
+                  onChange={(e) => setSecret(e.target.value)}
+                  disabled={busy}
+                  placeholder={configInfo ? 'Enter new secret to update…' : 'Your GCS HMAC secret'}
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+                <p className="mt-1 text-xs text-neutral-600">
+                  Sent to your server over TLS and stored encrypted — never returned to the browser.
+                </p>
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-medium text-neutral-400"
+                  htmlFor="gcs-prefix"
+                >
+                  Key prefix <span className="text-neutral-600">(optional, must end with /)</span>
+                </label>
+                <input
+                  id="gcs-prefix"
+                  type="text"
+                  value={prefix}
+                  onChange={(e) => setPrefix(e.target.value)}
+                  disabled={busy}
+                  placeholder="graphvault/"
+                  className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={busy || !bucket || !accessId || !secret}
+                  className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white disabled:opacity-40"
+                >
+                  {busy ? 'Saving…' : 'Save GCS config'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setSecret('');
                     setMsg(null);
                   }}
                   disabled={busy}
