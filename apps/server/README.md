@@ -34,21 +34,61 @@ test/                 node:test integration tests via app.inject()
 
 All configuration is via environment variables — see [`.env.example`](./.env.example).
 
-| Var                              | Default      | Meaning                                                |
-| -------------------------------- | ------------ | ------------------------------------------------------ |
-| `GRAPHVAULT_HOST`                | `127.0.0.1`  | Listen host                                            |
-| `GRAPHVAULT_PORT`                | `4000`       | Listen port                                            |
-| `GRAPHVAULT_CORS_ORIGIN`         | `*`          | Comma-separated origins, or `*`                        |
-| `GRAPHVAULT_DATA_DIR`            | `./storage`  | Where blob bytes live on disk                          |
-| `GRAPHVAULT_STORAGE`             | `memory`     | `memory` or `postgres`                                 |
-| `DATABASE_URL`                   | —            | Postgres DSN (required for `postgres`)                 |
-| `GRAPHVAULT_MAX_BLOB_BYTES`      | `67108864`   | Max blob upload size (64 MiB)                          |
-| `GRAPHVAULT_RATE_LIMIT_MAX`      | `300`        | Max requests per window per client (global)            |
-| `GRAPHVAULT_RATE_LIMIT_WINDOW`   | `60000`      | Rate-limit window, in milliseconds                     |
-| `GRAPHVAULT_AUTH_RATE_LIMIT_MAX` | `10`         | Stricter per-window cap on `/v1/auth/*`                |
-| `GRAPHVAULT_TRUST_PROXY`         | `false`      | Trust `X-Forwarded-*` from a fronting proxy            |
-| `GRAPHVAULT_REQUIRE_HTTPS`       | prod: `true` | Reject plaintext (honors `X-Forwarded-Proto`)          |
-| `GRAPHVAULT_ENCRYPTION_KEY`      | —            | base64 32-byte AES-256 key for at-rest blob encryption |
+| Var                                  | Default      | Meaning                                                |
+| ------------------------------------ | ------------ | ------------------------------------------------------ |
+| `GRAPHVAULT_HOST`                    | `127.0.0.1`  | Listen host                                            |
+| `GRAPHVAULT_PORT`                    | `4000`       | Listen port                                            |
+| `GRAPHVAULT_CORS_ORIGIN`             | `*`          | Comma-separated origins, or `*`                        |
+| `GRAPHVAULT_DATA_DIR`                | `./storage`  | Where blob bytes live on disk                          |
+| `GRAPHVAULT_STORAGE`                 | `memory`     | `memory` or `postgres`                                 |
+| `DATABASE_URL`                       | —            | Postgres DSN (required for `postgres`)                 |
+| `GRAPHVAULT_MAX_BLOB_BYTES`          | `67108864`   | Max blob upload size (64 MiB)                          |
+| `GRAPHVAULT_RATE_LIMIT_MAX`          | `300`        | Max requests per window per client (global)            |
+| `GRAPHVAULT_RATE_LIMIT_WINDOW`       | `60000`      | Rate-limit window, in milliseconds                     |
+| `GRAPHVAULT_AUTH_RATE_LIMIT_MAX`     | `10`         | Stricter per-window cap on `/v1/auth/*`                |
+| `GRAPHVAULT_TRUST_PROXY`             | `false`      | Trust `X-Forwarded-*` from a fronting proxy            |
+| `GRAPHVAULT_REQUIRE_HTTPS`           | prod: `true` | Reject plaintext (honors `X-Forwarded-Proto`)          |
+| `GRAPHVAULT_ENCRYPTION_KEY`          | —            | base64 32-byte AES-256 key for at-rest blob encryption |
+| `GRAPHVAULT_SNAPSHOTS_ENABLED`       | `false`      | Opt-in public graph-snapshot store (off = routes 404)  |
+| `GRAPHVAULT_SNAPSHOT_MAX_BYTES`      | `400000`     | Max encoded snapshot payload size (413 over)           |
+| `GRAPHVAULT_SNAPSHOT_MAX_COUNT`      | `5000`       | Max stored snapshots; oldest evicted first             |
+| `GRAPHVAULT_SNAPSHOT_TTL_DAYS`       | `30`         | Snapshot expiry in days (swept on read; `0` = never)   |
+| `GRAPHVAULT_SNAPSHOT_RATE_LIMIT_MAX` | `20`         | Stricter per-window cap on `POST /v1/snapshots`        |
+
+## Public graph-snapshot store (opt-in, off by default)
+
+A minimal, abuse-resistant store that lets the web client share a **read-only**
+graph via a **short** url (`/embed?id=<id>`) instead of a giant encoded blob in
+the URL. The snapshot payload is an **opaque, already-encoded string**
+(gzip+base64url of a graph JSON) the client produces; the server stores and
+returns it **verbatim** and never parses or executes it beyond size validation.
+
+It is **off by default** (`GRAPHVAULT_SNAPSHOTS_ENABLED=false`). When disabled,
+every `/v1/snapshots*` route returns `404` — the feature is invisible. Snapshots
+are **unauthenticated public shares** (no account): anyone with the short id can
+read it, so only enable it if you intend to host public read-only graph shares.
+
+Endpoints (only registered when enabled):
+
+| Method   | Path                | Auth | Body                      | Success                       |
+| -------- | ------------------- | ---- | ------------------------- | ----------------------------- |
+| `POST`   | `/v1/snapshots`     | none | `{ data: string }`        | `201 { id, deleteToken }`     |
+| `GET`    | `/v1/snapshots/:id` | none | —                         | `200 { id, data, createdAt }` |
+| `DELETE` | `/v1/snapshots/:id` | none | `{ deleteToken: string }` | `204`                         |
+
+- `POST` rejects an empty payload (`400`) and one over `GRAPHVAULT_SNAPSHOT_MAX_BYTES`
+  (`413`). Ids are random URL-safe base64url (`^[A-Za-z0-9_-]{16,32}$`). The route
+  counts against the global rate limit **and** carries a stricter per-window cap
+  (`GRAPHVAULT_SNAPSHOT_RATE_LIMIT_MAX`) to deter abuse.
+- `GET` validates the id format before any filesystem access (path-traversal
+  guard) and sweeps **expired** entries (`GRAPHVAULT_SNAPSHOT_TTL_DAYS`), so an
+  expired or unknown id returns `404`.
+- Storage is capped at `GRAPHVAULT_SNAPSHOT_MAX_COUNT` with **oldest-first
+  eviction**, so it can't grow unbounded.
+- `DELETE` is gated behind a one-time **`deleteToken`** returned from `POST`
+  (there is no owner/account). The token is stored hashed (SHA-256) and compared
+  in constant time; a party who only knows the public share id cannot delete or
+  grief the snapshot. Wrong/missing token → `403`, unknown id → `404`.
 
 ## Storage backends
 
