@@ -54,6 +54,9 @@ All configuration is via environment variables — see [`.env.example`](./.env.e
 | `GRAPHVAULT_SNAPSHOT_MAX_COUNT`      | `5000`       | Max stored snapshots; oldest evicted first             |
 | `GRAPHVAULT_SNAPSHOT_TTL_DAYS`       | `30`         | Snapshot expiry in days (swept on read; `0` = never)   |
 | `GRAPHVAULT_SNAPSHOT_RATE_LIMIT_MAX` | `20`         | Stricter per-window cap on `POST /v1/snapshots`        |
+| `GRAPHVAULT_INBOX_ENABLED`           | `true`       | "Connect anything" inbound webhook (off = routes 404)  |
+| `GRAPHVAULT_INBOX_MAX_BYTES`         | `1000000`    | Max rendered inbound note size (413 over)              |
+| `GRAPHVAULT_INBOX_RATE_LIMIT_MAX`    | `30`         | Stricter per-window cap on `POST /v1/inbox/:token`     |
 
 ## Public graph-snapshot store (opt-in, off by default)
 
@@ -89,6 +92,46 @@ Endpoints (only registered when enabled):
   (there is no owner/account). The token is stored hashed (SHA-256) and compared
   in constant time; a party who only knows the public share id cannot delete or
   grief the snapshot. Wrong/missing token → `403`, unknown id → `404`.
+
+## "Connect anything" inbound webhook (Wave 19)
+
+Lets an external service (Zapier, an email forwarder, IFTTT, a `curl` in cron, …)
+POST Markdown to a **per-connector token** and have it land as a **new note** in
+the user's vault, with a per-connector **audit log**. It reuses the existing,
+tested blob + sync services — the content hash is the `sha256` of the **plaintext**
+note bytes, exactly like the rest of the protocol.
+
+It is **on by default** (`GRAPHVAULT_INBOX_ENABLED=true`): the public inbound
+endpoint does nothing until an authenticated user explicitly mints a token. Set
+the flag to `false` to remove every `/v1/inbox*` route (the feature becomes
+invisible — `404`).
+
+| Method   | Path                   | Auth | Body                                   | Success                                                                 |
+| -------- | ---------------------- | ---- | -------------------------------------- | ----------------------------------------------------------------------- |
+| `POST`   | `/v1/inbox/tokens`     | yes  | `{ vaultId, label }`                   | `201 { id, token, label }` (token once)                                 |
+| `GET`    | `/v1/inbox/tokens`     | yes  | —                                      | `200 [{ id, vaultId, label, createdAt, lastUsedAt }]`                   |
+| `DELETE` | `/v1/inbox/tokens/:id` | yes  | —                                      | `204`                                                                   |
+| `GET`    | `/v1/inbox/log`        | yes  | —                                      | `200 [{ id, tokenId, source, path, bytes, status, at }]` (newest first) |
+| `POST`   | `/v1/inbox/:token`     | none | `{ title?, markdown, tags?, source? }` | `201 { path }`                                                          |
+
+- A token binds `(userId, vaultId, label)`. Minting verifies the caller **owns**
+  the vault. Only the token's **SHA-256 hash** is stored; the raw token is
+  returned **once** at creation and never appears in the list (which exposes
+  neither the token nor its hash).
+- `POST /v1/inbox/:token` is **unauthenticated — the token is the credential**.
+  It is resolved by `hashToken(:token)`; an unknown/revoked token → `404` (we
+  never leak which tokens exist). The route is size-capped
+  (`GRAPHVAULT_INBOX_MAX_BYTES` → `413`) and carries a stricter per-window cap
+  (`GRAPHVAULT_INBOX_RATE_LIMIT_MAX`).
+- **No clobber (data-safety first).** The note is written to a **guaranteed-new**
+  vault-relative path `Inbox/<sanitized-source-or-'webhook'>-<short-id>.md`. The
+  `source` is sanitized to `[A-Za-z0-9_-]` (no traversal, always ends `.md`), and
+  the path is verified absent before writing (a fresh id is drawn on the
+  astronomically-unlikely collision). An inbound post can therefore never
+  overwrite an existing note; if the underlying push still reported a conflict it
+  returns `409` and records a `rejected` audit entry rather than retrying blindly.
+- Every attempt (`accepted` / `rejected`) is appended to a per-user, capped
+  (last 500, oldest evicted) audit log, readable via `GET /v1/inbox/log`.
 
 ## Storage backends
 

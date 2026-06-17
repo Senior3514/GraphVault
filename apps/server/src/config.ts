@@ -136,6 +136,16 @@ export interface ServerConfig {
   snapshotTtlDays: number;
   /** Stricter per-window cap for `POST /v1/snapshots` to deter abuse. */
   snapshotRateLimitMax: number;
+  /**
+   * "Connect anything" inbound webhook. When false, every `/v1/inbox*` route
+   * returns 404 (the feature is invisible). Defaults to ON because the inbound
+   * endpoint does nothing until an authenticated user explicitly mints a token.
+   */
+  inboxEnabled: boolean;
+  /** Max size in bytes of a single inbound note's rendered Markdown (413 over). */
+  inboxMaxBytes: number;
+  /** Stricter per-window cap for `POST /v1/inbox/:token` to deter abuse. */
+  inboxRateLimitMax: number;
 }
 
 function storageBackend(value: string | undefined): StorageBackend {
@@ -171,5 +181,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     snapshotMaxCount: num(env.GRAPHVAULT_SNAPSHOT_MAX_COUNT, 5000),
     snapshotTtlDays: num(env.GRAPHVAULT_SNAPSHOT_TTL_DAYS, 30),
     snapshotRateLimitMax: num(env.GRAPHVAULT_SNAPSHOT_RATE_LIMIT_MAX, 20),
+    inboxEnabled: bool(env.GRAPHVAULT_INBOX_ENABLED, true),
+    inboxMaxBytes: num(env.GRAPHVAULT_INBOX_MAX_BYTES, 1_000_000),
+    inboxRateLimitMax: num(env.GRAPHVAULT_INBOX_RATE_LIMIT_MAX, 30),
   };
 }
