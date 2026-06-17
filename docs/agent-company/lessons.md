@@ -787,3 +787,25 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 - **Rule:** an emphasized all-caps word ("MISSING") in generated prompt copy won't
   match a `[Mm]issing` regex — use `/.../i` for word-presence checks on copy you may
   later restyle.
+
+## Wave 21 — focus mode (distraction-free editing)
+
+### Two independent useLayout() instances don't share React state — broadcast
+
+- **Rule:** when more than one component calls `useLayout()` (the shell hides the
+  rail/sidebar; the workspace hides panes/centers the editor), a plain state toggle
+  in one hook never reaches the other. Mirror the flag with a `window`
+  CustomEvent broadcast (like the existing `TOGGLE_PREVIEW_EVENT`): the originating
+  setter persists, listeners update state ONLY (no persistence feedback loop).
+
+### Make view-modes presentational, not destructive
+
+- **Rule:** hide panes via render conditions (`!focusMode && …`), never by flipping
+  `panels`/clearing `widths`/`tabs`. Exiting then restores the user's exact column
+  sizes and collapsed state. Cover it with a round-trip test.
+
+### Esc-to-exit handlers must yield to modal overlays
+
+- **Rule:** a global Esc handler (exit focus mode) must check for an open
+  `[role="dialog"][aria-modal="true"]` and bail if present, so Esc closes the
+  palette/drawer/modal first instead of an unexpected mode change.
