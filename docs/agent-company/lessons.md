@@ -731,3 +731,33 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `snapshotMaxBytes` (400 KB), so oversized graphs are rejected client-side first.
   Still wire + test the 413 path: the server cap is operator-configurable and is the
   authoritative backstop.
+
+## Wave 19 — "connect anything" inbound webhook + per-connector audit log
+
+### Server-side note creation: blob.put plaintext BEFORE sync.push
+
+- **Rule:** when the server itself creates a note (inbound webhook), it must
+  `blob.put(hash, plaintextBytes)` BEFORE `sync.push([...])` — the sync decision
+  rejects `MISSING_BLOB` for any non-delete op whose hash isn't already uploaded.
+  Hash is `sha256` of the **plaintext** UTF-8. `SyncService.push` does NOT enforce
+  the device check (only the route does), so an internal caller acting on the
+  user's behalf via a validated inbox token may push directly.
+
+### No-clobber by path SELECTION, not conflict reaction
+
+- **Rule:** prevent overwrite by choosing a guaranteed-fresh vault-relative path
+  (`Inbox/<sanitized-source>-<randomShortId>.md`, then `storage.getFile` absence
+  check, regenerate on the astronomically-rare hit) and pushing with
+  `baseRevision: 0`. A fresh path fast-forward-accepts; a conflict becomes
+  structurally impossible, so the 409 branch is purely defensive (record a
+  `rejected` audit entry, never blind-retry onto existing content).
+
+### Unauthenticated public-write: token IS the credential, hashed; 404 on unknown
+
+- **Rule:** the inbound `POST /v1/inbox/:token` is unauthenticated by design — the
+  token is the credential. Store only `hashToken(token)`; look up by hash; return
+  404 (not 403) for unknown/revoked tokens so the endpoint never reveals which
+  tokens exist. Owner mints tokens via authenticated, vault-ownership-checked
+  endpoints; tokens are never returned in list views. Stricter per-window rate
+  limit + service-level size cap on the _rendered_ note (frontmatter adds bytes)
+  with the Fastify global bodyLimit as the coarse outer guard.
