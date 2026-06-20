@@ -115,8 +115,10 @@ disk with **AES-256-GCM** (authenticated encryption):
 
 - The content hash remains the SHA-256 of the **plaintext** bytes. Encryption
   is a storage-layer detail; the wire protocol and dedupe logic are unchanged.
-- The 32-byte key (hex or base64) is read from the environment at startup; a
-  malformed key causes a fast fail.
+- The key must be **base64-encoded and decode to exactly 32 bytes** (AES-256);
+  it is read from the environment at startup. A malformed key — wrong alphabet,
+  or decoding to any length other than 32 bytes — causes a fast fail. (A hex
+  string is rejected: decode it to base64 first.)
 - Protects against disk / volume theft. Does not protect against a compromised
   running server (the key is in memory while the server runs).
 - **If you lose the key, encrypted blobs are unrecoverable.** Back the key up
@@ -125,17 +127,22 @@ disk with **AES-256-GCM** (authenticated encryption):
 Generate a key:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+openssl rand -base64 32
 ```
 
-## Browser-side vault encryption (planned)
+## Browser-side vault encryption (shipped)
 
-End-to-end passphrase encryption of the browser vault store (WebCrypto API) is
-tracked as **Milestone 15** and is not yet shipped. In this model the server
-never sees plaintext note content, even if fully compromised.
+Passphrase encryption of the browser vault store (WebCrypto) is **shipped**:
+**Settings → Vault encryption** enables it, deriving an AES-256-GCM key from
+the passphrase with **PBKDF2-SHA-256 (310 000 iterations)** and encrypting the
+local vault store at rest in the browser (`apps/web/lib/crypto/vaultCrypto.ts`,
+`EncryptionSection` in Settings). This protects the locally-persisted vault on a
+shared or stolen device; the passphrase is never stored.
 
-E2E key management and per-vault key rotation for the sync server are tracked
-as open questions in [`sync-protocol.md §9`](./sync-protocol.md).
+End-to-end encryption of synced note content — so the **sync server** never sees
+plaintext even when fully compromised — is a separate, larger effort: E2E key
+management and per-vault key rotation for the sync server are tracked as open
+questions in [`sync-protocol.md §9`](./sync-protocol.md).
 
 ## Content integrity
 
