@@ -133,6 +133,138 @@ test('delete/edit conflict keeps the edit as canonical and records a copy', asyn
   assert.equal(b.get('notes/keep.md' as FilePath), 'edited by A');
 });
 
+test('client-edit/server-delete conflict keeps the local edit as canonical', async () => {
+  const { server, remote } = setup();
+
+  // Both devices start from the same base file.
+  const a = new FakeLocalVault();
+  a.setContent('notes/keep.md' as FilePath, 'original', 1000);
+  await runSync(a, remote, VAULT, optsFor('dev-a'));
+
+  const b = new FakeLocalVault();
+  await runSync(b, remote, VAULT, optsFor('dev-b'));
+
+  // A deletes the file; syncs first → server holds the tombstone.
+  a.removeContent('notes/keep.md' as FilePath);
+  await runSync(a, remote, VAULT, optsFor('dev-a'));
+
+  // B edits the same file from the stale base → DELETE_EDIT_CONFLICT where the
+  // CLIENT holds the edit and the SERVER holds the tombstone. Per §6.3 the
+  // edited (non-deleted) version must stay canonical — a delete must not beat
+  // an edit.
+  b.setContent('notes/keep.md' as FilePath, 'edited by B', 3000);
+  const result = await runSync(b, remote, VAULT, optsFor('dev-b'));
+
+  assert.equal(result.conflicts.length, 1);
+  assert.equal(result.conflicts[0]?.kind, 'DELETE_EDIT_CONFLICT');
+
+  // The edit survives at the canonical path on B …
+  assert.equal(b.get('notes/keep.md' as FilePath), 'edited by B');
+
+  // … and it re-pushes and wins on the server, so A converges to the edit too.
+  const aResult = await runSync(a, remote, VAULT, optsFor('dev-a'));
+  assert.equal(a.get('notes/keep.md' as FilePath), 'edited by B');
+  assert.ok(aResult.pulled.includes('notes/keep.md' as FilePath));
+
+  // Both devices converge on identical content and the edit is live server-side.
+  assert.deepEqual(a.listPaths(), b.listPaths());
+  const serverState = server.getChanges(VAULT, 0).changes.find((s) => s.path === 'notes/keep.md');
+  assert.equal(serverState?.deleted, false);
+});
+
+test('two same-day conflict copies on one file do not overwrite each other', async () => {
+  const { remote } = setup();
+
+  // Base file shared by both devices.
+  const a = new FakeLocalVault();
+  a.setContent('notes/idea.md' as FilePath, 'base', 1000);
+  await runSync(a, remote, VAULT, optsFor('dev-a'));
+
+  const b = new FakeLocalVault();
+  await runSync(b, remote, VAULT, optsFor('dev-b'));
+
+  // First conflict on dev-b, same day.
+  a.setContent('notes/idea.md' as FilePath, 'A edit 1', 2000);
+  await runSync(a, remote, VAULT, optsFor('dev-a'));
+  b.setContent('notes/idea.md' as FilePath, 'B edit 1', 3000);
+  const first = await runSync(b, remote, VAULT, optsFor('dev-b'));
+  assert.equal(first.conflicts.length, 1);
+  const firstCopy = first.conflicts[0]!.conflictCopyPath;
+
+  // Second conflict on the SAME file, SAME device, SAME day.
+  a.setContent('notes/idea.md' as FilePath, 'A edit 2', 4000);
+  await runSync(a, remote, VAULT, optsFor('dev-a'));
+  b.setContent('notes/idea.md' as FilePath, 'B edit 2', 5000);
+  const second = await runSync(b, remote, VAULT, optsFor('dev-b'));
+  assert.equal(second.conflicts.length, 1);
+  const secondCopy = second.conflicts[0]!.conflictCopyPath;
+
+  // The two copies must be distinct paths so neither overwrites the other.
+  assert.notEqual(firstCopy, secondCopy);
+  assert.equal(b.get(firstCopy as FilePath), 'B edit 1');
+  assert.equal(b.get(secondCopy as FilePath), 'B edit 2');
+});
+
+test('NFC/NFD path forms are treated as the same file (no duplicate identity)', async () => {
+  const { server, remote } = setup();
+
+  // Device A pushes a note whose path is in NFC form.
+  const nfc = 'notes/caf\u00e9.md'; // precomposed e-acute
+  const nfd = 'notes/caf\u0065\u0301.md'; // e + U+0301 combining acute
+  assert.notEqual(nfc, nfd);
+
+  const a = new FakeLocalVault();
+  a.setContent(nfc as FilePath, 'hello', 1000);
+  await runSync(a, remote, VAULT, optsFor('dev-a'));
+  assert.equal(server.head(VAULT), 1);
+
+  // Device B pulls it, then "edits" using the NFD spelling of the SAME path.
+  // It must reconcile against the existing note, not create a second file.
+  const b = new FakeLocalVault();
+  await runSync(b, remote, VAULT, optsFor('dev-b'));
+
+  const idx = b.readIndex();
+  assert.equal(idx.length, 1);
+  // The single index entry is keyed in NFC form.
+  assert.equal(idx[0]?.path.normalize('NFC'), nfc);
+
+  // Re-scanning the NFD form is a no-op (same identity), not a new push.
+  b.removeContent(idx[0]!.path);
+  b.setContent(nfd as FilePath, 'hello', 1000);
+  const result = await runSync(b, remote, VAULT, optsFor('dev-b'));
+  assert.equal(result.conflicts.length, 0);
+  // Still a single file server-side; no duplicate identity was created.
+  assert.equal(server.head(VAULT), 1);
+});
+
+test('STALE_BASE with no server file re-bases to 0 and converges (no livelock)', async () => {
+  const { server, remote } = setup();
+  const local = new FakeLocalVault();
+  local.setContent('notes/incoherent.md' as FilePath, 'content', 1000);
+
+  // Hand-craft an index entry with a baseRevision > 0 but the server has no
+  // such file → an incoherent base that classifies as STALE_BASE with
+  // `server: null`. Previously this re-pushed every round and threw.
+  local.writeIndex([
+    {
+      path: 'notes/incoherent.md' as FilePath,
+      hash: null,
+      size: 0,
+      mtime: 1000,
+      deleted: false,
+      baseRevision: 5,
+      dirty: false,
+    },
+  ]);
+
+  // Must not throw "sync did not converge"; the file fast-forwards as new.
+  const result = await runSync(local, remote, VAULT, optsFor('dev-a'));
+  assert.equal(result.conflicts.length, 0);
+  assert.deepEqual(result.applied, ['notes/incoherent.md']);
+  assert.equal(server.head(VAULT), 1);
+  assert.equal(local.readIndex()[0]?.dirty, false);
+});
+
 test('missing blob triggers upload-then-retry within one cycle', async () => {
   const { server, remote } = setup();
   const local = new FakeLocalVault();

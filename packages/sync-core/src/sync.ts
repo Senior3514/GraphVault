@@ -26,9 +26,21 @@ import type { ResolvedConflict, SyncOptions, SyncResult } from './types.js';
 /** Mutable index keyed by path for the duration of a cycle. */
 type IndexMap = Map<FilePath, LocalFileEntry>;
 
+/**
+ * NFC-normalize a path so two Unicode encodings of the same path are a single
+ * identity in the index (spec §2.1). Content bytes are never normalized — only
+ * paths used as keys/identities.
+ */
+function nfcPath(path: FilePath): FilePath {
+  return path.normalize('NFC') as FilePath;
+}
+
 function toIndexMap(entries: LocalFileEntry[]): IndexMap {
   const map: IndexMap = new Map();
-  for (const e of entries) map.set(e.path, e);
+  for (const e of entries) {
+    const path = nfcPath(e.path);
+    map.set(path, { ...e, path });
+  }
   return map;
 }
 
@@ -51,16 +63,17 @@ async function scan(local: LocalVault, index: IndexMap): Promise<void> {
   const seen = new Set<FilePath>();
 
   for (const entry of entries) {
-    seen.add(entry.path);
-    const prev = index.get(entry.path);
+    const path = nfcPath(entry.path);
+    seen.add(path);
+    const prev = index.get(path);
     const hash =
       entry.hash ?? (entry.content !== undefined ? await hashContent(entry.content) : null);
     const size = entry.content !== undefined ? byteLength(entry.content) : 0;
 
     if (!prev) {
       // Brand-new local file the server has never seen.
-      index.set(entry.path, {
-        path: entry.path,
+      index.set(path, {
+        path,
         hash,
         size,
         mtime: entry.mtime,
@@ -72,7 +85,7 @@ async function scan(local: LocalVault, index: IndexMap): Promise<void> {
     }
 
     const changed = prev.hash !== hash || prev.deleted;
-    index.set(entry.path, {
+    index.set(path, {
       ...prev,
       hash,
       size,
@@ -145,7 +158,9 @@ async function applyRemoteState(
   index: IndexMap,
   state: FileState,
 ): Promise<boolean> {
-  const prev = index.get(state.path);
+  // Key/identify by NFC path so the index agrees with the rest of the cycle.
+  const path = nfcPath(state.path);
+  const prev = index.get(path);
 
   // A locally-dirty file is reconciled through PUSH (and conflict handling),
   // not by being overwritten here — that would lose the local edit.
@@ -165,10 +180,10 @@ async function applyRemoteState(
 
   if (state.deleted || state.hash === null) {
     if (prev && !prev.deleted) {
-      await local.deleteContent(state.path);
+      await local.deleteContent(path);
     }
-    index.set(state.path, {
-      path: state.path,
+    index.set(path, {
+      path,
       hash: null,
       size: 0,
       mtime: state.mtime,
@@ -181,9 +196,9 @@ async function applyRemoteState(
 
   // Content state: ensure we have the bytes, then write them.
   const content = await remote.getBlob(state.hash);
-  await local.writeContent(state.path, content, state.mtime);
-  index.set(state.path, {
-    path: state.path,
+  await local.writeContent(path, content, state.mtime);
+  index.set(path, {
+    path,
     hash: state.hash,
     size: state.size,
     mtime: state.mtime,
@@ -298,10 +313,15 @@ async function settle(
       // this file's baseRevision to the server's so the next push fast-forwards,
       // while keeping the local content (still dirty).
       const prev = index.get(conflict.path);
-      if (prev && conflict.server) {
+      if (prev) {
+        // `conflict.server` is null when the base is incoherent (op claims a
+        // base > 0 but the server has no such file). Re-base to revision 0 so
+        // the op is treated as brand-new and fast-forwards next round, rather
+        // than re-pushing the same stale op forever and livelocking the cycle.
+        const rebase = conflict.server ? conflict.server.revision : 0;
         index.set(conflict.path, {
           ...prev,
-          baseRevision: conflict.server.revision,
+          baseRevision: rebase,
           dirty: true,
         });
       }
@@ -309,11 +329,46 @@ async function settle(
       continue;
     }
 
-    // CONTENT_CONFLICT or DELETE_EDIT_CONFLICT: preserve the local version as a
-    // conflict copy, then adopt the server version as canonical.
+    // DELETE_EDIT_CONFLICT where the CLIENT holds a (non-deleted) edit and the
+    // SERVER holds the tombstone: per §6.3 preserving content beats honoring a
+    // delete, so the edited version stays canonical. Keep the local edit, re-base
+    // it to the server's tombstone revision so it re-pushes and wins, and record
+    // the deletion intent as the conflict side. (The symmetric case — server
+    // holds the surviving edit, client deleted — is handled by the adopt branch
+    // below, which writes the server edit at the canonical path.)
+    const localPrev = index.get(conflict.path);
+    if (
+      conflict.kind === 'DELETE_EDIT_CONFLICT' &&
+      localPrev &&
+      !localPrev.deleted &&
+      localPrev.hash !== null &&
+      conflict.server &&
+      (conflict.server.deleted || conflict.server.hash === null)
+    ) {
+      const at = (options.now ?? (() => new Date()))();
+      index.set(conflict.path, {
+        ...localPrev,
+        baseRevision: conflict.server.revision,
+        dirty: true,
+      });
+      resolved.push({
+        path: conflict.path,
+        kind: conflict.kind,
+        // No conflict copy: the live edit stays canonical and the deletion is
+        // the losing side, recorded in the Conflicts list for the user.
+        conflictCopyPath: conflict.path,
+        at: at.toISOString(),
+      });
+      needsRetry = true;
+      continue;
+    }
+
+    // CONTENT_CONFLICT, or DELETE_EDIT_CONFLICT where the server holds the
+    // surviving edit: preserve the local version as a conflict copy, then adopt
+    // the server version as canonical.
     const at = (options.now ?? (() => new Date()))();
     const device = options.deviceName ?? options.deviceId;
-    const copyPath = conflictCopyPath(conflict.path, device, at);
+    const copyPath = conflictCopyPath(conflict.path, device, at, index);
     const localContent = await local.readContent(conflict.path);
 
     if (localContent !== null && localContent !== undefined) {
@@ -355,10 +410,11 @@ async function adoptServerState(
   index: IndexMap,
   state: FileState,
 ): Promise<void> {
+  const path = nfcPath(state.path);
   if (state.deleted || state.hash === null) {
-    await local.deleteContent(state.path);
-    index.set(state.path, {
-      path: state.path,
+    await local.deleteContent(path);
+    index.set(path, {
+      path,
       hash: null,
       size: 0,
       mtime: state.mtime,
@@ -369,9 +425,9 @@ async function adoptServerState(
     return;
   }
   const content = await remote.getBlob(state.hash);
-  await local.writeContent(state.path, content, state.mtime);
-  index.set(state.path, {
-    path: state.path,
+  await local.writeContent(path, content, state.mtime);
+  index.set(path, {
+    path,
     hash: state.hash,
     size: state.size,
     mtime: state.mtime,
