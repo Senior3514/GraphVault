@@ -22,6 +22,12 @@ import {
   azureDate,
   AZURE_API_VERSION,
 } from '../src/services/azure.js';
+import {
+  __setResolverForTests,
+  __setTransportForTests,
+  type GuardedTransport,
+  type ResolveAllFn,
+} from '../src/services/ssrf.js';
 
 let app: FastifyInstance;
 let dataDir: string;
@@ -33,16 +39,15 @@ let token = '';
 // Fake Azure Blob responses
 // ---------------------------------------------------------------------------
 
-type FetchFn = typeof globalThis.fetch;
-let originalFetch: FetchFn;
+let restoreTransport: (() => void) | undefined;
+let restoreResolver: (() => void) | undefined;
 
 /** In-memory Azure "container": object content keyed by URL. */
 const fakeStore = new Map<string, Buffer>();
 
-function makeFakeAzureFetch(): FetchFn {
-  return async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const method = (init?.method ?? 'GET').toUpperCase();
+function makeFakeAzureFetch(): GuardedTransport {
+  return async (url, init) => {
+    const method = (init.method ?? 'GET').toUpperCase();
 
     if (method === 'GET') {
       const content = fakeStore.get(url);
@@ -55,7 +60,7 @@ function makeFakeAzureFetch(): FetchFn {
       });
     }
     if (method === 'PUT') {
-      const body = init?.body;
+      const body = init.body;
       let buf: Buffer;
       if (body instanceof Uint8Array) buf = Buffer.from(body);
       else if (typeof body === 'string') buf = Buffer.from(body, 'utf8');
@@ -94,12 +99,13 @@ before(async () => {
   assert.equal(res.statusCode, 201, res.body);
   token = res.json().accessToken;
 
-  originalFetch = globalThis.fetch;
-  globalThis.fetch = makeFakeAzureFetch();
+  restoreTransport = __setTransportForTests(makeFakeAzureFetch());
+  restoreResolver = __setResolverForTests((async () => ['93.184.216.34']) as ResolveAllFn);
 });
 
 after(async () => {
-  globalThis.fetch = originalFetch;
+  restoreTransport?.();
+  restoreResolver?.();
   await app.close();
   await rm(dataDir, { recursive: true, force: true });
   fakeStore.clear();

@@ -34,6 +34,7 @@
 
 import { createHmac, hkdfSync, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
 import { badRequest, notFound } from '../errors.js';
+import { guardedFetch } from './ssrf.js';
 import type { AzureConfigRecord, Storage } from '../store/types.js';
 
 // ---------------------------------------------------------------------------
@@ -332,7 +333,7 @@ export class AzureService {
 
     let res: Response;
     try {
-      res = await fetch(signed.url, { method: 'GET', headers: signed.headers });
+      res = await guardedFetch(signed.url, { method: 'GET', headers: signed.headers });
     } catch (err) {
       throw badRequest(`Azure GET failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -366,7 +367,7 @@ export class AzureService {
 
     let res: Response;
     try {
-      res = await fetch(signed.url, { method: 'PUT', headers: signed.headers, body });
+      res = await guardedFetch(signed.url, { method: 'PUT', headers: signed.headers, body });
     } catch (err) {
       throw badRequest(`Azure PUT failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -390,7 +391,7 @@ export class AzureService {
 
     let res: Response;
     try {
-      res = await fetch(signed.url, { method: 'DELETE', headers: signed.headers });
+      res = await guardedFetch(signed.url, { method: 'DELETE', headers: signed.headers });
     } catch (err) {
       throw badRequest(`Azure DELETE failed: ${err instanceof Error ? err.message : String(err)}`);
     }

@@ -38,7 +38,8 @@
 
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import type { AiConfigInfo, AiConfigRequest } from '@graphvault/shared';
-import { badRequest, notFound } from '../errors.js';
+import { AppError, badRequest, notFound } from '../errors.js';
+import { guardedFetch } from './ssrf.js';
 import type { AiConfigRecord, Storage } from '../store/types.js';
 import type { AiChatMessage } from '@graphvault/shared';
 
@@ -135,7 +136,10 @@ function checkAndIncrementDailyCap(userId: string, cap: number): void {
     return;
   }
   if (existing.count >= cap) {
-    throw badRequest(
+    // 429 RATE_LIMITED — matches the rest of the app's rate-limit envelope.
+    throw new AppError(
+      429,
+      'RATE_LIMITED',
       `AI proxy daily request cap (${cap}) reached. Try again tomorrow or increase GRAPHVAULT_AI_DAILY_CAP.`,
     );
   }
@@ -251,7 +255,11 @@ export class AiService {
 
     let res: Response;
     try {
-      res = await fetch(url, {
+      // SSRF guard: the `custom` gateway lets the user set an arbitrary baseUrl,
+      // so every outbound AI request goes through the DNS-pinned guarded fetch.
+      // Private/loopback targets (e.g. a self-hosted local LLM) require the
+      // explicit GRAPHVAULT_ALLOW_PRIVATE_PROXY_TARGETS opt-in.
+      res = await guardedFetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify({

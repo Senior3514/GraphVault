@@ -37,6 +37,7 @@ import {
 } from 'node:crypto';
 import type { S3ConfigInfo, S3ConfigRequest } from '@graphvault/shared';
 import { badRequest, notFound } from '../errors.js';
+import { guardedFetch } from './ssrf.js';
 import type { S3ConfigRecord, Storage } from '../store/types.js';
 
 // ---------------------------------------------------------------------------
@@ -354,7 +355,7 @@ export class S3Service {
 
     let res: Response;
     try {
-      res = await fetch(signed.url, { method: 'GET', headers: signed.headers });
+      res = await guardedFetch(signed.url, { method: 'GET', headers: signed.headers });
     } catch (err) {
       throw badRequest(`S3 GET failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -400,7 +401,7 @@ export class S3Service {
 
     let res: Response;
     try {
-      res = await fetch(signed.url, {
+      res = await guardedFetch(signed.url, {
         method: 'PUT',
         headers: { ...signed.headers, 'content-length': String(body.length) },
         body,
@@ -439,7 +440,7 @@ export class S3Service {
 
     let res: Response;
     try {
-      res = await fetch(signed.url, { method: 'DELETE', headers: signed.headers });
+      res = await guardedFetch(signed.url, { method: 'DELETE', headers: signed.headers });
     } catch (err) {
       throw badRequest(`S3 DELETE failed: ${err instanceof Error ? err.message : String(err)}`);
     }

@@ -24,6 +24,12 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { InMemoryStorage } from '../src/store/memory.js';
+import {
+  __setResolverForTests,
+  __setTransportForTests,
+  type GuardedTransport,
+  type ResolveAllFn,
+} from '../src/services/ssrf.js';
 
 let app: FastifyInstance;
 let dataDir: string;
@@ -33,14 +39,15 @@ let token = '';
 // Mock upstream AI provider
 // ---------------------------------------------------------------------------
 
-type FetchFn = typeof globalThis.fetch;
-let originalFetch: FetchFn;
+let restoreTransport: (() => void) | undefined;
+let restoreResolver: (() => void) | undefined;
 
 /**
- * A fake OpenRouter / OpenAI-compat response for chat completions.
+ * A fake OpenRouter / OpenAI-compat response for chat completions, installed as
+ * the SSRF transport so the guarded fetch's validate + DNS-pin path still runs.
  */
-function makeFakeAiFetch(statusCode = 200): FetchFn {
-  return async (_input: RequestInfo | URL, _init?: RequestInit) => {
+function makeFakeAiFetch(statusCode = 200): GuardedTransport {
+  return async () => {
     if (statusCode !== 200) {
       return new Response(JSON.stringify({ error: 'upstream error' }), { status: statusCode });
     }
@@ -83,13 +90,14 @@ before(async () => {
   const body = JSON.parse(res.body) as { accessToken: string };
   token = body.accessToken;
 
-  // Install the mock fetch before running tests.
-  originalFetch = globalThis.fetch;
-  globalThis.fetch = makeFakeAiFetch();
+  // Install the mock transport + resolver before running tests.
+  restoreTransport = __setTransportForTests(makeFakeAiFetch());
+  restoreResolver = __setResolverForTests((async () => ['93.184.216.34']) as ResolveAllFn);
 });
 
 after(async () => {
-  globalThis.fetch = originalFetch;
+  restoreTransport?.();
+  restoreResolver?.();
   await app.close();
   await rm(dataDir, { recursive: true, force: true });
 });
@@ -233,8 +241,9 @@ test('POST /v1/ai/chat — 429 when daily cap exceeded', async () => {
     headers: { ...AUTH(), 'content-type': 'application/json' },
     payload: { messages: [{ role: 'user', content: 'over cap' }] },
   });
-  assert.equal(res.statusCode, 400, `expected 400 for daily cap: ${res.body}`);
-  const body = JSON.parse(res.body) as { error: { message: string } };
+  assert.equal(res.statusCode, 429, `expected 429 for daily cap: ${res.body}`);
+  const body = JSON.parse(res.body) as { error: { code: string; message: string } };
+  assert.equal(body.error.code, 'RATE_LIMITED', `expected RATE_LIMITED code: ${res.body}`);
   assert.ok(
     body.error.message.toLowerCase().includes('cap'),
     `expected cap message, got: ${body.error.message}`,
