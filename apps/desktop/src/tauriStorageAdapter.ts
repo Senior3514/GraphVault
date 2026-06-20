@@ -16,10 +16,18 @@
  *    bypassing the File System Access browser API entirely (which requires a
  *    user gesture each session in a browser, but not in Tauri).
  *
- * ## Security
+ * ## Security (M16 scaffold — NOT yet wired)
  *
- * - The fs plugin scope is configured in `src-tauri/tauri.conf.json` to the
- *   vault directory chosen by the user.  No other path is accessible.
+ * IMPORTANT: native disk storage is an M16 scaffold. The shipping desktop app
+ * currently runs purely as the web shell; this adapter is NOT registered and
+ * the native fs path is NOT exercised at runtime.
+ *
+ * - The `@tauri-apps/plugin-fs` scope in `src-tauri/tauri.conf.json` ships with
+ *   an EMPTY `allow` list, and `pick_vault_folder` (Rust) returns the chosen
+ *   path WITHOUT granting fs scope to it. As a result, fs-plugin calls made by
+ *   this adapter would be DENIED at runtime today. Dynamic scope granting from
+ *   the chosen folder is deferred work — do not treat "scoped to the chosen
+ *   vault" as an implemented guarantee yet.
  * - The adapter never executes arbitrary shell commands; all disk operations go
  *   through the typed `@tauri-apps/plugin-fs` surface.
  *
@@ -51,8 +59,8 @@ import { invoke } from '@tauri-apps/api/core';
 
 // We import types only from the plugin so this file can be type-checked without
 // a full Tauri runtime present (e.g. in a dry-run CI that only runs tsc).
-import type { StorageAdapter } from '../../apps/web/lib/vault/storage/index';
-import type { Note } from '../../apps/web/lib/vault/types';
+import type { StorageAdapter } from '../../web/lib/vault/storage/index';
+import type { Note } from '../../web/lib/vault/types';
 
 // ---------------------------------------------------------------------------
 // Tauri IPC helpers
