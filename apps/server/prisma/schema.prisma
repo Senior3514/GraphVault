@@ -103,8 +103,8 @@ model FileVersion {
   revision  Int // per-vault seq this version was recorded at
   createdAt DateTime @default(now()) @map("created_at")
 
-  file        File  @relation("FileVersions", fields: [fileId], references: [id], onDelete: Cascade)
-  currentFor  File? @relation("CurrentVersion")
+  file       File  @relation("FileVersions", fields: [fileId], references: [id], onDelete: Cascade)
+  currentFor File? @relation("CurrentVersion")
 
   @@index([fileId])
   @@index([revision])
@@ -132,4 +132,96 @@ model Blob {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("blobs")
+}
+
+// --- Server-proxied storage / AI credentials (one row per user) ------------
+// Secret fields hold an AES-256-GCM ciphertext (base64, `nonce||tag||ciphertext`);
+// the raw secret is never stored. Non-secret fields are plaintext (shown in
+// Settings). userId is the primary key (one config per provider per user).
+
+model WebDavConfig {
+  userId            String   @id @map("user_id")
+  url               String
+  username          String
+  encryptedPassword String   @map("encrypted_password")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("webdav_configs")
+}
+
+model S3Config {
+  userId                   String   @id @map("user_id")
+  endpoint                 String?
+  region                   String
+  bucket                   String
+  accessKeyId              String   @map("access_key_id")
+  encryptedSecretAccessKey String   @map("encrypted_secret_access_key")
+  prefix                   String?
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@map("s3_configs")
+}
+
+model AzureConfig {
+  userId              String   @id @map("user_id")
+  account             String
+  container           String
+  encryptedAccountKey String   @map("encrypted_account_key")
+  endpoint            String?
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("azure_configs")
+}
+
+model GcsConfig {
+  userId          String   @id @map("user_id")
+  bucket          String
+  accessId        String   @map("access_id")
+  encryptedSecret String   @map("encrypted_secret")
+  prefix          String?
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("gcs_configs")
+}
+
+model AiConfig {
+  userId          String   @id @map("user_id")
+  encryptedApiKey String   @map("encrypted_api_key")
+  gateway         String
+  baseUrl         String?  @map("base_url")
+  model           String?
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_configs")
+}
+
+// --- "Connect anything" inbound webhook (inbox) ----------------------------
+// Per-connector tokens (only the SHA-256 hash is stored, like auth Token) and a
+// per-user audit log of every inbound attempt.
+
+model InboxToken {
+  id         String    @id
+  userId     String    @map("user_id")
+  vaultId    String    @map("vault_id")
+  label      String
+  tokenHash  String    @unique @map("token_hash")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  @@index([userId])
+  @@map("inbox_tokens")
+}
+
+model InboxAuditEntry {
+  id      String   @id
+  userId  String   @map("user_id")
+  tokenId String   @map("token_id")
+  source  String
+  path    String?
+  bytes   Int
+  status  String
+  at      DateTime @default(now())
+
+  @@index([userId, at])
+  @@map("inbox_audit_entries")
 }

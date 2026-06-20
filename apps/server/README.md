@@ -136,10 +136,14 @@ invisible — `404`).
 ## Storage backends
 
 - **memory** (default): `InMemoryStorage`, ideal for development and tests. No
-  external dependencies; data is lost on restart.
+  external dependencies; **all** data — including provider/AI credentials and
+  inbox tokens/audit — is lost on restart.
 - **postgres**: Prisma + PostgreSQL. The generated Prisma client is loaded with
   a dynamic import, so the default in-memory path builds and runs without a
-  database or a generated client. To use it:
+  database or a generated client. On this backend everything is durable,
+  including the server-proxied storage / AI credentials (stored as AES-256-GCM
+  ciphertext) and the inbox tokens + audit log — they survive a restart. To use
+  it:
 
   ```bash
   export DATABASE_URL=postgresql://user:pass@localhost:5432/graphvault
@@ -200,8 +204,10 @@ deployment writeup (Milestone 10 docs). The hardening below is implemented here:
 `encryptionAtRest`, rate-limit settings, `requireHttps`, `trustProxy`,
 `maxBlobBytes`, and a `storageProxies` block listing the available cloud-storage
 proxies plus whether their credentials are encrypted at rest with a persistent
-key) so ops/clients can confirm the deployment. It never exposes secrets, keys,
-account names, or connection strings.
+key (`credentialsEncryptedAtRest`) and whether they are persisted across a
+restart (`credentialsPersisted`, true on the `postgres` backend)) so ops/clients
+can confirm the deployment. It never exposes secrets, keys, account names, or
+connection strings.
 
 ## Server-proxied cloud storage (BFF)
 

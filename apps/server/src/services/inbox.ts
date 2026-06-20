@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { formatContentHash } from '@graphvault/shared';
 import { AppError, badRequest, conflict, notFound } from '../errors.js';
-import type { Storage } from '../store/types.js';
+import type { InboxAuditRecord, InboxTokenRecord, Storage } from '../store/types.js';
 import type { BlobService } from './blob.js';
 import { generateToken, hashToken, newId } from './crypto.js';
 import type { SyncService } from './sync.js';
@@ -32,17 +32,12 @@ import type { VaultService } from './vault.js';
  * and carries a stricter per-window rate limit (wired in the route).
  */
 
-/** A minted inbox token. Only the HASH is stored; the raw token is shown once. */
-export interface InboxTokenRecord {
-  id: string;
-  userId: string;
-  vaultId: string;
-  label: string;
-  /** SHA-256 hex of the raw token (never the raw token itself). */
-  tokenHash: string;
-  createdAt: string; // ISO-8601
-  lastUsedAt: string | null;
-}
+// The persisted shapes live in the Storage layer so inbox state survives a
+// restart (the records are written to the durable backend, not held in memory).
+export type { InboxTokenRecord, InboxAuditRecord } from '../store/types.js';
+
+/** A single audit-log entry for one inbound attempt. */
+export type InboxAuditEntry = InboxAuditRecord;
 
 /** Public view of a token (NEVER includes the token or its hash). */
 export interface InboxTokenView {
@@ -51,19 +46,6 @@ export interface InboxTokenView {
   label: string;
   createdAt: string;
   lastUsedAt: string | null;
-}
-
-/** A single audit-log entry for one inbound attempt. */
-export interface InboxAuditEntry {
-  id: string;
-  userId: string;
-  tokenId: string;
-  source: string;
-  /** The note path that was created (or attempted), or null for early rejects. */
-  path: string | null;
-  bytes: number;
-  status: 'accepted' | 'rejected';
-  at: string; // ISO-8601
 }
 
 /** Validated inbound payload. */
@@ -94,11 +76,6 @@ const MAX_PATH_ATTEMPTS = 5;
 export class InboxService {
   private readonly maxBytes: number;
   private readonly maxAuditEntries: number;
-
-  /** tokenHash -> record. The hash is the lookup key for inbound requests. */
-  private readonly tokensByHash = new Map<string, InboxTokenRecord>();
-  /** userId -> capped, newest-last list of audit entries. */
-  private readonly auditByUser = new Map<string, InboxAuditEntry[]>();
 
   constructor(
     private readonly storage: Storage,
@@ -138,27 +115,20 @@ export class InboxService {
       createdAt: new Date().toISOString(),
       lastUsedAt: null,
     };
-    this.tokensByHash.set(record.tokenHash, record);
+    await this.storage.createInboxToken(record);
     return { id: record.id, token, label: record.label };
   }
 
   /** List a user's tokens. NEVER includes the token or its hash. */
-  listTokens(userId: string): InboxTokenView[] {
-    return [...this.tokensByHash.values()]
-      .filter((t) => t.userId === userId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .map(toView);
+  async listTokens(userId: string): Promise<InboxTokenView[]> {
+    const tokens = await this.storage.listInboxTokens(userId);
+    return tokens.map(toView);
   }
 
   /** Revoke a token the user owns. 404 if it doesn't exist or isn't theirs. */
-  revokeToken(userId: string, tokenId: string): void {
-    for (const [hash, record] of this.tokensByHash) {
-      if (record.id === tokenId && record.userId === userId) {
-        this.tokensByHash.delete(hash);
-        return;
-      }
-    }
-    throw notFound('Inbox token not found');
+  async revokeToken(userId: string, tokenId: string): Promise<void> {
+    const removed = await this.storage.deleteInboxToken(userId, tokenId);
+    if (!removed) throw notFound('Inbox token not found');
   }
 
   // --- public inbound -----------------------------------------------------
@@ -170,7 +140,7 @@ export class InboxService {
    * audit entry. Returns the created vault-relative path.
    */
   async submit(rawToken: string, input: InboxSubmission): Promise<{ path: string }> {
-    const record = this.tokensByHash.get(hashToken(rawToken));
+    const record = await this.storage.getInboxTokenByHash(hashToken(rawToken));
     // Unknown token: do NOT leak existence. No audit entry — we have no user to
     // attribute it to, and recording would let an attacker spam someone's log.
     if (!record) throw notFound('Inbox token not found');
@@ -182,7 +152,7 @@ export class InboxService {
     // Size cap on the RENDERED note (413). The route also caps the raw body, but
     // frontmatter can add a little; this is the authoritative backstop.
     if (bytes.byteLength > this.maxBytes) {
-      this.appendAudit(record, source, null, bytes.byteLength, 'rejected');
+      await this.appendAudit(record, source, null, bytes.byteLength, 'rejected');
       throw new AppError(413, 'PAYLOAD_TOO_LARGE', `Note exceeds the ${this.maxBytes}-byte limit`);
     }
 
@@ -207,22 +177,20 @@ export class InboxService {
     if (result.conflicts.length > 0 || !result.applied.includes(path)) {
       // Should be impossible (we verified the path is absent), but never retry
       // blindly onto an existing note — surface it and record the rejection.
-      this.appendAudit(record, source, path, bytes.byteLength, 'rejected');
+      await this.appendAudit(record, source, path, bytes.byteLength, 'rejected');
       throw conflict('Inbound note could not be created without overwriting existing content');
     }
 
-    record.lastUsedAt = new Date().toISOString();
-    this.appendAudit(record, source, path, bytes.byteLength, 'accepted');
+    await this.storage.touchInboxToken(record.tokenHash, new Date().toISOString());
+    await this.appendAudit(record, source, path, bytes.byteLength, 'accepted');
     return { path };
   }
 
   // --- audit log (authenticated) ------------------------------------------
 
   /** A user's recent audit entries, newest first. */
-  listAudit(userId: string): InboxAuditEntry[] {
-    const entries = this.auditByUser.get(userId);
-    if (!entries) return [];
-    return [...entries].reverse();
+  async listAudit(userId: string): Promise<InboxAuditEntry[]> {
+    return this.storage.listInboxAudit(userId);
   }
 
   // --- internals ----------------------------------------------------------
@@ -247,14 +215,14 @@ export class InboxService {
     throw new AppError(500, 'INTERNAL', 'Could not allocate a unique inbox note path');
   }
 
-  private appendAudit(
+  private async appendAudit(
     token: InboxTokenRecord,
     source: string,
     path: string | null,
     bytes: number,
-    status: InboxAuditEntry['status'],
-  ): void {
-    const entry: InboxAuditEntry = {
+    status: InboxAuditRecord['status'],
+  ): Promise<void> {
+    const entry: InboxAuditRecord = {
       id: newId(),
       userId: token.userId,
       tokenId: token.id,
@@ -264,16 +232,8 @@ export class InboxService {
       status,
       at: new Date().toISOString(),
     };
-    let list = this.auditByUser.get(token.userId);
-    if (!list) {
-      list = [];
-      this.auditByUser.set(token.userId, list);
-    }
-    list.push(entry);
-    // Cap retention per user, evicting oldest-first (bounded memory).
-    if (list.length > this.maxAuditEntries) {
-      list.splice(0, list.length - this.maxAuditEntries);
-    }
+    // The store appends and enforces the per-user cap (oldest evicted).
+    await this.storage.appendInboxAudit(entry, this.maxAuditEntries);
   }
 }
 

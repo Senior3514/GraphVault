@@ -8,6 +8,8 @@ import type {
   FileChange,
   FileRecord,
   GcsConfigRecord,
+  InboxAuditRecord,
+  InboxTokenRecord,
   S3ConfigRecord,
   Storage,
   TokenRecord,
@@ -36,6 +38,10 @@ export class InMemoryStorage implements Storage {
   private readonly azureConfigs = new Map<string, AzureConfigRecord>();
   private readonly gcsConfigs = new Map<string, GcsConfigRecord>();
   private readonly aiConfigs = new Map<string, AiConfigRecord>();
+  /** tokenHash -> record (the inbound lookup key). */
+  private readonly inboxTokens = new Map<string, InboxTokenRecord>();
+  /** userId -> capped, newest-last list of audit entries. */
+  private readonly inboxAudit = new Map<string, InboxAuditRecord[]>();
 
   private static now(): string {
     return new Date().toISOString();
@@ -221,5 +227,55 @@ export class InMemoryStorage implements Storage {
 
   async deleteAiConfig(userId: string): Promise<void> {
     this.aiConfigs.delete(userId);
+  }
+
+  async createInboxToken(record: InboxTokenRecord): Promise<void> {
+    this.inboxTokens.set(record.tokenHash, { ...record });
+  }
+
+  async getInboxTokenByHash(tokenHash: string): Promise<InboxTokenRecord | null> {
+    const record = this.inboxTokens.get(tokenHash);
+    return record ? { ...record } : null;
+  }
+
+  async listInboxTokens(userId: string): Promise<InboxTokenRecord[]> {
+    return [...this.inboxTokens.values()]
+      .filter((t) => t.userId === userId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .map((t) => ({ ...t }));
+  }
+
+  async touchInboxToken(tokenHash: string, lastUsedAt: string): Promise<void> {
+    const record = this.inboxTokens.get(tokenHash);
+    if (record) record.lastUsedAt = lastUsedAt;
+  }
+
+  async deleteInboxToken(userId: string, tokenId: string): Promise<boolean> {
+    for (const [hash, record] of this.inboxTokens) {
+      if (record.id === tokenId && record.userId === userId) {
+        this.inboxTokens.delete(hash);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async appendInboxAudit(record: InboxAuditRecord, cap: number): Promise<void> {
+    let list = this.inboxAudit.get(record.userId);
+    if (!list) {
+      list = [];
+      this.inboxAudit.set(record.userId, list);
+    }
+    list.push({ ...record });
+    // Cap retention per user, evicting oldest-first (bounded memory).
+    if (list.length > cap) {
+      list.splice(0, list.length - cap);
+    }
+  }
+
+  async listInboxAudit(userId: string): Promise<InboxAuditRecord[]> {
+    const entries = this.inboxAudit.get(userId);
+    if (!entries) return [];
+    return [...entries].reverse().map((e) => ({ ...e }));
   }
 }
