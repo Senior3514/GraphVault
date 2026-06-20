@@ -23,58 +23,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
-/**
- * Traps keyboard focus inside `containerRef` while `active` is true.
- * Returns focus to `restoreRef` when deactivated.
- */
-function useFocusTrap(
-  containerRef: React.RefObject<HTMLElement | null>,
-  active: boolean,
-  restoreRef?: React.RefObject<HTMLElement | null>,
-) {
-  useEffect(() => {
-    if (!active || !containerRef.current) return;
-    const container = containerRef.current;
-
-    // Focus the first focusable element when the trap activates.
-    const focusable = container.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (focusable.length > 0) {
-      focusable[0].focus();
-    }
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-      const all = Array.from(
-        container.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((el) => !el.closest('[hidden]') && el.offsetParent !== null);
-      if (all.length === 0) return;
-      const first = all[0];
-      const last = all[all.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      // Restore focus when trap deactivates.
-      restoreRef?.current?.focus?.();
-    };
-  }, [active, containerRef, restoreRef]);
-}
-
+import { useFocusTrap } from '../lib/a11y/useFocusTrap';
 import { AddButton } from './AddButton';
 import { BackupHistory } from './BackupHistory';
 import { CommandPalette } from './CommandPalette';
