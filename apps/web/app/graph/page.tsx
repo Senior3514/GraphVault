@@ -91,6 +91,9 @@ import {
   buildGraphSendContext,
   MAX_CLUSTERS_TO_NAME,
 } from '../../lib/ai/graph-prompts';
+import { AUTH_TOKEN_STORAGE_KEY, SERVER_URL_STORAGE_KEY } from '../../lib/api/storageKeys';
+import { useAuth } from '../../lib/api/useAuth';
+import { useServerSettings } from '../../lib/api/useServerSettings';
 
 // Canvas/DOM-only renderer: never server-rendered.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
@@ -105,6 +108,8 @@ const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraph
 export default function GraphPage() {
   const vault = useVaultContext();
   const router = useRouter();
+  const auth = useAuth();
+  const { serverUrl } = useServerSettings();
   const [filters, dispatch] = useReducer(filtersReducer, EMPTY_FILTERS);
   const [mode, setMode] = useState<'global' | 'local'>('global');
   const [localDepth, setLocalDepth] = useState(2);
@@ -126,6 +131,17 @@ export default function GraphPage() {
   // Re-read on mount; no live sync needed because settings change via the Settings page.
   const [aiSettings, setAiSettings] = useState<AISettings>(() => loadAISettings());
   const aiEnabled = aiSettings.kind !== 'off';
+
+  // For `server` AI mode the provider needs the session token + server URL so it
+  // can authenticate with the GV server proxy (the key never touches the
+  // browser). Mirrors AssistantPanel. `undefined` for local/off mode.
+  const serverOpts = useMemo(
+    () =>
+      aiSettings.kind === 'server' && auth.token
+        ? { serverUrl, bearerToken: auth.token }
+        : undefined,
+    [aiSettings.kind, auth.token, serverUrl],
+  );
 
   // M21: AI cluster names — string[] indexed to match the visual cluster legend order.
   const [aiClusterNames, setAiClusterNames] = useState<string[]>([]);
@@ -336,7 +352,7 @@ export default function GraphPage() {
         MAX_CLUSTERS_TO_NAME,
       );
       const msgs = buildClusterNamePrompt(clusterInputs);
-      const raw = await chat(aiSettings, msgs);
+      const raw = await chat(aiSettings, msgs, serverOpts);
       const names = parseClusterNames(raw, clusterInputs.length);
       setAiClusterNames(names);
       setClusterNamingState('idle');
@@ -344,7 +360,7 @@ export default function GraphPage() {
       setClusterNamingError(err instanceof Error ? err.message : 'AI request failed.');
       setClusterNamingState('error');
     }
-  }, [clusterInfo, payload.nodes, aiSettings]);
+  }, [clusterInfo, payload.nodes, aiSettings, serverOpts]);
 
   const handleUnpinAll = useCallback(() => {
     // We can't directly mutate the force-graph nodes from outside the canvas.
@@ -624,6 +640,7 @@ export default function GraphPage() {
               onSelect={handleSelect}
               onOpen={openNote}
               aiSettings={aiEnabled ? aiSettings : undefined}
+              serverOpts={serverOpts}
             />
           </div>
           {/* Mobile node panel — slides up from bottom */}
@@ -651,6 +668,7 @@ export default function GraphPage() {
               onSelect={handleSelect}
               onOpen={openNote}
               aiSettings={aiEnabled ? aiSettings : undefined}
+              serverOpts={serverOpts}
             />
           </div>
         </>
@@ -738,13 +756,25 @@ function ControlsIcon() {
 // ---------------------------------------------------------------------------
 
 /**
- * Read a value from sessionStorage, SSR-safe (returns null when unavailable).
- * Used to detect a live server connection for the optional short-link path.
+ * Read the bearer token from sessionStorage and the server URL from
+ * localStorage, SSR-safe (each returns null when unavailable). These mirror the
+ * canonical tiers + keys written by `useAuth` (token → sessionStorage) and
+ * `useServerSettings` (URL → localStorage); reading the wrong tier/key here was
+ * why "Create short link" always reported "Not connected".
  */
-function readSession(key: string): string | null {
+function readToken(): string | null {
   try {
     if (typeof sessionStorage === 'undefined') return null;
-    return sessionStorage.getItem(key);
+    return sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function readServerUrl(): string | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    return localStorage.getItem(SERVER_URL_STORAGE_KEY);
   } catch {
     return null;
   }
@@ -823,8 +853,8 @@ function ShareButton({
     // connected to a server (sessionStorage has both keys) whose opt-in snapshot
     // store is enabled. Best-effort — any failure simply hides the affordance.
     try {
-      const token = readSession('gv:auth:token');
-      const serverUrl = readSession('gv:serverUrl');
+      const token = readToken();
+      const serverUrl = readServerUrl();
       if (token && serverUrl) {
         const cfg = await getServerSnapshotConfig(serverUrl);
         setShortAvailable(Boolean(cfg?.enabled));
@@ -854,8 +884,8 @@ function ShareButton({
     setShortBusy(true);
     setShortError('');
     try {
-      const token = readSession('gv:auth:token');
-      const serverUrl = readSession('gv:serverUrl');
+      const token = readToken();
+      const serverUrl = readServerUrl();
       if (!token || !serverUrl) {
         throw new Error('Not connected to a server.');
       }

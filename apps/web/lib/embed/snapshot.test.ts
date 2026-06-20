@@ -63,20 +63,43 @@ test('buildSnapshot includes only id+title for nodes, no content', () => {
   for (const sn of snap.n) {
     assert.deepEqual(Object.keys(sn).sort(), ['i', 't']);
   }
-  const a = snap.n.find((n) => n.i === 'a.md');
-  assert.ok(a, 'node a.md in snapshot');
-  assert.equal(a!.t, 'Alpha');
+  // PRIVACY: node ids are OPAQUE (no vault path leak). Look up by title instead.
+  const a = snap.n.find((n) => n.t === 'Alpha');
+  assert.ok(a, 'node "Alpha" in snapshot');
+  // The opaque id must NOT be the original vault path.
+  assert.notEqual(a!.i, 'a.md');
+});
+
+test('buildSnapshot remaps node ids to opaque ids (no vault path leak)', () => {
+  const nodes = [makeNode('Projects/secret/plan.md', 'Plan'), makeNode('b.md', 'Beta')];
+  const edges = [makeEdge('Projects/secret/plan.md', 'b.md')];
+  const snap = buildSnapshot(nodes, edges);
+
+  // No node id (or edge endpoint) may contain a vault path.
+  const allIds = [...snap.n.map((n) => n.i), ...snap.e.flatMap((e) => [e.s, e.t])];
+  for (const id of allIds) {
+    assert.ok(!id.includes('/'), `opaque id "${id}" must not contain a path separator`);
+    assert.ok(!id.endsWith('.md'), `opaque id "${id}" must not look like a vault path`);
+  }
+  // Edge endpoints must still reference the same opaque node ids.
+  const ids = new Set(snap.n.map((n) => n.i));
+  for (const e of snap.e) {
+    assert.ok(ids.has(e.s) && ids.has(e.t), 'edge endpoints reference snapshot node ids');
+  }
 });
 
 test('buildSnapshot excludes unresolved edges', () => {
-  const nodes = [makeNode('a.md'), makeNode('b.md')];
+  const nodes = [makeNode('a.md', 'Alpha'), makeNode('b.md', 'Beta')];
   const edges = [
     makeEdge('a.md', 'b.md', 'wikilink', true),
     makeEdge('a.md', 'ghost.md', 'wikilink', false), // unresolved
   ];
   const snap = buildSnapshot(nodes, edges);
   assert.equal(snap.e.length, 1);
-  assert.equal(snap.e[0].t, 'b.md');
+  // The single resolved edge connects Alpha → Beta (via opaque ids).
+  const byId = new Map(snap.n.map((n) => [n.i, n.t]));
+  assert.equal(byId.get(snap.e[0].s), 'Alpha');
+  assert.equal(byId.get(snap.e[0].t), 'Beta');
 });
 
 test('buildSnapshot excludes edges whose endpoints are not in the node set', () => {
@@ -87,7 +110,12 @@ test('buildSnapshot excludes edges whose endpoints are not in the node set', () 
 });
 
 test('buildSnapshot maps edge kinds correctly', () => {
-  const nodes = [makeNode('a.md'), makeNode('b.md'), makeNode('c.md'), makeNode('d.md')];
+  const nodes = [
+    makeNode('a.md', 'A'),
+    makeNode('b.md', 'B'),
+    makeNode('c.md', 'C'),
+    makeNode('d.md', 'D'),
+  ];
   const edges = [
     makeEdge('a.md', 'b.md', 'wikilink', true),
     makeEdge('b.md', 'c.md', 'markdown', true),
@@ -95,10 +123,12 @@ test('buildSnapshot maps edge kinds correctly', () => {
   ];
   const snap = buildSnapshot(nodes, edges);
   assert.equal(snap.e.length, 3);
-  const bySource = new Map(snap.e.map((e) => [e.s, e]));
-  assert.equal(bySource.get('a.md')?.k, 'w');
-  assert.equal(bySource.get('b.md')?.k, 'm');
-  assert.equal(bySource.get('c.md')?.k, 'r');
+  // Map opaque source id → title so we can assert kinds independent of ids.
+  const idToTitle = new Map(snap.n.map((n) => [n.i, n.t]));
+  const bySourceTitle = new Map(snap.e.map((e) => [idToTitle.get(e.s), e]));
+  assert.equal(bySourceTitle.get('A')?.k, 'w');
+  assert.equal(bySourceTitle.get('B')?.k, 'm');
+  assert.equal(bySourceTitle.get('C')?.k, 'r');
 });
 
 test('buildSnapshot handles empty graph', () => {
@@ -350,8 +380,14 @@ test('full pipeline: buildSnapshot → encode → decode preserves graph topolog
   assert.equal(decoded.n.length, 3);
   assert.equal(decoded.e.length, 2);
 
-  const nodeById = new Map(decoded.n.map((n) => [n.i, n]));
-  assert.equal(nodeById.get('a.md')?.t, 'Alpha');
-  assert.equal(nodeById.get('b.md')?.t, 'Beta');
-  assert.equal(nodeById.get('c.md')?.t, 'Gamma');
+  // Titles survive; ids are opaque (no vault path) but topology is preserved.
+  const titles = decoded.n.map((n) => n.t).sort();
+  assert.deepEqual(titles, ['Alpha', 'Beta', 'Gamma']);
+  for (const n of decoded.n) {
+    assert.ok(!n.i.endsWith('.md'), `opaque id "${n.i}" must not be a vault path`);
+  }
+  // The two edges connect Alpha→Beta and Beta→Gamma (resolved through ids).
+  const idToTitle = new Map(decoded.n.map((n) => [n.i, n.t]));
+  const topology = decoded.e.map((e) => `${idToTitle.get(e.s)}->${idToTitle.get(e.t)}`).sort();
+  assert.deepEqual(topology, ['Alpha->Beta', 'Beta->Gamma']);
 });

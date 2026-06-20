@@ -20,7 +20,7 @@
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 
-import type { LayoutActions } from '../../lib/layout/useLayout';
+import { effectiveMaximized, type LayoutActions } from '../../lib/layout/useLayout';
 import type { MaximizedPane } from '../../lib/layout/types';
 import { PaneControls } from './PaneControls';
 import { ResizeDivider } from './ResizeDivider';
@@ -57,7 +57,14 @@ export function WorkspaceLayout({
   const { layout, maximizePane, restorePane, setNoteListWidth, setDetailsWidth, togglePanel } =
     actions;
 
-  const { widths, panels, maximized, focusMode } = layout;
+  const { widths, panels, focusMode } = layout;
+
+  // In focus mode the side panes are hidden, so a persisted `maximized` of
+  // 'noteList'/'details' would hide every column (blank workspace). Treat
+  // maximize as inactive while in focus mode so the editor always shows. This is
+  // defence-in-depth: useLayout also clears `maximized` on entering focus mode,
+  // but a previously-persisted blank state must still render correctly.
+  const maximized = effectiveMaximized(layout.maximized, focusMode);
 
   // Mobile: which pane is currently visible
   const [mobilePane, setMobilePane] = useState<MobilePane>('editor');

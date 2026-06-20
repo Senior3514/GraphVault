@@ -23,6 +23,7 @@
  * pattern as other adapter migrations (see `migrationHelper.ts`).
  */
 
+import { AUTH_TOKEN_STORAGE_KEY, SERVER_URL_STORAGE_KEY } from '../../api/storageKeys';
 import type { Note } from '../types';
 import type { StorageAdapter } from './index';
 
@@ -33,12 +34,6 @@ import type { StorageAdapter } from './index';
 /** The single file path used to store the vault JSON on the WebDAV server. */
 export const WEBDAV_VAULT_FILENAME = 'graphvault-vault.json';
 
-/** sessionStorage key where the bearer token is stored by useAuth. */
-const SESSION_TOKEN_KEY = 'gv:auth:token';
-
-/** sessionStorage key where the server URL is stored by useServerSettings. */
-const SESSION_SERVER_URL_KEY = 'gv:serverUrl';
-
 /** Fallback server URL (matches the client default). */
 const DEFAULT_SERVER_URL = 'http://127.0.0.1:4000';
 
@@ -46,19 +41,21 @@ const DEFAULT_SERVER_URL = 'http://127.0.0.1:4000';
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Read the bearer token from sessionStorage (the key `useAuth` writes). */
 function getToken(): string | null {
   try {
     if (typeof sessionStorage === 'undefined') return null;
-    return sessionStorage.getItem(SESSION_TOKEN_KEY);
+    return sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
+/** Read the server URL from localStorage (the key `useServerSettings` writes). */
 function getServerUrl(): string {
   try {
-    if (typeof sessionStorage === 'undefined') return DEFAULT_SERVER_URL;
-    return sessionStorage.getItem(SESSION_SERVER_URL_KEY) ?? DEFAULT_SERVER_URL;
+    if (typeof localStorage === 'undefined') return DEFAULT_SERVER_URL;
+    return localStorage.getItem(SERVER_URL_STORAGE_KEY) ?? DEFAULT_SERVER_URL;
   } catch {
     return DEFAULT_SERVER_URL;
   }

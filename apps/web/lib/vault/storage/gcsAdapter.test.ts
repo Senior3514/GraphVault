@@ -48,6 +48,27 @@ function removeSessionStorage(): void {
   sessionStorageMap.clear();
 }
 
+const localStorageMap = new Map<string, string>();
+
+function installLocalStorage(): void {
+  (globalThis as Record<string, unknown>)['localStorage'] = {
+    getItem: (key: string) => localStorageMap.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      localStorageMap.set(key, value);
+    },
+    removeItem: (key: string) => {
+      localStorageMap.delete(key);
+    },
+    clear: () => localStorageMap.clear(),
+  };
+}
+
+function removeLocalStorage(): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  delete (globalThis as any)['localStorage'];
+  localStorageMap.clear();
+}
+
 // ---------------------------------------------------------------------------
 // fetch mock
 // ---------------------------------------------------------------------------
@@ -126,20 +147,23 @@ function restoreFetch(): void {
 
 before(() => {
   installSessionStorage();
+  installLocalStorage();
   installMockFetch(TEST_TOKEN);
 });
 
 after(() => {
   removeSessionStorage();
+  removeLocalStorage();
   restoreFetch();
 });
 
 beforeEach(() => {
   fakeStore.clear();
   sessionStorageMap.clear();
+  localStorageMap.clear();
   // Set up token and server URL.
-  sessionStorageMap.set('gv:auth:token', TEST_TOKEN);
-  sessionStorageMap.set('gv:serverUrl', TEST_SERVER_URL);
+  sessionStorageMap.set('graphvault:auth-token:v1', TEST_TOKEN);
+  localStorageMap.set('graphvault:server-url', TEST_SERVER_URL);
 });
 
 // ---------------------------------------------------------------------------
@@ -154,13 +178,13 @@ test('isAvailable() returns false without sessionStorage', () => {
 });
 
 test('isAvailable() returns false without a token', () => {
-  sessionStorageMap.delete('gv:auth:token');
+  sessionStorageMap.delete('graphvault:auth-token:v1');
   const adapter = new GcsStorageAdapter();
   assert.equal(adapter.isAvailable(), false);
 });
 
 test('isAvailable() returns true when token is present', () => {
-  sessionStorageMap.set('gv:auth:token', TEST_TOKEN);
+  sessionStorageMap.set('graphvault:auth-token:v1', TEST_TOKEN);
   const adapter = new GcsStorageAdapter();
   assert.equal(adapter.isAvailable(), true);
 });
@@ -226,19 +250,19 @@ test('clear() deletes the vault object from GCS', async () => {
 });
 
 test('clear() is a no-op when not signed in', async () => {
-  sessionStorageMap.delete('gv:auth:token');
+  sessionStorageMap.delete('graphvault:auth-token:v1');
   const adapter = new GcsStorageAdapter();
   await assert.doesNotReject(() => adapter.clear());
 });
 
 test('save() throws when not signed in', async () => {
-  sessionStorageMap.delete('gv:auth:token');
+  sessionStorageMap.delete('graphvault:auth-token:v1');
   const adapter = new GcsStorageAdapter();
   await assert.rejects(() => adapter.save([makeNote('x.md')]), /not signed in/i);
 });
 
 test('load() throws when not signed in', async () => {
-  sessionStorageMap.delete('gv:auth:token');
+  sessionStorageMap.delete('graphvault:auth-token:v1');
   const adapter = new GcsStorageAdapter();
   await assert.rejects(() => adapter.load(), /not signed in/i);
 });

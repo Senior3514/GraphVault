@@ -156,7 +156,12 @@ function Swatch({ color, outlined }: { color: string; outlined?: boolean }) {
       className="h-2.5 w-2.5 rounded-full"
       style={
         outlined
-          ? { backgroundColor: '#0a0a0a', boxShadow: `inset 0 0 0 1.5px ${color}` }
+          ? {
+              // Match the page background in either theme so the hollow swatch
+              // reads correctly (was hard-coded dark `#0a0a0a`).
+              backgroundColor: 'rgb(var(--n-950))',
+              boxShadow: `inset 0 0 0 1.5px ${color}`,
+            }
           : { backgroundColor: color }
       }
       aria-hidden
