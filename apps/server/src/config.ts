@@ -94,6 +94,58 @@ export interface ServerConfig {
    * Default: 200.
    */
   aiDailyCap: number;
+  /**
+   * Max time (ms) the server waits to fully receive a request before aborting it.
+   * Caps slow-client / Slowloris-style sockets that trickle bytes. Default 30s.
+   */
+  requestTimeoutMs: number;
+  /**
+   * How long (ms) an idle keep-alive connection is held open before the server
+   * closes it. Should exceed any fronting proxy's keep-alive to avoid races.
+   * Default 72s.
+   */
+  keepAliveTimeoutMs: number;
+  /**
+   * Max time (ms) a socket may stay open without the headers being completed.
+   * 0 disables Node's HTTP `connectionsCheckingInterval`/timeout. Default 60s.
+   */
+  connectionTimeoutMs: number;
+  /**
+   * Max length of a single URL path parameter (e.g. a `:hash`). Bounds router
+   * work and rejects absurdly long params early. Default 256.
+   */
+  maxParamLength: number;
+  /**
+   * Opt-in public graph-snapshot store. When false (the default) every
+   * `/v1/snapshots*` route returns 404 — the feature is invisible. Snapshots are
+   * unauthenticated public read-only shares of an opaque, already-encoded graph
+   * payload, so the feature is off unless an operator explicitly enables it.
+   */
+  snapshotsEnabled: boolean;
+  /** Max size in bytes of a single snapshot payload (the encoded string). */
+  snapshotMaxBytes: number;
+  /**
+   * Max number of stored snapshots. When exceeded, the oldest snapshots are
+   * evicted (oldest-first) so disk can't grow unbounded.
+   */
+  snapshotMaxCount: number;
+  /**
+   * Snapshot time-to-live, in days. Expired snapshots are swept on read and
+   * never returned. 0 = no expiry.
+   */
+  snapshotTtlDays: number;
+  /** Stricter per-window cap for `POST /v1/snapshots` to deter abuse. */
+  snapshotRateLimitMax: number;
+  /**
+   * "Connect anything" inbound webhook. When false, every `/v1/inbox*` route
+   * returns 404 (the feature is invisible). Defaults to ON because the inbound
+   * endpoint does nothing until an authenticated user explicitly mints a token.
+   */
+  inboxEnabled: boolean;
+  /** Max size in bytes of a single inbound note's rendered Markdown (413 over). */
+  inboxMaxBytes: number;
+  /** Stricter per-window cap for `POST /v1/inbox/:token` to deter abuse. */
+  inboxRateLimitMax: number;
 }
 
 function storageBackend(value: string | undefined): StorageBackend {
@@ -120,5 +172,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     requireHttps: bool(env.GRAPHVAULT_REQUIRE_HTTPS, isProduction),
     encryptionKey: encryptionKey(env.GRAPHVAULT_ENCRYPTION_KEY),
     aiDailyCap: num(env.GRAPHVAULT_AI_DAILY_CAP, 200),
+    requestTimeoutMs: num(env.GRAPHVAULT_REQUEST_TIMEOUT_MS, 30_000),
+    keepAliveTimeoutMs: num(env.GRAPHVAULT_KEEP_ALIVE_TIMEOUT_MS, 72_000),
+    connectionTimeoutMs: num(env.GRAPHVAULT_CONNECTION_TIMEOUT_MS, 60_000),
+    maxParamLength: num(env.GRAPHVAULT_MAX_PARAM_LENGTH, 256),
+    snapshotsEnabled: bool(env.GRAPHVAULT_SNAPSHOTS_ENABLED, false),
+    snapshotMaxBytes: num(env.GRAPHVAULT_SNAPSHOT_MAX_BYTES, 400_000),
+    snapshotMaxCount: num(env.GRAPHVAULT_SNAPSHOT_MAX_COUNT, 5000),
+    snapshotTtlDays: num(env.GRAPHVAULT_SNAPSHOT_TTL_DAYS, 30),
+    snapshotRateLimitMax: num(env.GRAPHVAULT_SNAPSHOT_RATE_LIMIT_MAX, 20),
+    inboxEnabled: bool(env.GRAPHVAULT_INBOX_ENABLED, true),
+    inboxMaxBytes: num(env.GRAPHVAULT_INBOX_MAX_BYTES, 1_000_000),
+    inboxRateLimitMax: num(env.GRAPHVAULT_INBOX_RATE_LIMIT_MAX, 30),
   };
 }

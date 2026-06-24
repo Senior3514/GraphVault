@@ -1,6 +1,7 @@
 import type { FileState } from '@graphvault/shared';
 import type {
   AiConfigRecord,
+  AzureConfigRecord,
   BlobRecord,
   ChangesPage,
   DeviceRecord,
@@ -32,6 +33,8 @@ export class InMemoryStorage implements Storage {
   private readonly blobs = new Map<string, BlobRecord>();
   private readonly webdavConfigs = new Map<string, WebDavConfigRecord>();
   private readonly s3Configs = new Map<string, S3ConfigRecord>();
+  private readonly azureConfigs = new Map<string, AzureConfigRecord>();
+  private readonly gcsConfigs = new Map<string, GcsConfigRecord>();
   private readonly aiConfigs = new Map<string, AiConfigRecord>();
 
   private static now(): string {
@@ -182,6 +185,30 @@ export class InMemoryStorage implements Storage {
 
   async deleteS3Config(userId: string): Promise<void> {
     this.s3Configs.delete(userId);
+  }
+
+  async getAzureConfig(userId: string): Promise<AzureConfigRecord | null> {
+    return this.azureConfigs.get(userId) ?? null;
+  }
+
+  async upsertAzureConfig(record: AzureConfigRecord): Promise<void> {
+    this.azureConfigs.set(record.userId, { ...record });
+  }
+
+  async deleteAzureConfig(userId: string): Promise<void> {
+    this.azureConfigs.delete(userId);
+  }
+
+  async getGcsConfig(userId: string): Promise<GcsConfigRecord | null> {
+    return this.gcsConfigs.get(userId) ?? null;
+  }
+
+  async upsertGcsConfig(record: GcsConfigRecord): Promise<void> {
+    this.gcsConfigs.set(record.userId, { ...record });
+  }
+
+  async deleteGcsConfig(userId: string): Promise<void> {
+    this.gcsConfigs.delete(userId);
   }
 
   async getAiConfig(userId: string): Promise<AiConfigRecord | null> {

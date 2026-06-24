@@ -525,36 +525,287 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   define the type with a minimum-length tuple. Do not rely on a length-check
   type guard to narrow array element access in TypeScript strict mode.
 
-## MCP server / stdio transport
+## Wave 14 — MCP server + VPS hardening + Prism2 theming (sequential specialist slices)
 
-### Content-Length framing: buffer raw bytes, never readline
+### MCP SDK forces zod ≥3.25 (the `zod/v3` subpath)
 
-- **Symptom concern:** using `node:readline` to parse MCP messages line-by-line
-  fails because JSON-RPC bodies can contain embedded newlines (multi-line tool
-  results, note content with newlines). `readline` splits on `\n`, breaking the
-  body.
-- **Root cause:** the MCP/LSP Content-Length framing is a binary protocol:
-  read `Content-Length: N\r\n\r\n` as ASCII headers, then consume exactly `N`
-  raw bytes. `readline` is wrong at both levels.
-- **Fix / rule:** buffer `input.on('data')` into a `Buffer`, find `\r\n\r\n`,
-  parse `Content-Length`, then slice exactly that many bytes. Only then decode
-  as UTF-8 and `JSON.parse`. Never use `readline` for Content-Length-framed
-  protocols.
+- **Symptom:** importing `@modelcontextprotocol/sdk/server/mcp.js` under the repo's
+  `zod@3.24.1` throws `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+- **Root cause:** the SDK (via `zod-to-json-schema@3.25.x`) `require`s the `zod/v3`
+  subpath, which only exists in zod **3.25+**.
+- **Fix / rule:** when adding the MCP SDK, bump zod to `^3.25.0` (still satisfies
+  every existing `^3.24.1` specifier, so one hoisted zod serves the whole
+  workspace) and pin the SDK to a 1.x that keeps zod on the v3 line (`^1.22.0`)
+  unless you intentionally migrate the repo to zod v4.
 
-### MCP `tools/call` error surface: use `isError: true` in the content, not a JSON-RPC error
+### stdio MCP servers must keep stdout pristine
 
-- **Rule:** per the MCP spec, tool execution errors (e.g. "note not found")
-  should be returned as a normal `tools/call` result with
-  `{ content: [{type: "text", text: "..."}], isError: true }`, not as a
-  JSON-RPC `error` object. Reserve JSON-RPC errors for protocol-level failures
-  (unknown method, invalid params). This lets the AI client see the error
-  message as tool output and reason about it, rather than treating it as a
-  transport failure.
+- **Rule:** stdout carries the JSON-RPC frames; any stray `console.log` there
+  corrupts the protocol stream. All diagnostics AND the config fail-fast message
+  go to **stderr**, and the process exits non-zero on bad config so the MCP host
+  detects the failure (verified: exit 1, token value never printed — only the
+  env-var _name_ appears in the "Required" message).
 
-### Root `tsconfig.json` references must include new composite packages
+### Lowering Fastify's global `bodyLimit` has blast radius beyond blob PUT
 
-- **Rule:** when adding a new composite package under `packages/`, add it to
-  the root `tsconfig.json` `references` array. Without this the root-level
-  `tsc -b` (used by some CI steps) will not build or typecheck the new package.
-  The `pnpm-workspace.yaml` glob (`packages/*`) handles package discovery for
-  pnpm; the tsconfig references are separate and must be updated manually.
+- **Symptom/risk:** splitting the body cap into a small JSON limit + large blob
+  limit also throttles the WebDAV/S3 vault-upload _proxy_ PUTs (they carry a whole
+  vault JSON, previously covered by the 64 MiB global) → large-vault sync breaks.
+- **Fix / rule:** any route that legitimately carries large bodies needs an
+  explicit per-route `bodyLimit: maxBlobBytes` — audit all `.put`/proxy routes
+  when tightening the global limit, not just the obvious blob route.
+
+### Compose `read_only: true` must pair with `tmpfs`; keep keep-alive above the proxy
+
+- **Rule:** a read-only root filesystem needs `tmpfs` for `/tmp` (Node scratch,
+  prisma `db push`); postgres additionally needs `/run`, `/var/run/postgresql`
+  tmpfs and a few caps re-added after `cap_drop: ALL`. Set the server's
+  `keepAliveTimeout` (default 72s) **above** the fronting nginx upstream
+  keep-alive (60s) to avoid spurious 502s from socket reuse races.
+
+### Theme the whole app by driving Tailwind's stock `neutral` ramp from CSS vars
+
+- **Rule:** redefining `colors.neutral.{50..950}` as
+  `rgb(var(--n-XXX) / <alpha-value>)`, with a dark `:root` ramp and an **inverted**
+  `[data-theme='light']` ramp (`light --n-950 := dark --n-50`, …), flips thousands
+  of existing `bg-neutral-950 text-neutral-100` utilities automatically — near-zero
+  blast radius, no per-component rewrite. Inverting preserves contrast semantics.
+- **Gotcha:** `theme('colors.neutral.700')` outside an `@apply` context emits
+  `rgb(var(--n-700) / <alpha-value>)` with the alpha placeholder unresolved →
+  invalid CSS. For raw CSS props (e.g. `scrollbar-color`) reference the variable
+  directly: `rgb(var(--n-700))`.
+- **No-flash:** an inline `<head>` script setting
+  `document.documentElement.dataset.theme` before paint is CSP-safe under the
+  existing `script-src 'self' 'unsafe-inline'` (no `'unsafe-eval'`, no vercel.json
+  change). Add `suppressHydrationWarning` to `<html>` since the attribute is set
+  pre-hydration.
+
+### Toolchain: corepack does not put a bare `pnpm` on PATH
+
+- **Symptom:** the root `build:web` script (and any nested bare `pnpm --filter …`)
+  fails with `sh: 1: pnpm: not found` when pnpm is only available via
+  `corepack pnpm`.
+- **Fix / rule:** put a one-line `pnpm`→`corepack pnpm` shim dir on PATH before
+  running root scripts that shell out to bare `pnpm`, or invoke per-package builds
+  directly via `corepack pnpm --filter`.
+
+### Integration: worktree isolation needs a git repo at the agent's cwd
+
+- **Symptom:** `Agent` with `isolation: "worktree"` failed with "not in a git
+  repository" even though the project dir was a fresh clone — the harness recorded
+  the session root as non-git at startup.
+- **Fix / rule:** when worktree isolation is unavailable, run specialists
+  **sequentially** in the shared tree with strict disjoint directory ownership and
+  commit between each; this preserves conflict-free delegation without the
+  concurrent-install/git-index races that parallel-in-one-tree would cause.
+
+## Wave 15 — programmable vault (MCP write tools + CLI HTTP API)
+
+### Conflict-safe writes need the raw per-path FileState (incl. tombstones), not the read view
+
+- **Symptom/risk:** the MCP read path (`latestMarkdownStates`) drops tombstones and
+  non-markdown — wrong for writes, where a prior tombstone's `revision` must become
+  the new note's `baseRevision`, or the push is rejected `STALE_BASE`.
+- **Fix / rule:** writes use a dedicated `client.getFileState(path)` that keeps the
+  highest-revision entry for the path **including** deleted tombstones. `baseRevision`
+  = that revision (or `0` if absent). Push is fast-forward-only server-side; surface
+  any `conflicts` entry as an error ("NOT applied — no data overwritten"), **never**
+  blind-retry with a bumped base. Invalidate the index cache only on confirmed apply.
+  `append_to_note` must read at the same revision it pushes as base so a concurrent
+  edit between read and write is caught as a conflict, not silently lost.
+
+### TS strict: narrow the nullable field in the type guard, and avoid `BodyInit`/loose-JSON types
+
+- A guard `state is FileState` does NOT make `state.hash` non-null under
+  `noUncheckedIndexedAccess`/strict — use `state is FileState & { hash: string }`.
+- `BodyInit` and a recursive `Json` interface both bite here: type a write helper's
+  body as `Uint8Array | string` (not `BodyInit`, which isn't in the Node lib types),
+  and for fetch-based tests prefer a single `json(r): Promise<any>` helper (one
+  `eslint-disable no-explicit-any`) over a `[key:string]: Json` index signature
+  (which collides with named array members like `length`/`some`).
+
+### A long-running CLI subcommand must branch before the shared one-shot vault read
+
+- **Rule:** `graphvault serve` runs indefinitely; every other command shares an
+  upfront synchronous `readVault`. Branch out to `serveCommand` (which owns its own
+  `readVault` + `server.close()` on SIGINT/SIGTERM → exit 0) BEFORE that shared read,
+  or the persistent command is shoehorned through the one-shot path.
+
+### Vault-API path-traversal hardening is purely string-level (engine never touches disk)
+
+- **Rule:** engine ids are vault-relative POSIX strings, so a read-only vault HTTP API
+  guards traversal by rejecting `..` segments, backslashes, and NUL and collapsing
+  `.`/empty segments — no `fs.realpath` needed. Test the URL-encoded form (`%2e%2e%2f`)
+  too, since the router decodes before matching. Bind `127.0.0.1` by default; warn
+  loudly when `--host` is non-loopback (exposes the vault).
+
+## Wave 16 — Azure Blob + GCS server-proxied storage adapters
+
+### Azure Shared Key: Content-Length line is empty for empty bodies
+
+- **Rule:** in the Azure Shared Key StringToSign, the Content-Length line must be the
+  empty string when the body is empty (GET/DELETE) and the byte count only for
+  non-empty bodies (PUT). Sending `"0"` for an empty body breaks the signature.
+  Derive it as `payload.length === 0 ? '' : String(len)`. `x-ms-*` headers are
+  lowercased, sorted, and joined into CanonicalizedHeaders; the CanonicalizedResource
+  is `/<account>/<container>/<blob>` plus sorted query params. Implement with
+  `node:crypto` HMAC-SHA256 over the base64-decoded account key — zero new deps.
+
+### GCS interop = free SigV4 reuse
+
+- **Rule:** GCS's S3-compatible XML API accepts AWS SigV4 verbatim, so a GCS
+  server-proxy adapter needs ZERO new signing code — feed `host=storage.googleapis.com`,
+  `region=auto`, `service=s3` into the existing `signS3Request`. The only
+  provider-specific surface is the URL builder + credential schema (HMAC interop
+  access id/secret). When adding S3-alike providers (R2, Backblaze, GCS, MinIO),
+  reuse the signer rather than replicate it.
+
+### Per-credential HKDF info strings extend cleanly to new providers
+
+- **Rule (reaffirmed):** each new credential-bearing provider gets its own versioned
+  HKDF info string — `graphvault-azure-cred-v1`, `graphvault-gcs-cred-v1` — distinct
+  from webdav/s3/ai, so a shared `userId` can never derive the same sub-key across
+  providers. Secrets AES-256-GCM at rest; config GET never returns the plaintext
+  secret (assert this in tests). Keep the single-well-known-object restriction
+  (`graphvault-vault.json`, other keys → 400) for every storage proxy.
+
+## Wave 17 — web Azure/GCS storage adapters + Settings picker
+
+### Trust the deployed server source over any brief for wire contracts
+
+- **Symptom:** a client config form built to a spec/brief (GCS fields
+  `accessKeyId`/`secretAccessKey`/`endpoint`) silently 400s because the actual
+  route expects different field names (`accessId`/`secret`/`prefix`, no endpoint).
+- **Rule:** before writing client config forms or adapters, READ
+  `apps/server/src/routes/<provider>.ts` + the `services/*ConfigInfo` response
+  interface and match field names byte-for-byte. The server is the source of truth;
+  a brief can be stale.
+
+### When a provider's zod schemas live route-locally (not in @graphvault/shared)
+
+- **Rule:** if `packages/**` is out of scope and the new provider's schemas were
+  defined route-locally on the server, do NOT extend the schema-validated
+  `GraphVaultClient`. Use plain bearer-token `fetch` helpers for config CRUD
+  (`postStorageConfig`/`getStorageConfig`/`deleteStorageConfig`) and keep validation
+  server-side. Secrets live only in the in-flight request body, never persisted in
+  the browser. (Follow-up: promote the wire types into `@graphvault/shared`.)
+
+### Factor shared proxy-adapter plumbing once, mirror per provider
+
+- **Rule:** Azure/GCS/S3 web adapters differ only in `id`/`label`/proxy path —
+  token+serverUrl session reads, `isNote` guards, JSON (de)serialise, and the
+  load/save/clear/isAvailable proxy flow are identical. Extract a single
+  apps/web-local `proxyAdapterHelpers.ts` (no new dep) and keep each adapter a thin
+  shell, rather than copy-pasting the whole s3Adapter three times.
+
+## Wave 18 — public opt-in graph-snapshot store + web short share links
+
+### Unauthenticated public-write endpoints: default OFF + layered caps
+
+- **Rule:** a no-account public-write feature (snapshot share store) ships **disabled
+  by default** (`GRAPHVAULT_SNAPSHOTS_ENABLED=false` → routes not even registered, so
+  the feature is invisible/404). When enabled, layer every cap: per-payload size
+  (413), total count with oldest-first eviction (bounded disk), TTL sweep on read,
+  and a STRICTER per-window rate limit on POST (like `/v1/auth/*`). Treat the payload
+  as opaque text — never parse/execute it server-side. Validate the id against a
+  strict `^[A-Za-z0-9_-]{16,32}$` pattern before building any path (traversal guard,
+  defense-in-depth in both service and store).
+
+### No owner? Gate destructive ops behind a one-time token, hashed + constant-time
+
+- **Rule:** with no account, DELETE can't be owner-checked — return a `deleteToken`
+  from POST, store only its SHA-256 hash, and require it on DELETE with a
+  `timingSafeEqual` compare. A party who only knows the public share id cannot grief
+  the snapshot.
+
+### `URL.origin` is the clean SSRF/junk guard for an attacker-controllable origin param
+
+- **Rule:** when a share link carries a `srv=<serverOrigin>` the embed page will fetch
+  from, validate it via `new URL(srv).origin` and require `http:`/`https:` — this
+  rejects non-http(s) schemes and strips any path/query/hash a crafted link added,
+  leaving only `scheme://host:port`. No manual string parsing.
+
+### Client-side cap can pre-empt the server 413 — keep both
+
+- **Note:** the web `encodeSnapshot` cap (200 KB) is below the server default
+  `snapshotMaxBytes` (400 KB), so oversized graphs are rejected client-side first.
+  Still wire + test the 413 path: the server cap is operator-configurable and is the
+  authoritative backstop.
+
+## Wave 19 — "connect anything" inbound webhook + per-connector audit log
+
+### Server-side note creation: blob.put plaintext BEFORE sync.push
+
+- **Rule:** when the server itself creates a note (inbound webhook), it must
+  `blob.put(hash, plaintextBytes)` BEFORE `sync.push([...])` — the sync decision
+  rejects `MISSING_BLOB` for any non-delete op whose hash isn't already uploaded.
+  Hash is `sha256` of the **plaintext** UTF-8. `SyncService.push` does NOT enforce
+  the device check (only the route does), so an internal caller acting on the
+  user's behalf via a validated inbox token may push directly.
+
+### No-clobber by path SELECTION, not conflict reaction
+
+- **Rule:** prevent overwrite by choosing a guaranteed-fresh vault-relative path
+  (`Inbox/<sanitized-source>-<randomShortId>.md`, then `storage.getFile` absence
+  check, regenerate on the astronomically-rare hit) and pushing with
+  `baseRevision: 0`. A fresh path fast-forward-accepts; a conflict becomes
+  structurally impossible, so the 409 branch is purely defensive (record a
+  `rejected` audit entry, never blind-retry onto existing content).
+
+### Unauthenticated public-write: token IS the credential, hashed; 404 on unknown
+
+- **Rule:** the inbound `POST /v1/inbox/:token` is unauthenticated by design — the
+  token is the credential. Store only `hashToken(token)`; look up by hash; return
+  404 (not 403) for unknown/revoked tokens so the endpoint never reveals which
+  tokens exist. Owner mints tokens via authenticated, vault-ownership-checked
+  endpoints; tokens are never returned in list views. Stricter per-window rate
+  limit + service-level size cap on the _rendered_ note (frontmatter adds bytes)
+  with the Fastify global bodyLimit as the coarse outer guard.
+
+## Wave 20 — MCP resources + prompts
+
+### SDK 1.29 registration signatures + capability auto-advertise
+
+- **Note:** `@modelcontextprotocol/sdk@1.29.0` current (non-deprecated) signatures:
+  `registerResource(name, ResourceTemplate, config, readCb)` and
+  `registerPrompt(name, { title, description, argsSchema }, cb)`. `ResourceTemplate`
+  requires the `list` key to be present (even if `undefined`). Registering
+  resources/prompts auto-advertises the capabilities — no manual capability wiring.
+  Always read the SDK's installed `dist` types (pnpm virtual store, not a top-level
+  `node_modules/@modelcontextprotocol`) since these APIs shift across 1.x.
+
+### URI-template `{+path}` matches multi-segment, but YOU must guard traversal
+
+- **Rule:** the reserved-expansion `graphvault://note/{+path}` form lets one template
+  match multi-segment note paths, but the template does NOT sanitize — decode and
+  validate each segment yourself (reject `..`/empty/absolute, including encoded
+  `%2e%2e`, and require the path to be a known note) before reading. Percent-encode
+  per segment when generating URIs so spaces/`#` round-trip.
+
+### Prompt-text assertions are case-sensitive
+
+- **Rule:** an emphasized all-caps word ("MISSING") in generated prompt copy won't
+  match a `[Mm]issing` regex — use `/.../i` for word-presence checks on copy you may
+  later restyle.
+
+## Wave 21 — focus mode (distraction-free editing)
+
+### Two independent useLayout() instances don't share React state — broadcast
+
+- **Rule:** when more than one component calls `useLayout()` (the shell hides the
+  rail/sidebar; the workspace hides panes/centers the editor), a plain state toggle
+  in one hook never reaches the other. Mirror the flag with a `window`
+  CustomEvent broadcast (like the existing `TOGGLE_PREVIEW_EVENT`): the originating
+  setter persists, listeners update state ONLY (no persistence feedback loop).
+
+### Make view-modes presentational, not destructive
+
+- **Rule:** hide panes via render conditions (`!focusMode && …`), never by flipping
+  `panels`/clearing `widths`/`tabs`. Exiting then restores the user's exact column
+  sizes and collapsed state. Cover it with a round-trip test.
+
+### Esc-to-exit handlers must yield to modal overlays
+
+- **Rule:** a global Esc handler (exit focus mode) must check for an open
+  `[role="dialog"][aria-modal="true"]` and bail if present, so Esc closes the
+  palette/drawer/modal first instead of an unexpected mode change.

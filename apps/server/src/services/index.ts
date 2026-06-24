@@ -1,5 +1,6 @@
 import type { Storage } from '../store/types.js';
 import { DiskBlobStore } from '../store/blob-store.js';
+import { DiskSnapshotStore, type SnapshotStore } from '../store/snapshot-store.js';
 import { AiService } from './ai.js';
 import { AuthService } from './auth.js';
 import { BlobService } from './blob.js';
@@ -39,13 +40,40 @@ export interface Services {
   gcs: GcsService;
   clip: ClipService;
   ai: AiService;
+  /**
+   * Public graph-snapshot store. Only constructed when the feature is enabled;
+   * undefined (and routes unregistered) when off so it's invisible by default.
+   */
+  snapshot?: SnapshotService;
+  /**
+   * "Connect anything" inbound webhook. Only constructed when enabled; undefined
+   * (and routes unregistered) when off so `/v1/inbox*` is invisible.
+   */
+  inbox?: InboxService;
+}
+
+export interface CreateServicesOptions {
+  encryptionKey?: Buffer;
+  aiDailyCap?: number;
+  /**
+   * When provided, the public snapshot store is enabled and constructed. Omit to
+   * leave the feature off (no snapshot service, routes unregistered).
+   */
+  snapshots?: SnapshotServiceOptions;
+  /** Inject a snapshot store (tests use an in-memory one). Defaults to disk. */
+  snapshotStore?: SnapshotStore;
+  /**
+   * When provided, the inbound webhook ("connect anything") is enabled and
+   * constructed. Omit to leave the feature off (no inbox service, routes
+   * unregistered).
+   */
+  inbox?: InboxServiceOptions;
 }
 
 export function createServices(
   storage: Storage,
   dataDir: string,
-  encryptionKey?: Buffer,
-  aiDailyCap?: number,
+  options: CreateServicesOptions = {},
 ): Services {
   const { encryptionKey, aiDailyCap, snapshots, snapshotStore, inbox } = options;
   const blobStore = new DiskBlobStore(dataDir, encryptionKey);

@@ -90,6 +90,42 @@ export interface S3ConfigRecord {
 }
 
 /**
+ * Persisted Azure Blob Storage configuration for a single user.
+ *
+ * The `accountKey` field stores an AES-256-GCM ciphertext (base64). The raw key
+ * is never written to the store; it exists only in decrypted form inside a
+ * running request. All other fields are non-secret and displayed in Settings.
+ */
+export interface AzureConfigRecord {
+  userId: string;
+  account: string;
+  container: string;
+  /** AES-256-GCM encrypted account key, base64-encoded (nonce||tag||ciphertext). */
+  encryptedAccountKey: string;
+  /** Optional endpoint override (e.g. Azurite). Omit for the public Azure host. */
+  endpoint?: string;
+  updatedAt: string; // ISO-8601
+}
+
+/**
+ * Persisted Google Cloud Storage configuration for a single user.
+ *
+ * GCS is accessed via its S3-compatible XML API with HMAC interop credentials.
+ * The `secret` field stores an AES-256-GCM ciphertext (base64). The raw secret
+ * is never written to the store; it exists only in decrypted form inside a
+ * running request. All other fields are non-secret and displayed in Settings.
+ */
+export interface GcsConfigRecord {
+  userId: string;
+  bucket: string;
+  accessId: string;
+  /** AES-256-GCM encrypted HMAC secret, base64-encoded (nonce||tag||ciphertext). */
+  encryptedSecret: string;
+  prefix?: string;
+  updatedAt: string; // ISO-8601
+}
+
+/**
  * Persisted AI proxy configuration for a single user.
  *
  * The `apiKey` field stores an AES-256-GCM ciphertext (base64). The raw key is
@@ -177,6 +213,16 @@ export interface Storage {
   getS3Config(userId: string): Promise<S3ConfigRecord | null>;
   upsertS3Config(record: S3ConfigRecord): Promise<void>;
   deleteS3Config(userId: string): Promise<void>;
+
+  // --- Azure Blob Storage configuration ---
+  getAzureConfig(userId: string): Promise<AzureConfigRecord | null>;
+  upsertAzureConfig(record: AzureConfigRecord): Promise<void>;
+  deleteAzureConfig(userId: string): Promise<void>;
+
+  // --- Google Cloud Storage configuration ---
+  getGcsConfig(userId: string): Promise<GcsConfigRecord | null>;
+  upsertGcsConfig(record: GcsConfigRecord): Promise<void>;
+  deleteGcsConfig(userId: string): Promise<void>;
 
   // --- AI proxy configuration ---
   getAiConfig(userId: string): Promise<AiConfigRecord | null>;

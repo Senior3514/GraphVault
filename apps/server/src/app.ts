@@ -17,6 +17,9 @@ import { registerAzureRoutes } from './routes/azure.js';
 import { registerGcsRoutes } from './routes/gcs.js';
 import { registerClipRoutes } from './routes/clip.js';
 import { registerAiRoutes } from './routes/ai.js';
+import { registerSnapshotRoutes } from './routes/snapshots.js';
+import { registerInboxRoutes } from './routes/inbox.js';
+import { DEFAULT_INBOX_AUDIT_CAP } from './services/inbox.js';
 import type { Storage } from './store/types.js';
 import type { SnapshotStore } from './store/snapshot-store.js';
 
@@ -132,7 +135,25 @@ export async function buildApp(
     storageHandle = await createStorage(config);
     storage = storageHandle.storage;
   }
-  const services = createServices(storage, config.dataDir, config.encryptionKey, config.aiDailyCap);
+  const services = createServices(storage, config.dataDir, {
+    encryptionKey: config.encryptionKey,
+    aiDailyCap: config.aiDailyCap,
+    snapshots: config.snapshotsEnabled
+      ? {
+          maxBytes: config.snapshotMaxBytes,
+          maxCount: config.snapshotMaxCount,
+          ttlDays: config.snapshotTtlDays,
+          now: options.snapshotNow,
+        }
+      : undefined,
+    snapshotStore: options.snapshotStore,
+    inbox: config.inboxEnabled
+      ? {
+          maxBytes: config.inboxMaxBytes,
+          maxAuditEntries: DEFAULT_INBOX_AUDIT_CAP,
+        }
+      : undefined,
+  });
 
   app.addHook('onClose', async () => {
     if (storageHandle) await storageHandle.close();
@@ -241,6 +262,15 @@ export async function buildApp(
 
   // --- AI proxy (BFF): server-side AI key storage + chat proxy ---
   registerAiRoutes(app, services);
+
+  // --- Wave 18: opt-in public graph-snapshot store (short share links). When
+  //     disabled (the default), no routes are registered → /v1/snapshots* 404s. ---
+  registerSnapshotRoutes(app, services, config);
+
+  // --- Wave 19: "connect anything" inbound webhook + per-connector audit log.
+  //     Enabled by default; an inbound token must be minted by an authenticated
+  //     user before the public POST /v1/inbox/:token endpoint can create a note.
+  registerInboxRoutes(app, services, config);
 
   return app;
 }

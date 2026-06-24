@@ -98,8 +98,8 @@
 - ✅ Docs: quickstart, self-hosting, security model, data portability; public-launch README (scrubbed); one-command install table
 - ✅ Accessibility pass: focus traps + restoration, skip-link, ARIA + live regions, WCAG AA
 - ✅ QA gauntlet + review (data-loss / privacy / security CLEAR; 2 fixes applied)
-- ⬜ Light/dark theming via design tokens (system preference + persisted override)
-- ✅ "+ to add files" primary action: bottom-thumb FAB (mobile) + note-list header (desktop)
+- ✅ Light/dark theming via design tokens (system preference + persisted override) — "Prism2": CSS-variable neutral ramp, no-flash boot, segmented Light/Dark/System toggle
+- ⬜ "+ to add files" primary action: bottom-thumb FAB (mobile) + file-tree header (desktop)
 - ⬜ Tagged v0.1.0 release → native installers via CI
 
 ## Milestone 18 — Universal storage providers (your data, literally anywhere) 🟡

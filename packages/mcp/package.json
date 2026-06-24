@@ -2,25 +2,34 @@
   "name": "@graphvault/mcp",
   "version": "0.0.0",
   "private": true,
-  "description": "GraphVault MCP server — expose a vault as MCP resources + tools over stdio.",
   "type": "module",
   "bin": {
     "graphvault-mcp": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b",
     "dev": "tsc -b --watch",
     "typecheck": "tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "node --test dist/handlers.test.js"
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
-    "@graphvault/engine": "workspace:*"
+    "@graphvault/engine": "workspace:*",
+    "@graphvault/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.22.0",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }
