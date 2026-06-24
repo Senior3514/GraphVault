@@ -6,6 +6,7 @@ import type {
   DeviceRecord,
   FileChange,
   FileRecord,
+  GcsConfigRecord,
   S3ConfigRecord,
   Storage,
   TokenRecord,

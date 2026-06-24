@@ -13,7 +13,7 @@
     "dev": "tsc -b --watch",
     "typecheck": "tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "node --test dist/commands.test.js"
+    "test": "node --test \"dist/**/*.test.js\""
   },
   "dependencies": {
     "@graphvault/engine": "workspace:*"

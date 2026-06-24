@@ -44,7 +44,9 @@
 - ✅ Collapse / expand / maximize-restore controls per pane; layout persisted
 - ✅ Editor tabs: open/close/reorder, dirty indicator, "+"; split view (editor+preview / two notes)
 - ✅ Per-tab autosave that flushes before switch/close/unmount (no lost edits)
-- ⬜ Pop-out windows / focus mode (nice-to-have)
+- ✅ Focus mode — distraction-free editing (hide rail/sidebar/details, center
+  editor; `Cmd/Ctrl+Shift+F` + Esc + palette; persisted, non-destructive)
+- ⬜ Pop-out windows (nice-to-have)
 
 ## Milestone 13 — Command palette & power editing ✅
 
@@ -69,6 +71,10 @@
 - ✅ Strict CSP (`<meta>` + `vercel.json` headers) + X-Content-Type-Options / Referrer-Policy / X-Frame-Options / Permissions-Policy
 - ✅ Performance: virtualized note list + debounced search
 - ✅ Automatic backups / version history (IndexedDB, non-destructive restore) — data-loss safety net
+- ✅ VPS deployment hardening: production-config safety preflight (fail-fast on
+  insecure prod), graceful shutdown, connection/timeout limits, split JSON vs
+  blob body caps, hardened Dockerfile/compose (non-root, cap_drop, read-only +
+  tmpfs, healthcheck), `docs/hardening.md` (nginx TLS, UFW, fail2ban, systemd)
 - ⬜ Lazy-load graph; CSP Trusted Types (CSP shipped)
 
 ## Milestone 14b — Graph v2 extras ✅
@@ -105,9 +111,13 @@ providers go through the self-hosted server (keys never touch the browser).
 - ✅ Seam + localStorage + File System Access (disk) + Tauri (native disk)
 - ✅ WebDAV adapter (Nextcloud / any) via self-hosted server proxy — creds never in browser
 - ✅ S3-compatible adapter (AWS S3 / MinIO / Backblaze / R2) via server proxy (from-scratch SigV4)
-- ⬜ Azure Blob + Google Cloud Storage adapters (server-proxied)
+- ✅ Azure Blob + Google Cloud Storage adapters (server-proxied) — Azure Shared
+  Key (HMAC) + GCS XML API via AWS SigV4 interop; creds AES-GCM at rest, never in
+  browser; single-object (`graphvault-vault.json`) proxy like S3
 - ⬜ Google Drive + OneDrive (OAuth, app-folder scope; tokens server-side)
-- ⬜ Settings provider picker with safe copy-verify-switch migration (reuse existing)
+- ✅ Settings provider picker with safe copy-verify-switch migration — all
+  server-proxied providers (WebDAV, S3, Azure Blob, GCS) selectable from Settings;
+  web `StorageAdapter`s talk only to the self-hosted proxy (creds never in browser)
 
 ## Milestone 19 — Browser extension (web-clipper → note) 🟡
 
@@ -122,8 +132,12 @@ Make GraphVault the most _usable_ knowledge tool — it goes where you are.
 
 - ✅ One-click importers: Obsidian / Notion / Roam / Logseq / plain folders
 - ✅ Embeddable read-only graph (`/embed?s=…`, privacy-safe snapshot) + Share button
-- ⬜ Public shareable graph snapshots (opt-in, no account)
-- ✅ CLI (`@graphvault/cli`: list / search / stats / graph) — local HTTP API ⬜
+- ✅ Public shareable graph snapshots (opt-in, no account) — server snapshot store
+  (off by default; size/count caps, TTL sweep, hashed delete-token, stricter rate
+  limit) + web "short link" (`/embed?id=&srv=`) with the self-contained `s=` link
+  kept as fallback
+- ✅ CLI (`@graphvault/cli`: list / search / stats / graph) + local HTTP API
+  (`graphvault serve`: read-only JSON over `node:http`, localhost-default, zero-dep)
 - ✅ URL scheme (`web+graphvault:`) + PWA share_target (`/share`) — clip from any app
 
 ## Milestone 21 — AI assistant (privacy-first, opt-in) 🟡
@@ -143,7 +157,14 @@ device unless the user enables a provider.
 - ⬜ **Server-side AI proxy (BFF)** — keys live on the user's self-hosted server
   (encrypted), never the browser; **OpenRouter** as default gateway (400+ models)
   - per-key spend caps. (Research-backed: client-stored secrets are extractable.)
-- ⬜ MCP server — expose the vault to external agents (Claude) for interoperability
+- ✅ MCP server — expose the vault to external agents (Claude) for interoperability
+  (`@graphvault/mcp`: stdio server over the self-hosted HTTP API; read tools —
+  list/read/search notes, backlinks, local graph, vault stats; reuses the engine.
+  Conflict-safe **write** tools — create/update/append/delete — opt-in via
+  `GRAPHVAULT_DEVICE_ID`; never clobbers (server returns conflicts, no blind retry).
+  **Resources** — notes as attachable `graphvault://note/<path>` resources (list +
+  read, text/markdown). **Prompts** — `summarize_note`, `find_connections`,
+  `search_and_synthesize` templates that embed real vault context)
 
 ## Milestone 22 — Connectors (email & everything, privacy-graded) 🟡
 
@@ -155,7 +176,10 @@ connector shows its privacy posture.
 - ✅ Email import (`.eml` / `.mbox`, client-side, phase 1)
 - ⬜ Live email (IMAP / Gmail / Outlook OAuth) → server-side creds, phase 2
 - ⬜ URL-fetch / web-clip via server proxy (avoids CORS, keeps creds off the browser)
-- ⬜ Generic webhook / "connect anything" recipe layer; per-connector audit log
+- ✅ Generic webhook / "connect anything" + per-connector audit log — per-user
+  inbox tokens (hashed, vault-scoped, owner-minted) → `POST /v1/inbox/:token`
+  lands content as a non-clobbering `Inbox/…` note via the tested blob/sync path;
+  size-capped, rate-limited; authenticated audit log of every inbound event
 
 ---
 

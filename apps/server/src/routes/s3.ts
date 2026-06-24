@@ -21,6 +21,7 @@
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { s3ConfigRequestSchema } from '@graphvault/shared';
+import type { ServerConfig } from '../config.js';
 import { badRequest } from '../errors.js';
 import type { AuthContext } from '../services/auth.js';
 import type { Services } from '../services/index.js';
@@ -28,7 +29,11 @@ import type { Services } from '../services/index.js';
 /** The only object key proxied through. Must match the client adapter. */
 export const S3_VAULT_OBJECT_KEY = 'graphvault-vault.json';
 
-export function registerS3Routes(app: FastifyInstance, services: Services): void {
+export function registerS3Routes(
+  app: FastifyInstance,
+  services: Services,
+  config: ServerConfig,
+): void {
   const auth = (request: FastifyRequest): Promise<AuthContext> =>
     services.auth.authenticate(request.headers.authorization);
 
@@ -75,27 +80,33 @@ export function registerS3Routes(app: FastifyInstance, services: Services): void
 
   // ---- Object proxy: PUT (upload) ----
 
-  app.put(`/v1/storage/s3/object/${S3_VAULT_OBJECT_KEY}`, async (request, reply) => {
-    const { user } = await auth(request);
+  // The vault object can be large (a whole vault JSON), so this proxy PUT opts
+  // into the blob-sized cap rather than the tighter global JSON limit.
+  app.put(
+    `/v1/storage/s3/object/${S3_VAULT_OBJECT_KEY}`,
+    { bodyLimit: config.maxBlobBytes },
+    async (request, reply) => {
+      const { user } = await auth(request);
 
-    // Normalise body to Buffer regardless of how Fastify parsed it.
-    const rawBody = request.body;
-    let body: Buffer;
-    if (Buffer.isBuffer(rawBody)) {
-      body = rawBody;
-    } else if (typeof rawBody === 'string') {
-      body = Buffer.from(rawBody, 'utf8');
-    } else if (rawBody !== null && rawBody !== undefined) {
-      body = Buffer.from(JSON.stringify(rawBody), 'utf8');
-    } else {
-      body = Buffer.alloc(0);
-    }
+      // Normalise body to Buffer regardless of how Fastify parsed it.
+      const rawBody = request.body;
+      let body: Buffer;
+      if (Buffer.isBuffer(rawBody)) {
+        body = rawBody;
+      } else if (typeof rawBody === 'string') {
+        body = Buffer.from(rawBody, 'utf8');
+      } else if (rawBody !== null && rawBody !== undefined) {
+        body = Buffer.from(JSON.stringify(rawBody), 'utf8');
+      } else {
+        body = Buffer.alloc(0);
+      }
 
-    const contentType =
-      (request.headers['content-type'] as string | undefined) ?? 'application/octet-stream';
-    const status = await services.s3.proxyPut(user.id, S3_VAULT_OBJECT_KEY, body, contentType);
-    return reply.code(status >= 200 && status < 300 ? 200 : status).send();
-  });
+      const contentType =
+        (request.headers['content-type'] as string | undefined) ?? 'application/octet-stream';
+      const status = await services.s3.proxyPut(user.id, S3_VAULT_OBJECT_KEY, body, contentType);
+      return reply.code(status >= 200 && status < 300 ? 200 : status).send();
+    },
+  );
 
   // ---- Object proxy: DELETE ----
 

@@ -21,11 +21,16 @@
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { webdavConfigRequestSchema, webdavProxyPathSchema } from '@graphvault/shared';
+import type { ServerConfig } from '../config.js';
 import { badRequest } from '../errors.js';
 import type { AuthContext } from '../services/auth.js';
 import type { Services } from '../services/index.js';
 
-export function registerWebDavRoutes(app: FastifyInstance, services: Services): void {
+export function registerWebDavRoutes(
+  app: FastifyInstance,
+  services: Services,
+  config: ServerConfig,
+): void {
   const auth = (request: FastifyRequest): Promise<AuthContext> =>
     services.auth.authenticate(request.headers.authorization);
 
@@ -73,32 +78,38 @@ export function registerWebDavRoutes(app: FastifyInstance, services: Services): 
 
   // ---- Proxy: PUT (upload) ----
 
-  app.put('/v1/storage/webdav/proxy/*', async (request, reply) => {
-    const { user } = await auth(request);
-    const proxyPath = extractProxyPath(request);
+  // The vault upload can be large (a whole vault JSON), so this proxy PUT opts
+  // into the blob-sized cap rather than the tighter global JSON limit.
+  app.put(
+    '/v1/storage/webdav/proxy/*',
+    { bodyLimit: config.maxBlobBytes },
+    async (request, reply) => {
+      const { user } = await auth(request);
+      const proxyPath = extractProxyPath(request);
 
-    // Normalise the body to a Buffer regardless of how Fastify parsed it.
-    // The wildcard content-type parser delivers a Buffer; the JSON parser
-    // delivers a parsed object (when `Content-Type: application/json`).
-    // In both cases, re-serialise to bytes for the proxy PUT.
-    const rawBody = request.body;
-    let body: Buffer;
-    if (Buffer.isBuffer(rawBody)) {
-      body = rawBody;
-    } else if (typeof rawBody === 'string') {
-      body = Buffer.from(rawBody, 'utf8');
-    } else if (rawBody !== null && rawBody !== undefined) {
-      // Parsed JSON object — re-serialise.
-      body = Buffer.from(JSON.stringify(rawBody), 'utf8');
-    } else {
-      body = Buffer.alloc(0);
-    }
+      // Normalise the body to a Buffer regardless of how Fastify parsed it.
+      // The wildcard content-type parser delivers a Buffer; the JSON parser
+      // delivers a parsed object (when `Content-Type: application/json`).
+      // In both cases, re-serialise to bytes for the proxy PUT.
+      const rawBody = request.body;
+      let body: Buffer;
+      if (Buffer.isBuffer(rawBody)) {
+        body = rawBody;
+      } else if (typeof rawBody === 'string') {
+        body = Buffer.from(rawBody, 'utf8');
+      } else if (rawBody !== null && rawBody !== undefined) {
+        // Parsed JSON object — re-serialise.
+        body = Buffer.from(JSON.stringify(rawBody), 'utf8');
+      } else {
+        body = Buffer.alloc(0);
+      }
 
-    const contentType =
-      (request.headers['content-type'] as string | undefined) ?? 'application/octet-stream';
-    const status = await services.webdav.proxyPut(user.id, proxyPath, body, contentType);
-    return reply.code(status === 201 ? 201 : 204).send();
-  });
+      const contentType =
+        (request.headers['content-type'] as string | undefined) ?? 'application/octet-stream';
+      const status = await services.webdav.proxyPut(user.id, proxyPath, body, contentType);
+      return reply.code(status === 201 ? 201 : 204).send();
+    },
+  );
 
   // ---- Proxy: DELETE ----
 

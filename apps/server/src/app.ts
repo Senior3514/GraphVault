@@ -13,9 +13,12 @@ import { registerVaultRoutes } from './routes/vaults.js';
 import { registerBlobRoutes } from './routes/blobs.js';
 import { registerWebDavRoutes } from './routes/webdav.js';
 import { registerS3Routes } from './routes/s3.js';
+import { registerAzureRoutes } from './routes/azure.js';
+import { registerGcsRoutes } from './routes/gcs.js';
 import { registerClipRoutes } from './routes/clip.js';
 import { registerAiRoutes } from './routes/ai.js';
 import type { Storage } from './store/types.js';
+import type { SnapshotStore } from './store/snapshot-store.js';
 
 export interface AppOptions {
   /**
@@ -23,6 +26,16 @@ export interface AppOptions {
    * {@link InMemoryStorage}). When omitted, storage is built from `config`.
    */
   storage?: Storage;
+  /**
+   * Inject a snapshot store (tests use {@link InMemorySnapshotStore}). Only used
+   * when the snapshot feature is enabled in `config`; otherwise ignored.
+   */
+  snapshotStore?: SnapshotStore;
+  /**
+   * Inject a clock (ms since epoch) for the snapshot service so tests can age
+   * entries deterministically (TTL / expiry). Defaults to `Date.now`.
+   */
+  snapshotNow?: () => number;
 }
 
 /**
@@ -36,10 +49,22 @@ export async function buildApp(
   options: AppOptions = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({
-    bodyLimit: Math.max(config.maxBlobBytes, 1024 * 1024),
+    // Global cap applies to JSON / non-blob routes. The blob PUT route opts into
+    // the larger `maxBlobBytes` cap via a per-route `bodyLimit` (see blobs.ts),
+    // so a giant JSON payload can't exhaust memory on the auth/push endpoints.
+    bodyLimit: config.maxJsonBytes,
     // Behind a reverse proxy that terminates TLS, trust X-Forwarded-* so client
     // IPs (rate limiting) and proto (HTTPS detection) are read correctly.
     trustProxy: config.trustProxy,
+    // --- connection hardening (env-configurable; safe defaults in config.ts) ---
+    // Bound how long a single request may take to arrive (Slowloris defense) and
+    // how long idle keep-alive sockets and header-less connections live, so a
+    // hostile or broken client can't pin server resources open indefinitely.
+    requestTimeout: config.requestTimeoutMs,
+    keepAliveTimeout: config.keepAliveTimeoutMs,
+    connectionTimeout: config.connectionTimeoutMs,
+    // Reject absurdly long URL path params early (e.g. a forged `:hash`).
+    maxParamLength: config.maxParamLength,
     logger: {
       level: config.nodeEnv === 'production' ? 'info' : 'debug',
       // No remote log shipping by default — logs stay local.
@@ -168,18 +193,48 @@ export async function buildApp(
     requireHttps: config.requireHttps,
     trustProxy: config.trustProxy,
     maxBlobBytes: config.maxBlobBytes,
+    maxJsonBytes: config.maxJsonBytes,
+    // Server-proxied storage adapters: the route is always registered, so the
+    // browser can store credentials server-side and never touch the provider.
+    // `credentialsEncryptedAtRest` reports whether a persistent server key backs
+    // the at-rest AES-GCM encryption (vs a process-lifetime key). NEVER exposes
+    // account names, keys, or any secret material.
+    storageProxies: {
+      s3: { available: true },
+      webdav: { available: true },
+      azure: { available: true },
+      gcs: { available: true },
+      credentialsEncryptedAtRest: config.encryptionKey !== undefined,
+    },
+    // Public, opt-in graph-snapshot store. Off by default; only non-sensitive
+    // posture flags are exposed (no payloads, no ids).
+    snapshots: {
+      enabled: config.snapshotsEnabled,
+      maxBytes: config.snapshotMaxBytes,
+    },
+    // "Connect anything" inbound webhook. Enabled by default (a token must be
+    // minted by an authenticated user before anything can be posted). Only
+    // non-sensitive posture flags are exposed (no tokens, no audit data).
+    inbox: {
+      enabled: config.inboxEnabled,
+      maxBytes: config.inboxMaxBytes,
+    },
   }));
 
   // --- Milestone 2: auth, vaults, sync, blobs ---
   registerAuthRoutes(app, services, config);
   registerVaultRoutes(app, services);
-  registerBlobRoutes(app, services);
+  registerBlobRoutes(app, services, config);
 
   // --- Milestone 18: WebDAV proxy storage ---
-  registerWebDavRoutes(app, services);
+  registerWebDavRoutes(app, services, config);
 
   // --- Milestone 18: S3-compatible storage proxy ---
-  registerS3Routes(app, services);
+  registerS3Routes(app, services, config);
+
+  // --- Wave 16: Azure Blob + Google Cloud Storage proxies (creds never in browser) ---
+  registerAzureRoutes(app, services, config);
+  registerGcsRoutes(app, services, config);
 
   // --- Milestone 22: URL web-clipper (server-side fetch + HTML→Markdown) ---
   registerClipRoutes(app, services);

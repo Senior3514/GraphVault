@@ -11,8 +11,12 @@
  * How it works:
  *   1. The URL carries a compact, base64url-encoded snapshot (see
  *      `apps/web/lib/embed/snapshot.ts`). The embed page decodes it on load.
- *   2. If no `s=` parameter is present, it falls back to reading the user's
- *      current local vault (so you can preview the embed before sharing).
+ *   2. Alternatively a SHORT, server-backed link `?id=<id>&srv=<serverOrigin>`
+ *      (Wave 18) fetches the same opaque payload from the server's opt-in
+ *      snapshot store, then decodes it through the same path. The `srv` origin
+ *      is validated as http(s) before any fetch (see `lib/embed/shareLink.ts`).
+ *   3. If neither `s=` nor `id=`+`srv=` is present, it falls back to reading the
+ *      user's current local vault (so you can preview the embed before sharing).
  *   3. The snapshot is converted to a `RenderModel` and handed to a dynamically
  *      loaded `ForceGraphCanvas` (canvas stays `ssr: false`).
  *
@@ -50,6 +54,7 @@ import {
   SnapshotTooLargeError,
   type EmbedSnapshot,
 } from '../../lib/embed/snapshot';
+import { fetchSnapshot, ShareLinkError } from '../../lib/embed/shareLink';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import { notesToInputs } from '../../lib/graph/model';
 
@@ -107,6 +112,11 @@ function snapshotToGraphShapes(snapshot: EmbedSnapshot): {
 function EmbedInner() {
   const searchParams = useSearchParams();
   const encoded = searchParams.get('s');
+  // Short server-backed link: `?id=<id>&srv=<serverOrigin>`. The `srv` origin is
+  // validated as http(s) inside `fetchSnapshot` (SSRF/junk guard) before any
+  // request is made. The long `s=` link takes precedence when both are present.
+  const shortId = searchParams.get('id');
+  const shortSrv = searchParams.get('srv');
 
   const vault = useVaultContext();
 
@@ -131,8 +141,16 @@ function EmbedInner() {
         let edges: GraphEdge[];
 
         if (encoded) {
-          // URL snapshot path: decode it.
+          // Long URL snapshot path: decode the self-contained `s=` payload.
           const snapshot = await decodeSnapshot(encoded);
+          const shapes = snapshotToGraphShapes(snapshot);
+          nodes = shapes.nodes;
+          edges = shapes.edges;
+        } else if (shortId && shortSrv) {
+          // Short server-backed path: fetch the opaque payload from the snapshot
+          // store, then decode it through the SAME path as the `s=` case.
+          const data = await fetchSnapshot(shortSrv, shortId);
+          const snapshot = await decodeSnapshot(data);
           const shapes = snapshotToGraphShapes(snapshot);
           nodes = shapes.nodes;
           edges = shapes.edges;
@@ -158,7 +176,11 @@ function EmbedInner() {
         setModel(built);
       } catch (err) {
         if (cancelled) return;
-        if (err instanceof SnapshotTooLargeError || err instanceof SnapshotDecodeError) {
+        if (
+          err instanceof SnapshotTooLargeError ||
+          err instanceof SnapshotDecodeError ||
+          err instanceof ShareLinkError
+        ) {
           setError(`Could not load graph: ${err.message}`);
         } else {
           setError('An unexpected error occurred while loading the graph.');
@@ -172,7 +194,7 @@ function EmbedInner() {
     return () => {
       cancelled = true;
     };
-  }, [encoded, vault.ready, vault.notes]);
+  }, [encoded, shortId, shortSrv, vault.ready, vault.notes]);
 
   const handleSelect = useCallback((id: string | null) => {
     setSelectedId(id);

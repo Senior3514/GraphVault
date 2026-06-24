@@ -428,6 +428,9 @@ test('server-info reports non-sensitive posture flags', async () => {
   assert.equal(info.rateLimit.enabled, true);
   assert.equal(info.requireHttps, false);
   assert.equal(info.trustProxy, false);
+  // Snapshot store is off by default; only non-sensitive flags are exposed.
+  assert.equal(info.snapshots.enabled, false);
+  assert.equal(typeof info.snapshots.maxBytes, 'number');
   // Never leak secrets/keys/connection strings.
   const serialized = JSON.stringify(info);
   assert.ok(!/encryptionKey|databaseUrl|password|secret/i.test(serialized), serialized);

@@ -3,7 +3,17 @@
 > Status: Milestone 9 / 10. How to run the self-hosted GraphVault server with
 > Docker Compose on a VPS or NAS, create the first user, configure TLS, and back
 > up / restore your data. For the security rationale behind these steps, see
-> [`security-basics.md`](./security-basics.md).
+> [`security-basics.md`](./security-basics.md). For a concrete, step-by-step VPS
+> hardening checklist (TLS proxy, UFW, fail2ban, a hardened systemd unit,
+> unattended upgrades), see [`hardening.md`](./hardening.md).
+
+> **Production preflight:** on first boot with `NODE_ENV=production` the server
+> runs a safety preflight and **refuses to start** on an insecure config —
+> `GRAPHVAULT_CORS_ORIGIN='*'`, `GRAPHVAULT_REQUIRE_HTTPS=false`, or
+> `GRAPHVAULT_STORAGE=postgres` with no `DATABASE_URL` — printing an actionable
+> message and exiting non-zero. It warns (but boots) on a missing encryption key
+> or binding all interfaces without `GRAPHVAULT_TRUST_PROXY`. See
+> [`hardening.md`](./hardening.md#how-the-preflight-enforces-safe-config).
 
 ## What you deploy
 
@@ -208,6 +218,19 @@ the compose/app defaults.
 > The app itself defaults `GRAPHVAULT_HOST` to `127.0.0.1` and
 > `GRAPHVAULT_STORAGE` to `memory`; the Docker image and compose file override
 > these to `0.0.0.0` and `postgres` for a real deployment.
+
+### Server-proxied cloud storage (optional)
+
+In addition to the built-in sync store, the server can proxy a single vault blob
+to an external object store so the **browser never holds the provider
+credentials**. Four backends are supported, all dependency-free:
+S3-compatible, WebDAV, **Azure Blob Storage** (Shared Key), and **Google Cloud
+Storage** (S3-compatible XML API with HMAC interop keys, AWS SigV4). No extra
+environment variables are required — users enter their credentials in Settings,
+which are stored encrypted at rest (set `GRAPHVAULT_ENCRYPTION_KEY` so they
+survive restarts) and proxied via `/v1/storage/{s3,webdav,azure,gcs}`. See
+`apps/server/README.md` for the per-provider config fields. `GET /v1/server-info`
+reports which proxies are available under `storageProxies`.
 
 ## Reverse proxy / TLS
 

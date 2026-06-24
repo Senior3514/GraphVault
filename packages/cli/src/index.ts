@@ -7,6 +7,7 @@
  *   graphvault search <query>
  *   graphvault stats
  *   graphvault graph [--json]
+ *   graphvault serve [--host <h>] [--port <n>]
  *   graphvault --help
  *   graphvault --version
  *
@@ -18,6 +19,7 @@ import { resolve } from 'node:path';
 import { buildFromNotes, computeStats, graphPayload, listNotes, searchNotes } from './commands.js';
 import { formatGraph, formatGraphJson, formatList, formatSearch, formatStats } from './format.js';
 import { readVault } from './vault.js';
+import { DEFAULT_HOST, DEFAULT_PORT, serveCommand } from './server.js';
 
 const VERSION = '0.0.0';
 
@@ -32,9 +34,13 @@ Commands:
   search <query>        Search notes by title or content
   stats                 Show vault statistics
   graph [--json]        Print the link graph; --json for machine-readable output
+  serve [--host h]      Start a local, READ-ONLY HTTP API over the vault
+        [--port n]      (default: http://${DEFAULT_HOST}:${DEFAULT_PORT}, loopback only)
 
 Options:
   --vault <dir>         Vault directory (default: current directory)
+  --host <host>         serve: bind host (default: ${DEFAULT_HOST}; loopback only)
+  --port <port>         serve: bind port (default: ${DEFAULT_PORT})
   --version             Print version
   --help                Show this help message
 
@@ -43,6 +49,11 @@ Examples:
   graphvault search "graph engine" --vault ~/notes
   graphvault stats --vault ~/notes
   graphvault graph --json --vault ~/notes
+  graphvault serve --vault ~/notes --port 4111
+
+Note: "serve" exposes a READ-ONLY (GET-only) HTTP API and binds to
+${DEFAULT_HOST} (localhost) by default. Binding to a non-loopback --host
+exposes your vault to the network with no authentication — opt-in only.
 `.trim();
 
 function die(msg: string): never {
@@ -56,6 +67,8 @@ function main(): void {
     args: process.argv.slice(2),
     options: {
       vault: { type: 'string' },
+      host: { type: 'string' },
+      port: { type: 'string' },
       json: { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
       version: { type: 'boolean', short: 'v', default: false },
@@ -76,6 +89,25 @@ function main(): void {
 
   const cmd = positionals[0];
   const vaultDir = resolve(typeof values.vault === 'string' ? values.vault : process.cwd());
+
+  // `serve` loads the vault itself and runs until interrupted; handle it before
+  // the shared one-shot vault read below.
+  if (cmd === 'serve') {
+    const host = typeof values.host === 'string' ? values.host : undefined;
+    let port: number | undefined;
+    if (typeof values.port === 'string') {
+      port = Number(values.port);
+      if (!Number.isInteger(port) || port < 0 || port > 65535) {
+        die(`Invalid --port "${values.port}" (expected an integer 0–65535)`);
+      }
+    }
+    try {
+      serveCommand(vaultDir, { host, port });
+    } catch (err) {
+      die(`Cannot start server: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return;
+  }
 
   // Load vault notes (shared across all commands).
   let notes;

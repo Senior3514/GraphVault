@@ -4,7 +4,11 @@ import { AiService } from './ai.js';
 import { AuthService } from './auth.js';
 import { BlobService } from './blob.js';
 import { ClipService } from './clip.js';
+import { InboxService, type InboxServiceOptions } from './inbox.js';
+import { AzureService } from './azure.js';
+import { GcsService } from './gcs.js';
 import { S3Service } from './s3.js';
+import { SnapshotService, type SnapshotServiceOptions } from './snapshot.js';
 import { SyncService } from './sync.js';
 import { VaultService } from './vault.js';
 import { WebDavService } from './webdav.js';
@@ -17,7 +21,11 @@ export { SyncService } from './sync.js';
 export { BlobService } from './blob.js';
 export { WebDavService } from './webdav.js';
 export { S3Service } from './s3.js';
+export { AzureService } from './azure.js';
+export { GcsService } from './gcs.js';
 export { ClipService } from './clip.js';
+export { InboxService } from './inbox.js';
+export { SnapshotService } from './snapshot.js';
 
 /** The service layer container, decoupled from Fastify and reusable. */
 export interface Services {
@@ -27,6 +35,8 @@ export interface Services {
   blob: BlobService;
   webdav: WebDavService;
   s3: S3Service;
+  azure: AzureService;
+  gcs: GcsService;
   clip: ClipService;
   ai: AiService;
 }
@@ -37,15 +47,26 @@ export function createServices(
   encryptionKey?: Buffer,
   aiDailyCap?: number,
 ): Services {
+  const { encryptionKey, aiDailyCap, snapshots, snapshotStore, inbox } = options;
   const blobStore = new DiskBlobStore(dataDir, encryptionKey);
-  return {
+  const services: Services = {
     auth: new AuthService(storage),
     vault: new VaultService(storage),
     sync: new SyncService(storage, blobStore),
     blob: new BlobService(storage, blobStore),
     webdav: new WebDavService(storage, encryptionKey),
     s3: new S3Service(storage, encryptionKey),
+    azure: new AzureService(storage, encryptionKey),
+    gcs: new GcsService(storage, encryptionKey),
     clip: new ClipService(),
     ai: new AiService(storage, encryptionKey, aiDailyCap),
   };
+  if (snapshots) {
+    const store = snapshotStore ?? new DiskSnapshotStore(dataDir);
+    services.snapshot = new SnapshotService(store, snapshots);
+  }
+  if (inbox) {
+    services.inbox = new InboxService(storage, services.vault, services.sync, services.blob, inbox);
+  }
+  return services;
 }

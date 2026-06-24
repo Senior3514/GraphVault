@@ -27,4 +27,5 @@ export const DEFAULT_LAYOUT: WorkspaceLayout = {
   activeTabId: null,
   splitMode: 'none',
   secondaryTabId: null,
+  focusMode: false,
 };

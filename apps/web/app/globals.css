@@ -2,10 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ============================================================================
+   Design tokens — the `neutral` ramp as CSS variables (RGB triples, no alpha).
+   Tailwind's neutral.* colours resolve to `rgb(var(--n-XXX) / <alpha-value>)`
+   (see tailwind.config.ts), so every existing `bg-neutral-950 text-neutral-100`
+   utility flips per theme with zero per-component changes.
+
+   DARK (`:root`, the default + no-JS fallback) uses the stock Tailwind neutral
+   triples. LIGHT (`:root[data-theme='light']`) uses an INVERTED ramp so the
+   semantics hold: --n-950 is always the page background, --n-50 the strongest
+   text. Light --n-950 := dark --n-50, light --n-900 := dark --n-100, etc.
+   The no-flash boot script sets data-theme before first paint.
+   ============================================================================ */
+:root,
+:root[data-theme='dark'] {
   color-scheme: dark;
-  /* App is dark-first per DESIGN.md; pin the scheme so form controls and
-     scrollbars don't flash light. */
+  --n-50: 250 250 250;
+  --n-100: 245 245 245;
+  --n-200: 229 229 229;
+  --n-300: 212 212 212;
+  --n-400: 163 163 163;
+  --n-500: 115 115 115;
+  --n-600: 82 82 82;
+  --n-700: 64 64 64;
+  --n-800: 38 38 38;
+  --n-900: 23 23 23;
+  --n-950: 10 10 10;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  /* Inverted ramp: light --n-X := dark --n-(1000-X). */
+  --n-50: 10 10 10;
+  --n-100: 23 23 23;
+  --n-200: 38 38 38;
+  --n-300: 64 64 64;
+  --n-400: 82 82 82;
+  --n-500: 115 115 115;
+  --n-600: 163 163 163;
+  --n-700: 212 212 212;
+  --n-800: 229 229 229;
+  --n-900: 245 245 245;
+  --n-950: 250 250 250;
 }
 
 body {
@@ -31,7 +69,11 @@ button,
 /* Quieter, dark scrollbars so panels feel cohesive rather than OS-default. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: theme('colors.neutral.700') transparent;
+  /* Use the token directly: `theme('colors.neutral.700')` would emit the raw
+     `rgb(var(--n-700) / <alpha-value>)` (with the alpha placeholder unresolved)
+     in this non-utility context, producing invalid CSS. Referencing --n-700
+     keeps the scrollbar themed and flipping with the rest of the ramp. */
+  scrollbar-color: rgb(var(--n-700)) transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;

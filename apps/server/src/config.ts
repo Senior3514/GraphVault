@@ -59,6 +59,13 @@ export interface ServerConfig {
    * single upload can't exhaust memory. Default 64 MiB.
    */
   maxBlobBytes: number;
+  /**
+   * Max body size in bytes for JSON / non-blob routes. Much smaller than
+   * `maxBlobBytes` so a giant JSON payload to an auth or push route can't
+   * exhaust memory; the blob PUT route opts into the larger `maxBlobBytes` cap
+   * explicitly. Default 1 MiB.
+   */
+  maxJsonBytes: number;
   /** Max requests per window per client for general routes (rate limiting). */
   rateLimitMax: number;
   /** Rate-limit window, in milliseconds. */
@@ -105,6 +112,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     storage: storageBackend(env.GRAPHVAULT_STORAGE),
     databaseUrl: env.DATABASE_URL,
     maxBlobBytes: num(env.GRAPHVAULT_MAX_BLOB_BYTES, 64 * 1024 * 1024),
+    maxJsonBytes: num(env.GRAPHVAULT_MAX_JSON_BYTES, 1024 * 1024),
     rateLimitMax: num(env.GRAPHVAULT_RATE_LIMIT_MAX, 300),
     rateLimitWindowMs: num(env.GRAPHVAULT_RATE_LIMIT_WINDOW, 60_000),
     authRateLimitMax: num(env.GRAPHVAULT_AUTH_RATE_LIMIT_MAX, 10),

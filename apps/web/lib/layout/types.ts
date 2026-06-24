@@ -58,4 +58,12 @@ export interface WorkspaceLayout {
   splitMode: SplitMode;
   /** Id of the secondary tab when splitMode is 'two-notes'. */
   secondaryTabId: string | null;
+  /**
+   * Distraction-free "focus mode". When `true` the surrounding app chrome
+   * (icon rail, sidebar, note-list + details panes, resize dividers, bottom
+   * nav) is hidden and the editor column is centred to a comfortable reading
+   * width. Purely presentational — it never destroys the stored pane sizes or
+   * panel-visibility flags, so exiting restores the previous layout exactly.
+   */
+  focusMode: boolean;
 }

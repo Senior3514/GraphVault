@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AppFrame } from '../components/AppFrame';
 import { ServiceWorkerRegistrar } from '../components/ServiceWorkerRegistrar';
+import { ThemeProvider } from '../components/ThemeProvider';
+import { THEME_BOOT_SCRIPT } from '../lib/themeScript';
 
 export const metadata: Metadata = {
   title: 'GraphVault — open and write. No folders, no file access.',
@@ -71,8 +73,19 @@ const CSP = [
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: the no-flash boot script sets `data-theme` on
+    // <html> before React hydrates, so the server-rendered <html> (no attr)
+    // and the client DOM (attr present) differ by design. This silences the
+    // expected attribute mismatch warning without affecting children.
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/*
+         * No-flash theme boot: set `data-theme` from persisted mode (default
+         * `system`) BEFORE first paint to avoid a light/dark flash. Inline and
+         * eval-free, so it is allowed under `script-src 'self' 'unsafe-inline'`
+         * (no 'unsafe-eval' needed). Must be the first thing in <head>.
+         */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         {/*
          * CSP via <meta> covers the static-file and self-hosted cases.
          * On Vercel the Content-Security-Policy response header set in vercel.json
@@ -111,7 +124,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
          * the entire layout a client component.
          */}
         <ServiceWorkerRegistrar />
-        <AppFrame>{children}</AppFrame>
+        {/*
+         * ThemeProvider owns the theme mode (light/dark/system), persists it,
+         * and keeps <html data-theme> reactive after the boot script's initial
+         * set. It's a client component but renders children straight through,
+         * so the server layout stays a server component.
+         */}
+        <ThemeProvider>
+          <AppFrame>{children}</AppFrame>
+        </ThemeProvider>
       </body>
     </html>
   );
