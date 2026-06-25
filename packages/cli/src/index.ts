@@ -21,7 +21,7 @@ import { formatGraph, formatGraphJson, formatList, formatSearch, formatStats } f
 import { readVault } from './vault.js';
 import { DEFAULT_HOST, DEFAULT_PORT, serveCommand } from './server.js';
 
-const VERSION = '0.0.0';
+const VERSION = '0.1.0';
 
 const HELP = `
 graphvault — GraphVault CLI (v${VERSION})

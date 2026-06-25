@@ -99,7 +99,7 @@ export function normalizeServerOrigin(serverUrl: string | null | undefined): str
 }
 
 /**
- * Build the SHORT embed URL: `${appOrigin}/embed?id=<id>&srv=<serverOrigin>`.
+ * Build the SHORT embed URL: `${appOrigin}/embed/?id=<id>&srv=<serverOrigin>`.
  *
  * The `srv` origin is normalised + URL-encoded. Throws if either origin is not a
  * valid http(s) URL (a programming error — both come from trusted local state at
@@ -117,7 +117,10 @@ export function buildShortEmbedUrl(appOrigin: string, serverUrl: string, id: str
   if (typeof id !== 'string' || id.length === 0) {
     throw new ShareLinkError('A snapshot id is required to build a short link.');
   }
-  return `${app}/embed?id=${encodeURIComponent(id)}&srv=${encodeURIComponent(srv)}`;
+  // Trailing slash before the query: the static export uses `trailingSlash: true`,
+  // so `/embed?id=` would 308-redirect to `/embed/?id=` (dropping the query on
+  // some hosts). Emit the canonical `/embed/?id=` directly.
+  return `${app}/embed/?id=${encodeURIComponent(id)}&srv=${encodeURIComponent(srv)}`;
 }
 
 // ---------------------------------------------------------------------------

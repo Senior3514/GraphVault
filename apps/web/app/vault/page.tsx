@@ -22,6 +22,7 @@ import { SearchBox } from '../../components/SearchBox';
 import { TabBar } from '../../components/workspace/TabBar';
 import { PaneHeader, WorkspaceLayout } from '../../components/workspace/WorkspaceLayout';
 import { useLayout } from '../../lib/layout/useLayout';
+import { registerFlushOnExit } from '../../lib/vault/flushOnExit';
 import { VaultError } from '../../lib/vault/vault';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import type { NotePath } from '../../lib/vault/types';
@@ -175,6 +176,12 @@ export default function VaultPage() {
   useEffect(() => {
     return () => flushAll();
   }, [flushAll]);
+
+  // Flush on hard tab close / navigation away and on the tab being backgrounded
+  // (mobile). Without this, the pending autosave timer (up to AUTOSAVE_MS) is
+  // dropped and the last keystrokes never reach `vault.updateContent` — silent
+  // data loss. Core promise: never lose user data.
+  useEffect(() => registerFlushOnExit(flushAll), [flushAll]);
 
   // ---- Tab actions ----------------------------------------------------------
   const switchTab = useCallback(

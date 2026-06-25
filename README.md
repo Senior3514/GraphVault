@@ -91,21 +91,93 @@ See [`docs/data-portability.md`](docs/data-portability.md) for the full spec.
   copy visible in the Sync Status page.
 - Sync Status page: server health, last sync time, pending change count,
   conflict list.
-- Settings → Sync server: enter your server URL and test the connection.
+- Settings → Sync server: enter your server URL, **sign in / register**, and
+  **register a vault** — all wired in the web client UI.
 
-> Sign-in and vault registration from the web client UI are planned; the sync
-> server API is fully implemented. See [`docs/sync-protocol.md`](docs/sync-protocol.md).
+See [`docs/sync-protocol.md`](docs/sync-protocol.md) for the canonical protocol.
+
+### Server-proxied cloud storage
+
+Keep your vault in a cloud bucket **without the browser ever holding the
+provider credentials** — the server stores them encrypted at rest and proxies a
+single object. Configure any of these in **Settings** after signing in:
+**S3-compatible**, **WebDAV**, **Azure Blob Storage**, or **Google Cloud
+Storage**. (Drive/OneDrive OAuth are not shipped.) See
+[`apps/server/README.md`](apps/server/README.md#server-proxied-cloud-storage-bff).
+
+### Sharing — public graph snapshots
+
+Share a **read-only** snapshot of your graph via a short link (`/embed?id=…`)
+instead of a giant URL. This is an **opt-in server feature**, off by default;
+an operator enables it with `GRAPHVAULT_SNAPSHOTS_ENABLED=true`. Snapshots are
+unauthenticated public shares, so it stays invisible until explicitly turned on.
+
+### AI assistant (bring-your-own-key)
+
+An optional in-app assistant that talks to your AI provider **through the
+server**, so the browser never holds the API key. You configure the key in
+Settings; the server stores it encrypted at rest and adds it server-side, with a
+per-user/day request cap (`GRAPHVAULT_AI_DAILY_CAP`). The assistant shows you
+exactly what context it will send before each request.
+
+### MCP server — vault access for agents
+
+[`@graphvault/mcp`](packages/mcp/README.md) is a standalone stdio
+[Model Context Protocol](https://modelcontextprotocol.io) server that exposes a
+vault to agents (e.g. Claude Desktop): notes as **resources**, read tools
+(list/read/search/backlinks/neighbors), one-click **prompts**, and **opt-in,
+conflict-safe write tools** (enabled only when a device id is configured — a
+concurrent edit is reported as a conflict, never silently overwritten).
+
+### Web clipper + URL clipping
+
+- **Browser extension** ([`apps/extension`](apps/extension/README.md)): a
+  Manifest V3 clipper that turns any page or selection into clean Markdown and
+  sends it to your vault (zero telemetry, minimal permissions).
+- **Server-side URL clip** (`POST /v1/clip`): fetch a URL and convert it to
+  Markdown server-side, behind an SSRF guard.
+
+### Inbound webhook — "connect anything"
+
+Mint a per-connector token and let an external service (Zapier, an email
+forwarder, a `curl` in cron, …) POST Markdown that lands as a **new note**, with
+a per-connector audit log. Inbound posts never overwrite an existing note. On by
+default but inert until you mint a token; disable with
+`GRAPHVAULT_INBOX_ENABLED=false`. See
+[`apps/server/README.md`](apps/server/README.md#connect-anything-inbound-webhook-wave-19).
+
+### Command-line interface
+
+[`@graphvault/cli`](packages/cli/README.md) gives power-user / automation access
+to a local vault of `.md` files: `list`, `search`, `stats`, `graph` (`--json`),
+and a loopback-only read-only HTTP API (`serve`).
+
+### Light / dark theming
+
+System-aware **light / dark** theming built on CSS-variable design tokens. Pick
+`light`, `dark`, or `system` (follows your OS); the choice persists across
+sessions.
+
+### Focus mode
+
+A distraction-free editing mode that hides the surrounding app chrome so only
+the editor remains — toggleable from the command palette.
 
 ### Security by default
 
 - No telemetry — the app contacts only the server URL you configure.
 - TLS via a reverse proxy (Caddy/nginx); Argon2id password hashing; opaque
   device-bound bearer tokens.
-- Optional AES-256-GCM at-rest blob encryption on the server.
-- **Browser-side vault encryption** (WebCrypto, passphrase-derived key) is
-  implemented as a library; Settings UI to enable it is in progress (Milestone
-  15).
+- Optional AES-256-GCM at-rest blob encryption on the server (key is
+  base64-encoded, decoding to exactly 32 bytes).
+- **Browser-side vault encryption** — enable it in **Settings → Vault
+  encryption**: the local vault store is encrypted at rest with AES-256-GCM, the
+  key derived from your passphrase via PBKDF2-SHA-256 (310 000 iterations).
+- Cloud-storage and AI credentials are stored **encrypted on the server** and
+  never returned to the browser.
 - DOMPurify sanitisation of rendered Markdown (XSS protection).
+- Production startup **preflight** refuses to boot on an insecure config (open
+  CORS, HTTPS disabled, or Postgres without a `DATABASE_URL`).
 
 See [`docs/security-model.md`](docs/security-model.md) and
 [`docs/security-basics.md`](docs/security-basics.md).
@@ -126,17 +198,20 @@ the web app, a future desktop shell, and other tooling can share them.
 
 ```
 apps/
-  server/      Fastify + TypeScript sync & API server
-               (auth, vaults, pull/push, blobs)
-  web/         Next.js (App Router) web client
-               editor, search, graph UI, export/import
-               persists to browser localStorage today;
-               real .md filesystem access arrives with the Tauri shell
-  desktop/     Tauri shell around the web client — placeholder, not yet built
+  server/      Fastify + TypeScript sync & API server (auth, vaults, pull/push,
+               blobs, cloud-storage proxies, AI proxy, URL clip, snapshots, inbox)
+  web/         Next.js (App Router) web client — editor, search, graph UI,
+               export/import, AI assistant, sharing; persists to browser
+               localStorage today (native .md on disk arrives with the Tauri shell)
+  desktop/     Tauri 2 shell wrapping the web client (M16 scaffold; native
+               .md-on-disk storage adapter is built but not yet wired end-to-end)
+  extension/   Manifest V3 web-clipper (page/selection → Markdown → vault)
 packages/
   shared/      Wire types, zod schemas, hashing — single source of truth
   engine/      Graph engine: Markdown parsing, link/tag index, graph queries
   sync-core/   UI-independent sync protocol logic (scan/pull/push/settle)
+  cli/         Command-line vault tooling (list/search/stats/graph/serve)
+  mcp/         Stdio MCP server exposing a vault to agents (read + opt-in writes)
 docs/
   quickstart.md         First-run guide
   data-portability.md   Export/import formats, guarantees, security guards
@@ -144,6 +219,7 @@ docs/
   sync-protocol.md      Canonical sync protocol spec
   security-basics.md    Server security model and hardening checklist
   deployment.md         Self-hosting with Docker Compose
+  hardening.md          VPS hardening checklist
 docker/
   server.Dockerfile     Multi-stage build for @graphvault/server
 docker-compose.yml      server + PostgreSQL stack
@@ -154,9 +230,11 @@ The server stores **bytes and revisions** and stays ignorant of note semantics.
 Intelligence — links, graph, search — lives client-side in
 `@graphvault/engine`. The graph view is the hero surface of the client.
 
-The web client persists notes to **browser localStorage**. The Tauri desktop
-shell, which will read and write real `.md` files on disk, is tracked as a
-planned milestone.
+The web client persists notes to **browser localStorage** (or an encrypted store
+when vault encryption is on). A **Tauri 2 desktop shell** wraps the same web
+client; its native `.md`-on-disk storage adapter is built against the existing
+`StorageAdapter` seam but not yet wired end-to-end — see
+[`apps/desktop/README.md`](apps/desktop/README.md).
 
 ---
 
@@ -172,11 +250,11 @@ planned milestone.
 
 GraphVault runs everywhere, with a single command for each surface:
 
-| Surface                           | Command                                   | Notes                                                               |
-| --------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
-| **Use the web app**               | _(none — just open the URL)_              | Static export; runs in any modern browser on any OS.                |
-| **Self-host the sync server**     | `docker compose up -d --build`            | Brings up the server + PostgreSQL. Linux/macOS/Windows with Docker. |
-| **Desktop app** (Win/macOS/Linux) | `pnpm --filter @graphvault/desktop build` | Produces native installers via Tauri (requires the Rust toolchain). |
+| Surface                           | Command                                   | Notes                                                                                                                                                       |
+| --------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Use the web app**               | _(none — just open the URL)_              | Static export; runs in any modern browser on any OS.                                                                                                        |
+| **Self-host the sync server**     | `docker compose up -d --build`            | Brings up the server + PostgreSQL. Linux/macOS/Windows with Docker.                                                                                         |
+| **Desktop app** (Win/macOS/Linux) | `pnpm --filter @graphvault/desktop build` | Builds the Tauri shell into native installers (requires the Rust toolchain). The shell runs today; native `.md`-on-disk storage is still being wired (M16). |
 
 The web client is **local-first** — it works fully offline with no account; the
 sync server is optional and only needed for multi-device sync.
@@ -218,10 +296,11 @@ pnpm lint
 pnpm format:check
 ```
 
-Build the full web stack (shared packages first, then the Next.js app):
+Build the full web stack (shared packages first, then the Next.js app). The
+`-w` runs the script at the workspace root regardless of your current directory:
 
 ```bash
-pnpm run build:web
+pnpm -w run build:web
 ```
 
 See [`apps/server/README.md`](apps/server/README.md) for the full server env
@@ -260,7 +339,7 @@ it at a self-hosted server to add multi-device sync.
 1. Import the repository as a new Vercel project (production branch `main`).
    Keep **Root Directory** at `./` and the framework preset as **Other**. The
    committed [`vercel.json`](vercel.json) drives the build: it runs
-   `pnpm run build:web` (building `shared`, `engine`, and `sync-core` before
+   `pnpm -w run build:web` (building `shared`, `engine`, and `sync-core` before
    the Next.js app) and serves the static export from `apps/web/out`.
 2. _(Optional)_ Set `NEXT_PUBLIC_GRAPHVAULT_SERVER_URL` to your self-hosted
    server URL to enable cloud sync. Leave it unset for a local-only,
@@ -278,10 +357,15 @@ See [`docs/deployment.md`](docs/deployment.md) for details.
 | ------------------------------------------------------ | -------------------------------------------------------------------- |
 | [`docs/quickstart.md`](docs/quickstart.md)             | First run: write, link, graph, export                                |
 | [`docs/data-portability.md`](docs/data-portability.md) | Export/import formats, guarantees, security guards                   |
-| [`docs/security-model.md`](docs/security-model.md)     | Threat model: local-first, XSS, import hardening, planned encryption |
+| [`docs/security-model.md`](docs/security-model.md)     | Threat model: local-first, XSS, import hardening, at-rest encryption |
 | [`docs/sync-protocol.md`](docs/sync-protocol.md)       | Canonical sync protocol spec                                         |
 | [`docs/security-basics.md`](docs/security-basics.md)   | Server security model and hardening checklist                        |
 | [`docs/deployment.md`](docs/deployment.md)             | Self-hosting with Docker Compose                                     |
+| [`docs/hardening.md`](docs/hardening.md)               | VPS hardening checklist (TLS, firewall, systemd, backups)            |
+| [`apps/server/README.md`](apps/server/README.md)       | Server env reference + all API routes (storage, AI, clip, inbox)     |
+| [`packages/mcp/README.md`](packages/mcp/README.md)     | MCP server: tools, resources, prompts, Claude Desktop setup          |
+| [`packages/cli/README.md`](packages/cli/README.md)     | CLI: list / search / stats / graph / serve                           |
+| [`apps/extension/README.md`](apps/extension/README.md) | Web-clipper browser extension                                        |
 | [`DESIGN.md`](DESIGN.md)                               | Product and architecture direction                                   |
 | [`CLAUDE.md`](CLAUDE.md)                               | Project scope and agent-company rules                                |
 
@@ -289,33 +373,37 @@ See [`docs/deployment.md`](docs/deployment.md) for details.
 
 ## Milestones
 
-| #   | Milestone                                   | Status                                                                       |
-| --- | ------------------------------------------- | ---------------------------------------------------------------------------- |
-| 0   | Repo bootstrap                              | done                                                                         |
-| 1   | Sync protocol design                        | done (draft spec)                                                            |
-| 2   | Server scaffold (auth + sync)               | done                                                                         |
-| 3   | Web scaffold                                | done                                                                         |
-| 4   | Local vault + Markdown editing              | done                                                                         |
-| 5   | Sync end-to-end                             | done                                                                         |
-| 6   | Graph engine (indexing + API)               | done                                                                         |
-| 7   | Graph UI v1                                 | done                                                                         |
-| 8   | Security and settings                       | done                                                                         |
-| 9   | Docker and packaging                        | done                                                                         |
-| 10  | Docs                                        | done                                                                         |
-| 11  | Portability (export/import)                 | partial — zip/json/md done; drag-and-drop and File System Access API planned |
-| 12  | Workspace panes and window controls         | done                                                                         |
-| 13  | Command palette and power editing           | done                                                                         |
-| 14  | Upgraded graph (physics, highlight, legend) | done                                                                         |
-| 15  | Browser-side vault encryption               | partial — crypto library done; Settings UI wiring in progress                |
-| 16  | True local desktop (Tauri)                  | planned                                                                      |
-| 17  | Polish, onboarding, and launch              | in progress                                                                  |
+| #   | Milestone                                          | Status                                                                       |
+| --- | -------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 0   | Repo bootstrap                                     | done                                                                         |
+| 1   | Sync protocol design                               | done (draft spec)                                                            |
+| 2   | Server scaffold (auth + sync)                      | done                                                                         |
+| 3   | Web scaffold                                       | done                                                                         |
+| 4   | Local vault + Markdown editing                     | done                                                                         |
+| 5   | Sync end-to-end                                    | done                                                                         |
+| 6   | Graph engine (indexing + API)                      | done                                                                         |
+| 7   | Graph UI v1                                        | done                                                                         |
+| 8   | Security and settings                              | done                                                                         |
+| 9   | Docker and packaging                               | done                                                                         |
+| 10  | Docs                                               | done                                                                         |
+| 11  | Portability (export/import)                        | partial — zip/json/md done; drag-and-drop and File System Access API planned |
+| 12  | Workspace panes and window controls                | done                                                                         |
+| 13  | Command palette and power editing                  | done                                                                         |
+| 14  | Upgraded graph (physics, highlight, legend)        | done                                                                         |
+| 15  | Browser-side vault encryption                      | done — Settings → Vault encryption (PBKDF2 + AES-256-GCM)                    |
+| 16  | True local desktop (Tauri)                         | partial — Tauri shell runs; native `.md`-on-disk adapter not yet wired       |
+| 18  | Server-proxied cloud storage (S3/WebDAV/Azure/GCS) | done                                                                         |
+| 22  | AI proxy + URL/web clipper + MCP server            | done                                                                         |
+| —   | Public graph snapshots / embed                     | done (opt-in, off by default)                                                |
+| —   | Inbound webhook / inbox + audit log                | done (on by default; inert until a token is minted)                          |
+| —   | Light/dark theming, focus mode                     | done                                                                         |
+| 17  | Polish, onboarding, and launch                     | in progress                                                                  |
 
-> The **desktop (Tauri) shell** is a placeholder: the web client stores notes
-> in browser localStorage today. Real `.md` filesystem access arrives with the
-> Tauri shell. **Sign-in and vault registration** in the web client UI are
-> planned; the sync server API is fully implemented. **Browser-side at-rest
-> encryption** — the crypto library is shipped; the Settings UI to enable it is
-> in progress (Milestone 15).
+> **What's genuinely still in progress:** the **Tauri desktop shell** runs and
+> wraps the web client, but its native `.md`-on-disk storage adapter is built
+> against the storage seam and **not yet wired end-to-end** — the web client
+> still persists to browser localStorage. **Drive/OneDrive OAuth** cloud
+> backends are **not** shipped (S3, WebDAV, Azure Blob, and GCS are).
 
 ---
 

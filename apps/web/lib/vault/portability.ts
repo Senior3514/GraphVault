@@ -282,14 +282,31 @@ async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
 export async function readVaultZip(bytes: Uint8Array): Promise<ImportEntry[]> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
-  // Locate the End Of Central Directory record by scanning backwards.
+  // Locate the End Of Central Directory record by scanning backwards. A bare
+  // signature match is NOT enough: note content (or a crafted archive) can
+  // contain the EOCD signature bytes, and latching onto a bogus record would
+  // silently yield zero entries. So we validate each candidate's invariants
+  // (size + central-directory bounds) and only accept a genuine record.
+  const ABS_MIN = 22; // an EOCD is at least 22 bytes
   let eocd = -1;
-  for (let i = bytes.length - 22; i >= 0; i--) {
-    if (view.getUint32(i, true) === 0x06054b50) {
+  if (bytes.length >= ABS_MIN) {
+    for (let i = bytes.length - ABS_MIN; i >= 0; i--) {
+      if (view.getUint32(i, true) !== 0x06054b50) continue;
+      const commentLen = view.getUint16(i + 20, true);
+      // The record's declared comment length must run exactly to end-of-file.
+      if (i + ABS_MIN + commentLen !== bytes.length) continue;
+      const cdOffset = view.getUint32(i + 16, true);
+      const cdSize = view.getUint32(i + 12, true);
+      // The central directory it points at must lie within the buffer and end
+      // at (or before) the EOCD itself.
+      if (cdOffset > bytes.length || cdSize > bytes.length) continue;
+      if (cdOffset + cdSize > i) continue;
       eocd = i;
       break;
     }
   }
+  // A non-empty input that has no valid EOCD is garbage/hostile — never quietly
+  // return zero notes for it.
   if (eocd < 0) throw new Error('Not a valid ZIP archive.');
 
   const entryCount = view.getUint16(eocd + 10, true);
@@ -316,11 +333,16 @@ export async function readVaultZip(bytes: Uint8Array): Promise<ImportEntry[]> {
     if (!safe) continue;
 
     // Resolve the data offset via the local header (its extra field length can
-    // differ from the central record's).
+    // differ from the central record's). The offset comes straight from the
+    // central directory and is fully attacker-controlled, so bounds-check it
+    // before indexing — an out-of-range value must produce the clean import
+    // error, not a raw RangeError out of DataView/subarray.
+    if (localOffset + 30 > bytes.length) throw new Error('Not a valid ZIP archive.');
     if (view.getUint32(localOffset, true) !== 0x04034b50) continue;
     const lNameLen = view.getUint16(localOffset + 26, true);
     const lExtraLen = view.getUint16(localOffset + 28, true);
     const dataStart = localOffset + 30 + lNameLen + lExtraLen;
+    if (dataStart + compSize > bytes.length) throw new Error('Not a valid ZIP archive.');
     const compressed = bytes.subarray(dataStart, dataStart + compSize);
 
     let data: Uint8Array;

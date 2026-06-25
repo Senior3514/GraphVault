@@ -20,7 +20,7 @@ import { useState } from 'react';
 import { colorForKey } from '../../lib/graph/model';
 import type { GraphEdge, GraphIndex, GraphNode } from '@graphvault/engine';
 import type { AISettings } from '../../lib/ai/types';
-import { chat } from '../../lib/ai/providers';
+import { chat, type ServerProviderOptions } from '../../lib/ai/providers';
 import {
   buildRelatedNotesPrompt,
   parseRelatedNotes,
@@ -41,6 +41,11 @@ export interface NodePanelProps {
   onOpen: (path: string) => void;
   /** AI settings — when kind === 'off' the AI sections are hidden entirely. */
   aiSettings?: AISettings;
+  /**
+   * Server-proxy options (token + URL) for `server` AI mode. Required for the
+   * AI sections to work when AI is in server mode; ignored for local/off.
+   */
+  serverOpts?: ServerProviderOptions;
 }
 
 export function NodePanel({
@@ -51,6 +56,7 @@ export function NodePanel({
   onSelect,
   onOpen,
   aiSettings,
+  serverOpts,
 }: NodePanelProps) {
   const backlinks = index.backlinks.get(node.id) ?? [];
   const outbound = (index.outbound.get(node.id) ?? []).filter((e) => e.resolved);
@@ -131,9 +137,15 @@ export function NodePanel({
             node={node}
             index={index}
             aiSettings={aiSettings}
+            serverOpts={serverOpts}
             onSelect={onSelect}
           />
-          <GapFindingSection node={node} index={index} aiSettings={aiSettings} />
+          <GapFindingSection
+            node={node}
+            index={index}
+            aiSettings={aiSettings}
+            serverOpts={serverOpts}
+          />
         </>
       )}
     </aside>
@@ -148,11 +160,13 @@ function RelatedNotesSection({
   node,
   index,
   aiSettings,
+  serverOpts,
   onSelect,
 }: {
   node: GraphNode;
   index: GraphIndex;
   aiSettings: AISettings;
+  serverOpts?: ServerProviderOptions;
   onSelect: (id: string) => void;
 }) {
   const [status, setStatus] = useState<'idle' | 'confirming' | 'loading' | 'done' | 'error'>(
@@ -193,7 +207,7 @@ function RelatedNotesSection({
     setErrorMsg('');
     try {
       const msgs = buildRelatedNotesPrompt(node.title, neighbourTitles, allTitles);
-      const raw = await chat(aiSettings, msgs);
+      const raw = await chat(aiSettings, msgs, serverOpts);
       const parsed = parseRelatedNotes(raw, titleToId);
       setResults(parsed);
       setStatus('done');
@@ -314,10 +328,12 @@ function GapFindingSection({
   node,
   index,
   aiSettings,
+  serverOpts,
 }: {
   node: GraphNode;
   index: GraphIndex;
   aiSettings: AISettings;
+  serverOpts?: ServerProviderOptions;
 }) {
   const [status, setStatus] = useState<'idle' | 'confirming' | 'loading' | 'done' | 'error'>(
     'idle',
@@ -346,7 +362,7 @@ function GapFindingSection({
     setErrorMsg('');
     try {
       const msgs = buildGapFindingPrompt(node.title, neighbourTitles);
-      const raw = await chat(aiSettings, msgs);
+      const raw = await chat(aiSettings, msgs, serverOpts);
       const parsed = parseGapSuggestions(raw);
       setSuggestions(parsed);
       setStatus('done');

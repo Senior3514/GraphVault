@@ -74,6 +74,7 @@ import {
 } from '../../lib/graph/clusters';
 import { computeGroupColors, loadGroups, saveGroups, type NodeGroup } from '../../lib/graph/groups';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
+import { useEscapeToClose, useFocusTrap } from '../../lib/a11y/useFocusTrap';
 import { buildSnapshot, encodeSnapshot, generateEmbedUrl } from '../../lib/embed/snapshot';
 import {
   getServerSnapshotConfig,
@@ -91,6 +92,9 @@ import {
   buildGraphSendContext,
   MAX_CLUSTERS_TO_NAME,
 } from '../../lib/ai/graph-prompts';
+import { AUTH_TOKEN_STORAGE_KEY, SERVER_URL_STORAGE_KEY } from '../../lib/api/storageKeys';
+import { useAuth } from '../../lib/api/useAuth';
+import { useServerSettings } from '../../lib/api/useServerSettings';
 
 // Canvas/DOM-only renderer: never server-rendered.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
@@ -105,6 +109,8 @@ const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraph
 export default function GraphPage() {
   const vault = useVaultContext();
   const router = useRouter();
+  const auth = useAuth();
+  const { serverUrl } = useServerSettings();
   const [filters, dispatch] = useReducer(filtersReducer, EMPTY_FILTERS);
   const [mode, setMode] = useState<'global' | 'local'>('global');
   const [localDepth, setLocalDepth] = useState(2);
@@ -127,6 +133,17 @@ export default function GraphPage() {
   const [aiSettings, setAiSettings] = useState<AISettings>(() => loadAISettings());
   const aiEnabled = aiSettings.kind !== 'off';
 
+  // For `server` AI mode the provider needs the session token + server URL so it
+  // can authenticate with the GV server proxy (the key never touches the
+  // browser). Mirrors AssistantPanel. `undefined` for local/off mode.
+  const serverOpts = useMemo(
+    () =>
+      aiSettings.kind === 'server' && auth.token
+        ? { serverUrl, bearerToken: auth.token }
+        : undefined,
+    [aiSettings.kind, auth.token, serverUrl],
+  );
+
   // M21: AI cluster names — string[] indexed to match the visual cluster legend order.
   const [aiClusterNames, setAiClusterNames] = useState<string[]>([]);
   const [clusterNamingState, setClusterNamingState] = useState<
@@ -145,6 +162,30 @@ export default function GraphPage() {
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
 
   const canvasRef = useRef<ForceGraphHandle>(null);
+
+  // Mobile drawer a11y: focus-trap + restore-focus refs. The drawers declare
+  // role="dialog" aria-modal="true", so they must trap focus and close on Esc.
+  const controlsDrawerRef = useRef<HTMLDivElement>(null);
+  const controlsRestoreRef = useRef<HTMLElement | null>(null);
+  const nodeDrawerRef = useRef<HTMLDivElement>(null);
+  const nodeRestoreRef = useRef<HTMLElement | null>(null);
+
+  const closeMobileControls = useCallback(() => setMobileControlsOpen(false), []);
+  useFocusTrap(controlsDrawerRef, mobileControlsOpen, controlsRestoreRef);
+  useEscapeToClose(mobileControlsOpen, closeMobileControls);
+
+  // Track viewport so the mobile node-panel drawer only traps focus / declares
+  // aria-modal on small screens. On desktop both panels render simultaneously
+  // (mobile one hidden via md:hidden), so trapping there would steal focus.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
 
   // Build the engine index from the current vault. Memoised on the raw notes so
   // unrelated re-renders (hover, selection) don't trigger a reparse.
@@ -288,6 +329,23 @@ export default function GraphPage() {
 
   const selectedNode = selectedId ? index.nodes.get(selectedId) : undefined;
 
+  // Mobile node-panel drawer a11y: trap focus + Esc-to-close, but only while a
+  // node is selected AND we're on a small screen (the drawer is the only one
+  // visible then). Closing the panel == deselecting the node.
+  const nodePanelOpen = isMobile && Boolean(selectedNode);
+  const closeNodePanel = useCallback(() => {
+    setSelectedId(null);
+    setMode((m) => (m === 'local' ? 'global' : m));
+  }, []);
+  useFocusTrap(nodeDrawerRef, nodePanelOpen, nodeRestoreRef);
+  useEscapeToClose(nodePanelOpen, closeNodePanel);
+  // Capture the element to restore focus to when the mobile panel opens.
+  useEffect(() => {
+    if (nodePanelOpen) {
+      nodeRestoreRef.current = document.activeElement as HTMLElement | null;
+    }
+  }, [nodePanelOpen]);
+
   const handleModeChange = (next: 'global' | 'local') => {
     if (next === 'local' && !selectedId) return;
     setMode(next);
@@ -336,7 +394,7 @@ export default function GraphPage() {
         MAX_CLUSTERS_TO_NAME,
       );
       const msgs = buildClusterNamePrompt(clusterInputs);
-      const raw = await chat(aiSettings, msgs);
+      const raw = await chat(aiSettings, msgs, serverOpts);
       const names = parseClusterNames(raw, clusterInputs.length);
       setAiClusterNames(names);
       setClusterNamingState('idle');
@@ -344,19 +402,16 @@ export default function GraphPage() {
       setClusterNamingError(err instanceof Error ? err.message : 'AI request failed.');
       setClusterNamingState('error');
     }
-  }, [clusterInfo, payload.nodes, aiSettings]);
+  }, [clusterInfo, payload.nodes, aiSettings, serverOpts]);
 
   const handleUnpinAll = useCallback(() => {
-    // We can't directly mutate the force-graph nodes from outside the canvas.
-    // The canvas tracks pins internally; "unpin all" is driven by clearing the
-    // external pin state, which causes the canvas to skip the pin glyph — and
-    // more importantly, we call zoomToFit to re-engage the simulation.
-    // The actual fx/fy clearing happens the next time the model rebuilds, since
-    // model change triggers a full node array rebuild in the canvas.
-    // For an immediate effect, we trigger a model recompute by nudging physics.
+    // Drive the imperative handle: it deletes fx/fy on every live node, clears
+    // the canvas's internal pin state (which calls back into onPinnedChange to
+    // update our pinnedIds), and reheats the simulation so the freed nodes
+    // actually move. We also optimistically clear local state so the control
+    // hides immediately even if the canvas ref is somehow unavailable.
+    canvasRef.current?.unpinAll();
     setPinnedIds(new Set());
-    // Force canvas data rebuild by nudging the physics (harmless, reverts).
-    setPhysics((p) => ({ ...p }));
   }, []);
 
   if (!vault.ready) {
@@ -419,6 +474,7 @@ export default function GraphPage() {
           />
           {/* Drawer slides up from bottom */}
           <div
+            ref={controlsDrawerRef}
             role="dialog"
             aria-modal="true"
             aria-label="Graph controls"
@@ -490,7 +546,10 @@ export default function GraphPage() {
             {/* Mobile controls toggle button */}
             <button
               type="button"
-              onClick={() => setMobileControlsOpen(true)}
+              onClick={() => {
+                controlsRestoreRef.current = document.activeElement as HTMLElement | null;
+                setMobileControlsOpen(true);
+              }}
               aria-label="Open graph controls"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-800 text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200 md:hidden"
             >
@@ -624,10 +683,15 @@ export default function GraphPage() {
               onSelect={handleSelect}
               onOpen={openNote}
               aiSettings={aiEnabled ? aiSettings : undefined}
+              serverOpts={serverOpts}
             />
           </div>
           {/* Mobile node panel — slides up from bottom */}
           <div
+            ref={nodeDrawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Details for ${selectedNode.title}`}
             className="absolute bottom-0 left-0 right-0 z-20 max-h-[55dvh] overflow-y-auto rounded-t-2xl border-t border-neutral-800 bg-neutral-950 shadow-2xl md:hidden"
             style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
@@ -651,6 +715,7 @@ export default function GraphPage() {
               onSelect={handleSelect}
               onOpen={openNote}
               aiSettings={aiEnabled ? aiSettings : undefined}
+              serverOpts={serverOpts}
             />
           </div>
         </>
@@ -738,13 +803,25 @@ function ControlsIcon() {
 // ---------------------------------------------------------------------------
 
 /**
- * Read a value from sessionStorage, SSR-safe (returns null when unavailable).
- * Used to detect a live server connection for the optional short-link path.
+ * Read the bearer token from sessionStorage and the server URL from
+ * localStorage, SSR-safe (each returns null when unavailable). These mirror the
+ * canonical tiers + keys written by `useAuth` (token → sessionStorage) and
+ * `useServerSettings` (URL → localStorage); reading the wrong tier/key here was
+ * why "Create short link" always reported "Not connected".
  */
-function readSession(key: string): string | null {
+function readToken(): string | null {
   try {
     if (typeof sessionStorage === 'undefined') return null;
-    return sessionStorage.getItem(key);
+    return sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function readServerUrl(): string | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    return localStorage.getItem(SERVER_URL_STORAGE_KEY);
   } catch {
     return null;
   }
@@ -823,8 +900,8 @@ function ShareButton({
     // connected to a server (sessionStorage has both keys) whose opt-in snapshot
     // store is enabled. Best-effort — any failure simply hides the affordance.
     try {
-      const token = readSession('gv:auth:token');
-      const serverUrl = readSession('gv:serverUrl');
+      const token = readToken();
+      const serverUrl = readServerUrl();
       if (token && serverUrl) {
         const cfg = await getServerSnapshotConfig(serverUrl);
         setShortAvailable(Boolean(cfg?.enabled));
@@ -854,8 +931,8 @@ function ShareButton({
     setShortBusy(true);
     setShortError('');
     try {
-      const token = readSession('gv:auth:token');
-      const serverUrl = readSession('gv:serverUrl');
+      const token = readToken();
+      const serverUrl = readServerUrl();
       if (!token || !serverUrl) {
         throw new Error('Not connected to a server.');
       }
@@ -935,9 +1012,15 @@ function ShareButton({
           </p>
 
           {generating && (
-            <p className="text-[11px] text-neutral-600">Generating snapshot&hellip;</p>
+            <p className="text-[11px] text-neutral-600" role="status" aria-live="polite">
+              Generating snapshot&hellip;
+            </p>
           )}
-          {genError && <p className="text-[11px] text-red-400">{genError}</p>}
+          {genError && (
+            <p className="text-[11px] text-red-400" role="alert" aria-live="assertive">
+              {genError}
+            </p>
+          )}
 
           {!generating && !genError && embedUrl && (
             <div className="space-y-3">
@@ -1129,7 +1212,11 @@ function AiClusterNamingButton({
   return (
     <div className="relative">
       {state === 'loading' ? (
-        <span className="hidden items-center gap-1.5 rounded-md border border-violet-800/50 px-2 py-1 text-xs text-violet-400 motion-safe:animate-pulse sm:flex">
+        <span
+          role="status"
+          aria-live="polite"
+          className="hidden items-center gap-1.5 rounded-md border border-violet-800/50 px-2 py-1 text-xs text-violet-400 motion-safe:animate-pulse sm:flex"
+        >
           <SparkleIcon />
           Naming...
         </span>
@@ -1192,7 +1279,9 @@ function AiClusterNamingButton({
           )}
           {state === 'error' && (
             <>
-              <p className="mb-2 text-[11px] text-red-400">{errorMsg}</p>
+              <p className="mb-2 text-[11px] text-red-400" role="alert" aria-live="assertive">
+                {errorMsg}
+              </p>
               <button
                 type="button"
                 onClick={onDismissError}
