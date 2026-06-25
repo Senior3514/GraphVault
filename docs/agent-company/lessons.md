@@ -810,6 +810,46 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `[role="dialog"][aria-modal="true"]` and bail if present, so Esc closes the
   palette/drawer/modal first instead of an unexpected mode change.
 
+## Audit fixes — web critical
+
+### Centralize storage-key constants — drift across copies is a silent P0
+
+- **Bug:** 4 proxy adapters + the graph share path each hardcoded `gv:auth:token`/
+  `gv:serverUrl`, but the real keys are `graphvault:auth-token:v1` (sessionStorage)
+  and `graphvault:server-url` (**localStorage**). Every cloud backend's
+  `isAvailable()` was false → all dead on arrival, masked by adapter tests that used
+  the wrong keys too. **Fix:** one `lib/api/storageKeys.ts`; hooks + adapters import
+  it. Note the two values live in DIFFERENT tiers (token=session, url=local) — a
+  copy-pasted `getServerUrl` reading sessionStorage was part of the bug.
+
+### View-mode flags must neutralize conflicting persisted layout state
+
+- **Bug:** focus mode hid panes by render condition but never cleared a persisted
+  `maximized` → all columns hidden = blank workspace that survives reload. **Fix:**
+  clear `maximized` on entering focus mode AND compute an `effectiveMaximized`
+  (focus ⇒ null) at the render site (defense-in-depth for already-persisted blanks).
+
+### "Never lose data" needs beforeunload + visibilitychange flush
+
+- A debounced autosave that only flushes on React unmount/tab-switch loses the
+  pending window on hard close / mobile background. Wire `beforeunload` AND
+  `visibilitychange==='hidden'` to the existing flush. Pull it into a DOM-only
+  helper so it's unit-testable without a renderer.
+
+### Don't combine encryption with a non-localStorage adapter (split-vault risk)
+
+- The encrypted store hard-wires localStorage while the unencrypted path uses the
+  active adapter. Gate "enable encryption" on the active adapter being localStorage
+  rather than reworking encryption-through-any-adapter — prevents ciphertext-to-local
+  while the cloud copy stays stale.
+
+### Canvas/WebGL colors must read the theme tokens, not hardcode dark
+
+- The force-graph canvas hardcoded `#0a0a0a` bg/labels → a black block in light
+  theme. Read `--n-*` via `getComputedStyle` and re-read on a `data-theme`
+  MutationObserver. Snapshot share also leaked full note paths (`i: n.id` where id IS
+  the path) — emit opaque ids and remap edges.
+
 ## End-to-end ship-readiness audit (5-agent) — data-safety fixes
 
 ### Conflict resolution: "preserve content over honoring a delete" must hold for BOTH directions

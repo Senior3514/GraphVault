@@ -165,3 +165,50 @@ describe('focus mode', () => {
     assert.deepEqual(exited.panels, customised.panels);
   });
 });
+
+// ---- focus mode + maximized pane interaction (regression) ------------------
+// Bug: focus mode hides the side panes; with `maximized === 'noteList'` (or
+// 'details') the editor is also hidden → ALL three columns gone → blank
+// workspace that persisted across reloads.
+
+import { applyFocusMode, effectiveMaximized } from './useLayout';
+
+describe('focus mode + maximized pane', () => {
+  it('entering focus mode clears a maximized side pane', () => {
+    const maxedNoteList: WorkspaceLayout = { ...DEFAULT_LAYOUT, maximized: 'noteList' };
+    const next = applyFocusMode(maxedNoteList, true);
+    assert.equal(next.focusMode, true);
+    assert.equal(next.maximized, null, 'maximized must be cleared on entering focus mode');
+  });
+
+  it('entering focus mode clears a maximized details pane too', () => {
+    const maxedDetails: WorkspaceLayout = { ...DEFAULT_LAYOUT, maximized: 'details' };
+    const next = applyFocusMode(maxedDetails, true);
+    assert.equal(next.maximized, null);
+  });
+
+  it('exiting focus mode does NOT resurrect a maximized pane', () => {
+    const focused: WorkspaceLayout = { ...DEFAULT_LAYOUT, focusMode: true, maximized: null };
+    const next = applyFocusMode(focused, false);
+    assert.equal(next.focusMode, false);
+    assert.equal(next.maximized, null);
+  });
+
+  it('effectiveMaximized neutralises a stale persisted maximized in focus mode', () => {
+    // Simulate a previously-persisted blank state: focusMode on + maximized set.
+    assert.equal(effectiveMaximized('noteList', true), null);
+    assert.equal(effectiveMaximized('details', true), null);
+    // Outside focus mode the maximized value is honoured as-is.
+    assert.equal(effectiveMaximized('noteList', false), 'noteList');
+    assert.equal(effectiveMaximized(null, false), null);
+  });
+
+  it('editor column is visible for every maximized value while in focus mode', () => {
+    // Mirrors WorkspaceLayout: showEditor = effMax === null || effMax === 'editor'.
+    for (const m of ['noteList', 'details', 'editor', null] as const) {
+      const effMax = effectiveMaximized(m, true);
+      const showEditor = effMax === null || effMax === 'editor';
+      assert.equal(showEditor, true, `editor must show in focus mode with maximized=${m}`);
+    }
+  });
+});

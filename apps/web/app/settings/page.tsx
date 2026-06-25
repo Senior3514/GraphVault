@@ -605,8 +605,9 @@ function StorageSection() {
         text: `Moved ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to "${result.to}". Source (${result.from}) preserved as backup — clear it manually when satisfied.`,
       });
 
-      // Reload vault notes from the new adapter.
-      await vault.resetVault();
+      // Reload vault notes from the new adapter (non-destructive — the source
+      // adapter's notes are preserved as promised by the migration).
+      await vault.reload();
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setMsg({ kind: 'warn', text: 'Folder selection cancelled.' });
@@ -633,6 +634,9 @@ function StorageSection() {
     // Also deactivate WebDAV if it was active.
     setActiveId('localStorage');
     setMsg({ kind: 'ok', text: 'Switched back to browser storage (localStorage).' });
+    // Non-destructively surface the localStorage adapter's notes (previously
+    // this skipped reload entirely, leaving stale notes from the old backend).
+    void vault.reload();
   };
 
   const switchToWebDav = async () => {
@@ -655,7 +659,7 @@ function StorageSection() {
         kind: 'ok',
         text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to WebDAV. Source (${result.from}) preserved — clear it manually when satisfied.`,
       });
-      await vault.resetVault();
+      await vault.reload();
     } catch (err) {
       setMsg({
         kind: 'err',
@@ -685,7 +689,7 @@ function StorageSection() {
         kind: 'ok',
         text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to S3. Source (${result.from}) preserved — clear it manually when satisfied.`,
       });
-      await vault.resetVault();
+      await vault.reload();
     } catch (err) {
       setMsg({
         kind: 'err',
@@ -715,7 +719,7 @@ function StorageSection() {
         kind: 'ok',
         text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to Azure Blob Storage. Source (${result.from}) preserved — clear it manually when satisfied.`,
       });
-      await vault.resetVault();
+      await vault.reload();
     } catch (err) {
       setMsg({
         kind: 'err',
@@ -745,7 +749,7 @@ function StorageSection() {
         kind: 'ok',
         text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to Google Cloud Storage. Source (${result.from}) preserved — clear it manually when satisfied.`,
       });
-      await vault.resetVault();
+      await vault.reload();
     } catch (err) {
       setMsg({
         kind: 'err',
@@ -2354,6 +2358,23 @@ function EncryptionSection() {
 
   const isEnabled = vault.encryptionEnabled;
 
+  // Encryption is only safe over the localStorage backend: EncryptedVaultStore
+  // operates on a single serialised blob in localStorage, NOT through the active
+  // storage adapter. Enabling it while a cloud/FS backend is active would write
+  // ciphertext to localStorage while the cloud copy stays stale plaintext — a
+  // split vault. So we offer "enable encryption" only when localStorage is the
+  // active backend (matches the documented scope in EncryptedVaultStore.ts).
+  // Disabling stays available regardless so an already-encrypted vault can
+  // always be turned off.
+  const activeAdapterId = (() => {
+    try {
+      return getActiveAdapter().id;
+    } catch {
+      return 'localStorage';
+    }
+  })();
+  const encryptionSupported = activeAdapterId === 'localStorage';
+
   const handleEnable = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
@@ -2448,7 +2469,7 @@ function EncryptionSection() {
             >
               Disable encryption
             </button>
-          ) : (
+          ) : encryptionSupported ? (
             <button
               type="button"
               onClick={() => {
@@ -2459,6 +2480,14 @@ function EncryptionSection() {
             >
               Enable encryption
             </button>
+          ) : (
+            <div className="rounded-md border border-neutral-800 bg-neutral-900/60 p-3 text-xs text-neutral-500">
+              At-rest encryption is available only on the{' '}
+              <strong className="text-neutral-400">browser storage (localStorage)</strong> backend.
+              Your active backend is <strong className="text-neutral-400">{activeAdapterId}</strong>
+              . Switch back to browser storage (Storage location, above) to enable encryption — this
+              prevents writing encrypted data to one backend while another holds stale plaintext.
+            </div>
           )}
         </div>
       )}

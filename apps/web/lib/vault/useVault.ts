@@ -98,6 +98,14 @@ export interface UseVault {
   importNotes(incoming: readonly ImportNote[]): ImportSummary;
   resetVault(): Promise<void>;
   /**
+   * Non-destructively reload notes from the active storage adapter into React
+   * state. Unlike {@link resetVault}, this NEVER clears or reseeds storage — it
+   * just re-reads what is already persisted. Used after a storage-backend switch
+   * (migrate copies notes to the new adapter; reload surfaces them) so the
+   * migrate "source preserved" promise is honoured.
+   */
+  reload(): Promise<void>;
+  /**
    * Restore a snapshot by id. Non-destructive: a "pre-restore" snapshot of
    * the current state is taken first, then the snapshot notes are merged in
    * via the collision-safe merge. Returns false if the snapshot was not found.
@@ -367,6 +375,15 @@ export function useVault(): UseVault {
     setRawNotes(seeded);
   }, []);
 
+  const reload = useCallback(async () => {
+    // Re-read from whichever store is currently active (encrypted or adapter).
+    // No clear, no reseed — purely a refresh of in-memory state.
+    const source = encryptedStore.current ?? store;
+    const loaded = await source.load();
+    setRawNotes(loaded);
+    setReady(true);
+  }, []);
+
   const restoreFromSnapshot = useCallback(
     async (snapshotId: string): Promise<boolean> => {
       const merged = await getBackupStore().restoreSnapshot(snapshotId, rawNotes, mergeImport);
@@ -403,6 +420,7 @@ export function useVault(): UseVault {
     deleteNote,
     importNotes,
     resetVault,
+    reload,
     restoreFromSnapshot,
     encryptionEnabled,
     needsPassphrase,
