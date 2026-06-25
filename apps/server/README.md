@@ -13,7 +13,8 @@ src/
   index.ts          Process entrypoint (loads config, ensures dataDir, listens)
   config.ts         Env-only configuration
   errors.ts         AppError + JSON error envelope (matches apiErrorSchema)
-  routes/           Thin HTTP handlers (auth, vaults, blobs)
+  routes/           Thin HTTP handlers (auth, vaults, blobs, webdav, s3, azure,
+                    gcs, ai, clip, snapshots, inbox)
   services/         Business logic, decoupled from Fastify and reusable
     auth.ts         register/login, bearer-token auth, Argon2id (scrypt fallback)
     vault.ts        vault create/list + ownership checks
@@ -49,6 +50,12 @@ All configuration is via environment variables — see [`.env.example`](./.env.e
 | `GRAPHVAULT_TRUST_PROXY`             | `false`      | Trust `X-Forwarded-*` from a fronting proxy            |
 | `GRAPHVAULT_REQUIRE_HTTPS`           | prod: `true` | Reject plaintext (honors `X-Forwarded-Proto`)          |
 | `GRAPHVAULT_ENCRYPTION_KEY`          | —            | base64 32-byte AES-256 key for at-rest blob encryption |
+| `GRAPHVAULT_MAX_JSON_BYTES`          | `1048576`    | Max body size for JSON / non-blob routes (1 MiB)       |
+| `GRAPHVAULT_REQUEST_TIMEOUT_MS`      | `30000`      | Max time to fully receive a request before aborting    |
+| `GRAPHVAULT_KEEP_ALIVE_TIMEOUT_MS`   | `72000`      | Idle keep-alive socket lifetime (keep above proxy's)   |
+| `GRAPHVAULT_CONNECTION_TIMEOUT_MS`   | `60000`      | Max time a socket may stay open without headers        |
+| `GRAPHVAULT_MAX_PARAM_LENGTH`        | `256`        | Max length of a single URL path param (e.g. `:hash`)   |
+| `GRAPHVAULT_AI_DAILY_CAP`            | `200`        | Per-user/day request cap on the AI proxy (`0` = off)   |
 | `GRAPHVAULT_SNAPSHOTS_ENABLED`       | `false`      | Opt-in public graph-snapshot store (off = routes 404)  |
 | `GRAPHVAULT_SNAPSHOT_MAX_BYTES`      | `400000`     | Max encoded snapshot payload size (413 over)           |
 | `GRAPHVAULT_SNAPSHOT_MAX_COUNT`      | `5000`       | Max stored snapshots; oldest evicted first             |
@@ -133,6 +140,37 @@ invisible — `404`).
 - Every attempt (`accepted` / `rejected`) is appended to a per-user, capped
   (last 500, oldest evicted) audit log, readable via `GET /v1/inbox/log`.
 
+## AI proxy / BFF (BYO-key, M22)
+
+A backend-for-frontend that lets the web client use an AI assistant **without
+the browser ever holding the AI API key**. The user configures their key
+(OpenRouter or a direct provider) once; the server stores it encrypted at rest
+(AES-256-GCM, key derived from `GRAPHVAULT_ENCRYPTION_KEY` or a process-lifetime
+key when unset) and **never returns it to the client**. The browser sends only
+the chat prompt; the key is attached server-side. All routes require a bearer
+token.
+
+| Method   | Path            | Body                           | Returns                                |
+| -------- | --------------- | ------------------------------ | -------------------------------------- |
+| `POST`   | `/v1/ai/config` | `{ apiKey, gateway?, model? }` | `204` (key stored encrypted at rest)   |
+| `GET`    | `/v1/ai/config` | —                              | `{ keySet, gateway, model }` (no key)  |
+| `DELETE` | `/v1/ai/config` | —                              | `204` (removes the config)             |
+| `POST`   | `/v1/ai/chat`   | chat-completion request        | forwarded completion from the upstream |
+
+`POST /v1/ai/chat` is bounded by `GRAPHVAULT_AI_DAILY_CAP` (per-user/day request
+cap; default `200`, `0` = unlimited — discouraged in production without
+key-level billing controls).
+
+## URL web-clipper (M22)
+
+| Method | Path       | Auth | Body      | Returns                          |
+| ------ | ---------- | ---- | --------- | -------------------------------- |
+| `POST` | `/v1/clip` | yes  | `{ url }` | `{ title, markdown, sourceUrl }` |
+
+`POST /v1/clip` fetches a web page server-side and converts it to clean
+Markdown. The URL is validated against an SSRF guard before any fetch, and the
+route inherits the global rate limit.
+
 ## Storage backends
 
 - **memory** (default): `InMemoryStorage`, ideal for development and tests. No
@@ -144,9 +182,17 @@ invisible — `404`).
   ```bash
   export DATABASE_URL=postgresql://user:pass@localhost:5432/graphvault
   pnpm --filter @graphvault/server prisma:generate   # generates the client
-  pnpm --filter @graphvault/server prisma:migrate     # applies migrations
+  # Create/update the tables. The repo ships NO migration files in 0.1.0, so use
+  # `db push` (idempotent, matches docker-compose.yml) rather than migrate deploy:
+  pnpm --filter @graphvault/server exec prisma db push --skip-generate
   GRAPHVAULT_STORAGE=postgres pnpm --filter @graphvault/server start
   ```
+
+  > The `prisma:migrate` script (`prisma migrate deploy`) is reserved for a
+  > future versioned-migration workflow; with no `prisma/migrations/` directory
+  > committed it creates no tables. Use `prisma db push` to materialize the
+  > schema from `prisma/schema.prisma` directly — this is what the Compose stack
+  > runs on every boot.
 
 ## Develop / run / test
 
