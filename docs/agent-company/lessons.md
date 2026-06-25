@@ -849,6 +849,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   theme. Read `--n-*` via `getComputedStyle` and re-read on a `data-theme`
   MutationObserver. Snapshot share also leaked full note paths (`i: n.id` where id IS
   the path) — emit opaque ids and remap edges.
+
 ## End-to-end ship-readiness audit (5-agent) — data-safety fixes
 
 ### Conflict resolution: "preserve content over honoring a delete" must hold for BOTH directions
