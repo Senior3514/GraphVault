@@ -55,6 +55,7 @@ import {
 } from '../../lib/connectors/types';
 import type { LocalImportConnector } from '../../lib/connectors/types';
 import { ALL_IMPORTERS, ImporterError, type Importer } from '../../lib/importers';
+import { isValid, validateFields, type FieldErrors } from '../../lib/settings/validation';
 
 /** Trigger a browser download of `data` under `filename`. */
 function downloadBlob(data: BlobPart, filename: string, type: string) {
@@ -75,6 +76,20 @@ function stamp(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
 }
 
+/**
+ * Inline validation error rendered beneath a form field. Announced to screen
+ * readers (role="alert") and referenced from the input via `aria-describedby`
+ * / `aria-invalid` by the caller.
+ */
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} role="alert" className="mt-1 text-xs text-red-400">
+      {message}
+    </p>
+  );
+}
+
 export default function SettingsPage() {
   const { serverUrl, setServerUrl, loaded } = useServerSettings();
   const vault = useVaultContext();
@@ -82,12 +97,23 @@ export default function SettingsPage() {
   const [draftUrl, setDraftUrl] = useState('');
   const [saved, setSaved] = useState(false);
   const [test, setTest] = useState<string | null>(null);
+  const [urlError, setUrlError] = useState('');
 
   useEffect(() => {
     if (loaded) setDraftUrl(serverUrl);
   }, [loaded, serverUrl]);
 
   const save = () => {
+    // A blank URL clears the override back to the env default; only a non-empty
+    // value must be a well-formed http(s) URL.
+    const errors = validateFields({
+      serverUrl: { value: draftUrl, url: true, label: 'Server URL' },
+    });
+    if (!isValid(errors)) {
+      setUrlError(errors.serverUrl);
+      return;
+    }
+    setUrlError('');
     setServerUrl(draftUrl);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
@@ -248,6 +274,8 @@ export default function SettingsPage() {
             value={draftUrl}
             onChange={(e) => setDraftUrl(e.target.value)}
             placeholder="http://127.0.0.1:4000"
+            aria-invalid={Boolean(urlError)}
+            aria-describedby={urlError ? 'sync-url-error' : undefined}
             className="flex-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 outline-none focus:border-neutral-600"
           />
           <button
@@ -265,7 +293,8 @@ export default function SettingsPage() {
             Test
           </button>
         </div>
-        <div className="mt-2 h-4 text-xs">
+        <FieldError id="sync-url-error" message={urlError} />
+        <div className="mt-2 h-4 text-xs" role="status" aria-live="polite">
           {saved && <span className="text-emerald-400">Saved.</span>}
           {test && <span className="text-neutral-400">{test}</span>}
         </div>
@@ -427,7 +456,7 @@ export default function SettingsPage() {
           Import never overwrites: if a note already exists with different content, your copy is
           kept alongside the imported one.
         </p>
-        <div className="mt-2 min-h-4 text-xs">
+        <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
           {ioMsg && (
             <span className={ioMsg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
               {ioMsg.text}
@@ -477,10 +506,74 @@ function StorageSection() {
   });
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err' | 'warn'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // True when a folder was selected in a previous session (persisted handle in
+  // IndexedDB) but it is not currently reconnected — so we surface a banner
+  // prompting the user to re-grant access rather than silently writing edits to
+  // localStorage and looking like data loss.
+  const [folderDisconnected, setFolderDisconnected] = useState(false);
 
   const fsApiAvailable = FileSystemAdapter.isApiAvailable();
   const adapters = listAdapters();
   const vault = useVaultContext();
+
+  // On mount, try to silently reconnect a previously-selected folder (only
+  // succeeds when permission is still granted). If a handle is persisted but we
+  // can't reconnect silently, flag it so the banner appears.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!FileSystemAdapter.isApiAvailable()) return;
+      try {
+        const restored = await FileSystemAdapter.restore(false);
+        if (cancelled) return;
+        if (restored && restored.directory) {
+          fileSystemAdapter.setDirectory(
+            restored.directory as Parameters<typeof fileSystemAdapter.setDirectory>[0],
+          );
+          setActiveId('fileSystem');
+          setFolderDisconnected(false);
+        } else if (await FileSystemAdapter.hasPersistedHandle()) {
+          if (!cancelled) setFolderDisconnected(true);
+        }
+      } catch {
+        /* best-effort reconnect — ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Re-grant access to the persisted folder. Must run from a click (user
+  // gesture) so requestPermission can prompt.
+  const reconnectFolder = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      const restored = await FileSystemAdapter.restore(true);
+      if (restored && restored.directory) {
+        fileSystemAdapter.setDirectory(
+          restored.directory as Parameters<typeof fileSystemAdapter.setDirectory>[0],
+        );
+        setActiveId('fileSystem');
+        setFolderDisconnected(false);
+        setMsg({ kind: 'ok', text: 'Reconnected to your folder.' });
+        await vault.resetVault();
+      } else {
+        setMsg({
+          kind: 'err',
+          text: 'Could not reconnect. Pick the folder again to restore access.',
+        });
+      }
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to reconnect to the folder.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const switchToFileSystem = async () => {
     setMsg(null);
@@ -506,6 +599,7 @@ function StorageSection() {
       );
 
       setActiveId('fileSystem');
+      setFolderDisconnected(false);
       setMsg({
         kind: 'ok',
         text: `Moved ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to "${result.to}". Source (${result.from}) preserved as backup — clear it manually when satisfied.`,
@@ -533,6 +627,10 @@ function StorageSection() {
     fileSystemAdapter.setDirectory(
       null as unknown as Parameters<typeof fileSystemAdapter.setDirectory>[0],
     );
+    // Forget the persisted handle so we don't show the reconnect banner after
+    // the user has deliberately chosen browser storage.
+    void FileSystemAdapter.forgetPersistedHandle();
+    setFolderDisconnected(false);
     // Also deactivate WebDAV if it was active.
     setActiveId('localStorage');
     setMsg({ kind: 'ok', text: 'Switched back to browser storage (localStorage).' });
@@ -673,6 +771,30 @@ function StorageSection() {
         activate) — no data is deleted automatically.
       </p>
 
+      {/* Folder-disconnected banner: a folder was selected previously but the
+          browser hasn't re-granted access this session. Without this the app
+          would silently fall back to localStorage and look like data loss. */}
+      {folderDisconnected && (
+        <div
+          role="alert"
+          className="mt-3 rounded-md border border-amber-700/60 bg-amber-950/30 p-3 text-xs text-amber-200"
+        >
+          <strong>Your local folder is disconnected.</strong> You previously chose a folder on disk,
+          but this browser session hasn&apos;t re-granted access. Until you reconnect, edits are
+          written to browser storage — not your folder.
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => void reconnectFolder()}
+              disabled={busy}
+              className="rounded-md border border-amber-600/70 bg-amber-900/40 px-3 py-1.5 text-xs font-medium text-amber-100 hover:bg-amber-800/50 disabled:opacity-40"
+            >
+              {busy ? 'Reconnecting…' : 'Reconnect folder'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
         <dt>Active backend</dt>
         <dd className="text-neutral-200">{activeLabel}</dd>
@@ -752,7 +874,7 @@ function StorageSection() {
         )}
       </div>
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span
             className={
@@ -806,6 +928,7 @@ function WebDavSection({
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const didLoad = useRef(false);
 
   const fetchConfig = useCallback(async () => {
@@ -833,6 +956,16 @@ function WebDavSection({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.token) return;
+    const fieldErrors = validateFields({
+      url: { value: url, required: true, url: true, label: 'WebDAV URL' },
+      username: { value: username, required: true, label: 'Username' },
+      password: { value: password, required: true, label: 'Password' },
+    });
+    setErrors(fieldErrors);
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -979,9 +1112,12 @@ function WebDavSection({
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.url)}
+                  aria-describedby={errors.url ? 'dav-url-error' : undefined}
                   placeholder="https://cloud.example.com/remote.php/dav/files/alice/"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="dav-url-error" message={errors.url} />
                 <p className="mt-1 text-xs text-neutral-600">
                   Nextcloud:{' '}
                   <code className="text-neutral-500">
@@ -1060,7 +1196,7 @@ function WebDavSection({
         </>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -1106,6 +1242,7 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
   const [prefix, setPrefix] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const didLoad = useRef(false);
 
   const fetchConfig = useCallback(async () => {
@@ -1133,6 +1270,19 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.token) return;
+    const fieldErrors = validateFields({
+      endpoint: { value: endpoint, url: true, label: 'Endpoint URL' },
+      region: { value: region, required: true, label: 'Region' },
+      bucket: { value: bucket, required: true, label: 'Bucket name' },
+      accessKeyId: { value: accessKeyId, required: true, label: 'Access key ID' },
+      secretAccessKey: { value: secretAccessKey, required: true, label: 'Secret access key' },
+      prefix: { value: prefix, endsWithSlash: true, label: 'Key prefix' },
+    });
+    setErrors(fieldErrors);
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -1302,9 +1452,12 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
                   value={endpoint}
                   onChange={(e) => setEndpoint(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.endpoint)}
+                  aria-describedby={errors.endpoint ? 's3-endpoint-error' : undefined}
                   placeholder="https://account-id.r2.cloudflarestorage.com"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="s3-endpoint-error" message={errors.endpoint} />
                 <p className="mt-1 text-xs text-neutral-600">
                   MinIO: <code className="text-neutral-500">http://minio.local:9000</code>
                   {' · '}Cloudflare R2:{' '}
@@ -1406,9 +1559,12 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
                   value={prefix}
                   onChange={(e) => setPrefix(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.prefix)}
+                  aria-describedby={errors.prefix ? 's3-prefix-error' : undefined}
                   placeholder="graphvault/"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="s3-prefix-error" message={errors.prefix} />
               </div>
               <div className="flex gap-2">
                 <button
@@ -1436,7 +1592,7 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
         </>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -1553,6 +1709,7 @@ function AzureSection({
   const [endpoint, setEndpoint] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const didLoad = useRef(false);
 
   const fetchConfig = useCallback(async () => {
@@ -1579,6 +1736,17 @@ function AzureSection({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.token) return;
+    const fieldErrors = validateFields({
+      account: { value: account, required: true, label: 'Storage account name' },
+      container: { value: container, required: true, label: 'Container name' },
+      accountKey: { value: accountKey, required: true, label: 'Account key' },
+      endpoint: { value: endpoint, url: true, label: 'Endpoint URL' },
+    });
+    setErrors(fieldErrors);
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -1796,9 +1964,12 @@ function AzureSection({
                   value={endpoint}
                   onChange={(e) => setEndpoint(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.endpoint)}
+                  aria-describedby={errors.endpoint ? 'azure-endpoint-error' : undefined}
                   placeholder="http://127.0.0.1:10000/devstoreaccount1"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="azure-endpoint-error" message={errors.endpoint} />
                 <p className="mt-1 text-xs text-neutral-600">
                   Leave blank for Azure (uses{' '}
                   <code className="text-neutral-500">
@@ -1833,7 +2004,7 @@ function AzureSection({
         </>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -1874,6 +2045,7 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
   const [prefix, setPrefix] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const didLoad = useRef(false);
 
   const fetchConfig = useCallback(async () => {
@@ -1900,6 +2072,17 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.token) return;
+    const fieldErrors = validateFields({
+      bucket: { value: bucket, required: true, label: 'Bucket name' },
+      accessId: { value: accessId, required: true, label: 'HMAC access ID' },
+      secret: { value: secret, required: true, label: 'HMAC secret' },
+      prefix: { value: prefix, endsWithSlash: true, label: 'Key prefix' },
+    });
+    setErrors(fieldErrors);
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -2116,9 +2299,12 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
                   value={prefix}
                   onChange={(e) => setPrefix(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.prefix)}
+                  aria-describedby={errors.prefix ? 'gcs-prefix-error' : undefined}
                   placeholder="graphvault/"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="gcs-prefix-error" message={errors.prefix} />
               </div>
               <div className="flex gap-2">
                 <button
@@ -2146,7 +2332,7 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
         </>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -2407,7 +2593,7 @@ function EncryptionSection() {
         </form>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -2832,6 +3018,7 @@ function AIAssistantSection() {
   const [loadingKeyConfig, setLoadingKeyConfig] = useState(false);
   const [keyMsg, setKeyMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [keyBusy, setKeyBusy] = useState(false);
+  const [keyErrors, setKeyErrors] = useState<FieldErrors>({});
   const keyConfigLoaded = useRef(false);
 
   const fetchKeyConfig = useCallback(async () => {
@@ -2864,9 +3051,19 @@ function AIAssistantSection() {
       setKeyMsg({ kind: 'err', text: 'Please enter an API key.' });
       return;
     }
-    if (gateway === 'custom' && !customBaseUrl.trim()) {
-      setKeyMsg({ kind: 'err', text: 'A base URL is required for the custom gateway.' });
-      return;
+    // For the custom gateway the base URL is required and must be a valid
+    // http(s) URL; OpenRouter uses a built-in endpoint, so no URL to check.
+    if (gateway === 'custom') {
+      const fieldErrors = validateFields({
+        customBaseUrl: { value: customBaseUrl, required: true, url: true, label: 'Base URL' },
+      });
+      setKeyErrors(fieldErrors);
+      if (!isValid(fieldErrors)) {
+        setKeyMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+        return;
+      }
+    } else {
+      setKeyErrors({});
     }
     setKeyBusy(true);
     setKeyMsg(null);
@@ -3185,9 +3382,14 @@ function AIAssistantSection() {
                         value={customBaseUrl}
                         onChange={(e) => setCustomBaseUrl(e.target.value)}
                         disabled={keyBusy}
+                        aria-invalid={Boolean(keyErrors.customBaseUrl)}
+                        aria-describedby={
+                          keyErrors.customBaseUrl ? 'ai-custom-url-error' : undefined
+                        }
                         placeholder="https://api.openai.com/v1"
                         className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                       />
+                      <FieldError id="ai-custom-url-error" message={keyErrors.customBaseUrl} />
                       <p className="mt-1 text-xs text-neutral-600">
                         Any OpenAI-compatible endpoint (Anthropic, OpenAI, Together, etc.)
                       </p>
@@ -3271,7 +3473,7 @@ function AIAssistantSection() {
                 </form>
               )}
 
-              <div className="mt-1 min-h-4 text-xs">
+              <div className="mt-1 min-h-4 text-xs" role="status" aria-live="polite">
                 {keyMsg && (
                   <span className={keyMsg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
                     {keyMsg.text}
@@ -3476,7 +3678,7 @@ function RssImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext> }
       </div>
 
       {/* Result message */}
-      <div className="min-h-4 text-xs">
+      <div className="min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -3628,7 +3830,7 @@ function EmailImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext>
       </p>
 
       {/* Result message */}
-      <div className="min-h-4 text-xs">
+      <div className="min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -3658,12 +3860,17 @@ function WebClipPanel({
   const [urlInput, setUrlInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [urlError, setUrlError] = useState('');
 
   const handleClip = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = urlInput.trim();
-    if (!url) {
-      setMsg({ kind: 'err', text: 'Please enter a URL to clip.' });
+    const fieldErrors = validateFields({
+      url: { value: urlInput, required: true, url: true, label: 'URL' },
+    });
+    setUrlError(fieldErrors.url ?? '');
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please enter a valid http(s) URL.' });
       return;
     }
     if (!auth.token) {
@@ -3767,9 +3974,12 @@ function WebClipPanel({
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               disabled={busy}
+              aria-invalid={Boolean(urlError)}
+              aria-describedby={urlError ? 'clip-url-error' : undefined}
               placeholder="https://example.com/article"
               className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
             />
+            <FieldError id="clip-url-error" message={urlError} />
           </div>
           <button
             type="submit"
@@ -3781,7 +3991,7 @@ function WebClipPanel({
         </form>
       )}
 
-      <div className="min-h-4 text-xs">
+      <div className="min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -4084,7 +4294,7 @@ function AppImporterSection({ vault }: { vault: ReturnType<typeof useVaultContex
         alongside the imported one.
       </p>
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}

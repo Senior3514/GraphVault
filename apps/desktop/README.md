@@ -1,8 +1,16 @@
 # @graphvault/desktop — Tauri shell (Milestone 16)
 
 GraphVault as a native desktop application. A lightweight Tauri 2 shell wraps
-the existing Next.js web client so the full editor, graph view, and storage-seam
-work identically — no UI rewrite required.
+the existing Next.js web client so the full editor and graph view work
+identically — no UI rewrite required.
+
+> **Status: M16 scaffold.** The desktop app currently runs purely as the **web
+> shell** (same storage adapters as the browser — localStorage / File System
+> Access). The native `.md`-on-disk path described below (`tauriStorageAdapter`,
+> the Rust `pick_vault_folder` IPC, and the `fs`-plugin scope) is **scaffolded
+> but NOT yet wired**: the adapter is not registered, and native fs scoping is
+> not granted at runtime. Treat the "native disk storage" sections as a design
+> for deferred work, not a shipped feature.
 
 ---
 
@@ -96,16 +104,22 @@ apps/desktop/src-tauri/target/release/bundle/
 
 ---
 
-## The `.md`-on-disk storage path
+## The `.md`-on-disk storage path (scaffold — not yet wired)
+
+> **Not yet active.** Everything in this section describes the _planned_ native
+> storage path. As of M16 the adapter below is **not registered** and native fs
+> scoping is **not granted**, so the desktop app falls back to the web shell's
+> browser storage adapters. The code exists so the wiring (M17) is a small,
+> reviewed step rather than a rewrite.
 
 GraphVault already has a pluggable `StorageAdapter` seam defined in
 `apps/web/lib/vault/storage/index.ts`. The desktop build adds a native
-implementation (`src/tauriStorageAdapter.ts`) that:
+implementation (`src/tauriStorageAdapter.ts`) that is _intended_ to:
 
-1. Invokes the Rust `pick_vault_folder` IPC command to show the OS folder picker.
-2. Uses `@tauri-apps/plugin-fs` to read/write real `.md` files in the chosen
+1. Invoke the Rust `pick_vault_folder` IPC command to show the OS folder picker.
+2. Use `@tauri-apps/plugin-fs` to read/write real `.md` files in the chosen
    directory — one file per note, vault-relative paths preserved.
-3. Exports `tauriStorageAdapter` as a singleton that the web layer registers into
+3. Export `tauriStorageAdapter` as a singleton that the web layer registers into
    the adapter registry when it detects `window.__TAURI__`:
 
 ```ts
@@ -138,9 +152,14 @@ needed** in the editor, vault page, or Settings to switch to native disk I/O.
 
 - **Allowlist is minimal**: only `tauri-plugin-fs` and `tauri-plugin-dialog` are
   loaded; no shell, HTTP, or clipboard plugins.
-- **FS scope**: the `fs` plugin starts with an empty `allow` list; scope is
-  added dynamically via the `pick_vault_folder` IPC return value. Files outside
-  the chosen folder are not accessible to the webview.
+- **FS scope (NOT yet wired)**: the `fs` plugin ships with an **empty `allow`
+  list**, and `pick_vault_folder` (in `src-tauri/src/main.rs`) returns the
+  chosen path **without** granting fs scope to it. As a result, any
+  `@tauri-apps/plugin-fs` call from `tauriStorageAdapter` would be **denied at
+  runtime today**. Dynamic scope-granting from the picked folder is **deferred
+  work** — do not rely on "scoped to the chosen vault" as an implemented
+  guarantee. (Because the adapter is not registered in this scaffold, no
+  fs-plugin calls are actually made.)
 - **CSP**: configured in `tauri.conf.json`; scripts limited to `'self'`;
   `connect-src` allows `localhost:*` only in dev mode.
 - **No auto-update**: not enabled in this scaffold; add `tauri-plugin-updater`
