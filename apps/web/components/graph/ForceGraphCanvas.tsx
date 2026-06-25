@@ -51,7 +51,9 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState 
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
 
 import { type GraphPhysics, radiusForDegree, shouldShowLabel } from '../../lib/graph/physics';
+import { makePositioningForce, type PositioningForce } from '../../lib/graph/forces';
 import type { RenderLink, RenderModel, RenderNode } from '../../lib/graph/model';
+import { useGraphThemeColors, type GraphThemeColors } from '../../lib/graph/useThemeColors';
 
 /** Imperative handle the page can use to drive the view (zoom-to-fit, reset, zoom in/out). */
 export interface ForceGraphHandle {
@@ -59,6 +61,12 @@ export interface ForceGraphHandle {
   resetView: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /**
+   * Unpin every node: clears `fx`/`fy` on all nodes and reheats the simulation
+   * so the freed nodes settle back into the layout. Returns the previously
+   * pinned node ids so the caller can keep external state in sync.
+   */
+  unpinAll: () => void;
 }
 
 export interface ForceGraphCanvasProps {
@@ -193,6 +201,7 @@ function drawNodeGradient(
   isPlaceholder: boolean,
   isSelected: boolean,
   globalScale: number,
+  theme: GraphThemeColors,
 ) {
   const { r, g, b } = hexToRgb(color);
 
@@ -200,7 +209,7 @@ function drawNodeGradient(
     // Faint, outlined disc for attachments / missing notes.
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
-    ctx.fillStyle = '#0a0a0a';
+    ctx.fillStyle = theme.placeholderFill;
     ctx.fill();
     ctx.lineWidth = 1.4 / globalScale;
     ctx.strokeStyle = color;
@@ -255,16 +264,22 @@ function drawHaloLabel(
   fontSize: number,
   isDimmed: boolean,
   isPlaceholder: boolean,
+  theme: GraphThemeColors,
 ) {
-  const textColor = isDimmed ? '#52525b' : isPlaceholder ? '#9ca3af' : '#d4d4d8';
+  const textColor = isDimmed
+    ? theme.labelDimmed
+    : isPlaceholder
+      ? theme.labelPlaceholder
+      : theme.labelText;
 
   ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
   if (!isDimmed) {
-    // Halo pass: slightly thicker, near-black, drawn offset to simulate a shadow.
-    ctx.fillStyle = 'rgba(10,10,10,0.85)';
+    // Halo pass: slightly thicker, in the page-background colour, drawn offset to
+    // simulate a shadow that lifts the text off any node colour in either theme.
+    ctx.fillStyle = theme.labelHalo;
     for (const [dx, dy] of [
       [-0.8, 0],
       [0.8, 0],
@@ -295,6 +310,7 @@ export default function ForceGraphCanvas({
   const [containerRef, size] = useElementSize();
   const [hoverId, setHoverId] = useState<string | null>(null);
   const reducedMotion = usePrefersReducedMotion();
+  const themeColors = useGraphThemeColors();
 
   const fgRef = useRef<ForceGraphMethods<LiveNode, LiveLink> | undefined>(undefined);
 
@@ -323,6 +339,11 @@ export default function ForceGraphCanvas({
     }),
     [model],
   );
+
+  // Keep a live ref to the current graph data so imperative handlers (e.g.
+  // unpinAll) can reach the exact node objects the force lib mutates in place.
+  const graphDataRef = useRef(graphData);
+  graphDataRef.current = graphData;
 
   // Clear pin state when the model changes (new filter / mode switch).
   useEffect(() => {
@@ -379,11 +400,25 @@ export default function ForceGraphCanvas({
     if (link && typeof link.distance === 'function') link.distance(physics.linkDistance);
     const charge = fg.d3Force('charge');
     if (charge && typeof charge.strength === 'function') charge.strength(physics.chargeStrength);
-    // Centre gravity via x/y positioning forces toward the origin.
-    const fx = fg.d3Force('x');
-    if (fx && typeof fx.strength === 'function') fx.strength(physics.centerGravity);
-    const fy = fg.d3Force('y');
-    if (fy && typeof fy.strength === 'function') fy.strength(physics.centerGravity);
+
+    // Centre gravity via x/y positioning forces toward the origin. force-graph
+    // does not register these by default, so we lazily register our own
+    // dependency-free positioning forces the first time and just retune their
+    // strength on subsequent updates. This makes the "Centre gravity" slider a
+    // real, layout-affecting control rather than a no-op.
+    let fx = fg.d3Force('x') as PositioningForce | undefined;
+    if (!fx || typeof fx.strength !== 'function') {
+      fx = makePositioningForce('x', 0);
+      fg.d3Force('x', fx);
+    }
+    fx.strength(physics.centerGravity);
+    let fy = fg.d3Force('y') as PositioningForce | undefined;
+    if (!fy || typeof fy.strength !== 'function') {
+      fy = makePositioningForce('y', 0);
+      fg.d3Force('y', fy);
+    }
+    fy.strength(physics.centerGravity);
+
     fg.d3ReheatSimulation();
   }, [physics.linkDistance, physics.chargeStrength, physics.centerGravity, graphData]);
 
@@ -410,8 +445,26 @@ export default function ForceGraphCanvas({
         const current: number = (fg.zoom() as number | undefined) ?? 1;
         fg.zoom(current / ZOOM_STEP, reducedMotion ? 0 : 200);
       },
+      unpinAll: () => {
+        const fg = fgRef.current;
+        if (!fg) return;
+        // Delete fx/fy on every node so the simulation can move them again. The
+        // force lib mutates these exact node objects in place, so clearing them
+        // on our `graphData.nodes` reference unpins the live simulation.
+        for (const node of graphDataRef.current.nodes as LiveNode[]) {
+          delete node.fx;
+          delete node.fy;
+        }
+        // Clear internal pin state and notify the page so the glyphs/control update.
+        if (pinnedRef.current.size > 0) {
+          pinnedRef.current = new Set();
+          onPinnedChange?.(new Set());
+        }
+        // Reheat so the freed nodes settle back into the layout.
+        fg.d3ReheatSimulation();
+      },
     }),
-    [reducedMotion],
+    [reducedMotion, onPinnedChange],
   );
 
   // Whether labels should be globally suppressed for performance.
@@ -472,6 +525,8 @@ export default function ForceGraphCanvas({
   selectedIdRef.current = selectedId;
   const contextViewRef = useRef(contextView);
   contextViewRef.current = contextView;
+  const themeRef = useRef(themeColors);
+  themeRef.current = themeColors;
 
   const nodeCanvasObject = useCallback(
     (node: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -550,7 +605,17 @@ export default function ForceGraphCanvas({
 
       // v3: Radial gradient node body + soft outer ring.
       ctx.save();
-      drawNodeGradient(ctx, n.x, n.y, radius, n.color, isPlaceholder, isSelected, globalScale);
+      drawNodeGradient(
+        ctx,
+        n.x,
+        n.y,
+        radius,
+        n.color,
+        isPlaceholder,
+        isSelected,
+        globalScale,
+        themeRef.current,
+      );
       ctx.restore();
 
       // v2 preserved: Pin glyph — a small dot drawn above the node.
@@ -576,7 +641,16 @@ export default function ForceGraphCanvas({
         ctx.save();
         ctx.globalAlpha = dimmed ? dimAlpha : 1;
         // v3: Halo label for legibility on any background.
-        drawHaloLabel(ctx, n.title, n.x, n.y + radius + 1, fontSize, dimmed, isPlaceholder);
+        drawHaloLabel(
+          ctx,
+          n.title,
+          n.x,
+          n.y + radius + 1,
+          fontSize,
+          dimmed,
+          isPlaceholder,
+          themeRef.current,
+        );
         ctx.restore();
       }
       ctx.globalAlpha = 1;
@@ -613,7 +687,7 @@ export default function ForceGraphCanvas({
         width={size.w}
         height={size.h}
         graphData={graphData}
-        backgroundColor="#0a0a0a"
+        backgroundColor={themeColors.background}
         cooldownTicks={reducedMotion ? 0 : 140}
         warmupTicks={reducedMotion ? 0 : 24}
         d3AlphaDecay={0.022}

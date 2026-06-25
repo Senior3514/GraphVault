@@ -41,6 +41,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { authTokenSchema, type AuthToken } from '@graphvault/shared';
 import { GraphVaultClient } from './client';
+import { AUTH_TOKEN_STORAGE_KEY } from './storageKeys';
 
 /** The non-secret subset of AuthToken persisted across sessions. */
 interface StoredAuthMeta {
@@ -50,7 +51,10 @@ interface StoredAuthMeta {
 }
 
 const META_KEY = 'graphvault:auth-meta:v1';
-const TOKEN_KEY = 'graphvault:auth-token:v1';
+const TOKEN_KEY = AUTH_TOKEN_STORAGE_KEY;
+
+// Re-export so existing call sites can import the canonical token key from here.
+export { AUTH_TOKEN_STORAGE_KEY };
 
 function loadMeta(): StoredAuthMeta | null {
   try {

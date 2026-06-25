@@ -21,16 +21,25 @@ import type {
   ParsedNote,
 } from './types.js';
 
+/**
+ * NFC-normalize a path/target so two Unicode encodings of the same string
+ * compare equal (spec §2.1). An NFD `[[café]]` link must resolve to an NFC
+ * `café.md` note; without this they would be treated as distinct identities.
+ */
+function nfc(s: string): string {
+  return s.normalize('NFC');
+}
+
 /** Vault-relative folder of a path (`''` for a root-level note). */
 function folderOf(path: string): string {
   const slash = path.lastIndexOf('/');
   return slash === -1 ? '' : path.slice(0, slash);
 }
 
-/** Basename without a trailing `.md`/markdown extension, lowercased. */
+/** Basename without a trailing `.md`/markdown extension, NFC + lowercased. */
 function basenameKey(path: string): string {
   const base = path.split('/').pop() ?? path;
-  return base.replace(/\.(md|markdown)$/i, '').toLowerCase();
+  return nfc(base.replace(/\.(md|markdown)$/i, '').toLowerCase());
 }
 
 /** Normalise a path: collapse `./` and `../` segments, strip leading `/`. */
@@ -62,14 +71,15 @@ function buildResolutionMaps(nodes: Map<string, GraphNode>): ResolutionMaps {
   const byTitle = new Map<string, string[]>();
 
   for (const node of nodes.values()) {
-    byPath.set(node.path, node.id);
-    const noExt = node.path.replace(/\.(md|markdown)$/i, '');
+    const path = nfc(node.path);
+    byPath.set(path, node.id);
+    const noExt = path.replace(/\.(md|markdown)$/i, '');
     byPath.set(noExt, node.id);
 
     const bn = basenameKey(node.path);
     (byBasename.get(bn) ?? byBasename.set(bn, []).get(bn)!).push(node.id);
 
-    const titleKey = node.title.toLowerCase();
+    const titleKey = nfc(node.title.toLowerCase());
     (byTitle.get(titleKey) ?? byTitle.set(titleKey, []).get(titleKey)!).push(node.id);
   }
   return { byPath, byBasename, byTitle };
@@ -77,7 +87,10 @@ function buildResolutionMaps(nodes: Map<string, GraphNode>): ResolutionMaps {
 
 /** Resolve a single parsed link to a target note id, or `null` if unresolved. */
 function resolveTarget(link: ParsedLink, sourcePath: string, maps: ResolutionMaps): string | null {
-  const rawTarget = link.target.trim();
+  // NFC-normalize the target and source so an NFD link (`[[café]]`) resolves to
+  // an NFC note (`café.md`) — paths are a single canonical identity (spec §2.1).
+  const rawTarget = nfc(link.target.trim());
+  sourcePath = nfc(sourcePath);
   if (rawTarget === '') return null;
 
   const candidates: string[] = [];
@@ -107,7 +120,7 @@ function resolveTarget(link: ParsedLink, sourcePath: string, maps: ResolutionMap
   if (byBn && byBn.length > 0) return [...byBn].sort()[0]!;
 
   // Title match.
-  const byTitle = maps.byTitle.get(rawTarget.toLowerCase());
+  const byTitle = maps.byTitle.get(nfc(rawTarget.toLowerCase()));
   if (byTitle && byTitle.length > 0) return [...byTitle].sort()[0]!;
 
   return null;
@@ -133,16 +146,22 @@ function toNode(parsed: ParsedNote, input: NoteInput): GraphNode {
  * The build is deterministic and pure: same inputs always yield the same index.
  */
 export function buildIndex(notes: readonly NoteInput[]): GraphIndex {
-  // 1. Parse every note and create nodes.
-  const parsed: Array<{ parsed: ParsedNote; input: NoteInput }> = [];
+  // 1. Parse every note and create nodes. De-duplicate by path with last-write-
+  //    wins, keeping a single parsed entry per path so the edge pass below stays
+  //    consistent with the node map. Building edges from ALL parsed entries
+  //    would let a discarded duplicate's links survive as phantom edges from a
+  //    node that no longer contains them.
+  const parsedByPath = new Map<string, { parsed: ParsedNote; input: NoteInput }>();
   const nodes = new Map<string, GraphNode>();
   for (const input of notes) {
     const p = parseNote(input.path as FilePath, input.content);
-    parsed.push({ parsed: p, input });
     const node = toNode(p, input);
-    // Last write wins on duplicate paths; nodes map keeps a single entry.
+    // Last write wins on duplicate paths; nodes map keeps a single entry, and
+    // parsedByPath keeps the matching links so nodes and edges agree.
     nodes.set(node.id, node);
+    parsedByPath.set(p.path, { parsed: p, input });
   }
+  const parsed = [...parsedByPath.values()];
 
   // 2. Build resolution maps once, then resolve all links into edges.
   const maps = buildResolutionMaps(nodes);
@@ -154,6 +173,9 @@ export function buildIndex(notes: readonly NoteInput[]): GraphIndex {
   for (const { parsed: p } of parsed) {
     const source = p.path;
     for (const link of p.links) {
+      // Skip empty link targets (e.g. `[[]]` / `[[ ]]`): they would otherwise
+      // create a junk edge with an empty target.
+      if (link.target.trim() === '') continue;
       const resolvedId = resolveTarget(link, source, maps);
       const target = resolvedId ?? link.target.trim();
       const resolved = resolvedId !== null;

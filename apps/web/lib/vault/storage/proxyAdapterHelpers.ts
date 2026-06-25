@@ -13,35 +13,34 @@
  * dependency) and SSR-safe (every sessionStorage access is guarded).
  */
 
+import { AUTH_TOKEN_STORAGE_KEY, SERVER_URL_STORAGE_KEY } from '../../api/storageKeys';
 import type { Note } from '../types';
-
-/** sessionStorage key where the bearer token is stored by useAuth. */
-const SESSION_TOKEN_KEY = 'gv:auth:token';
-
-/** sessionStorage key where the server URL is stored by useServerSettings. */
-const SESSION_SERVER_URL_KEY = 'gv:serverUrl';
 
 /** Fallback server URL (matches the client default). */
 const DEFAULT_SERVER_URL = 'http://127.0.0.1:4000';
 
 /**
- * Read the GraphVault bearer token from sessionStorage. Returns `null` during
- * SSR (no `sessionStorage`) or when the user is not signed in.
+ * Read the GraphVault bearer token from sessionStorage (the SAME tier + key
+ * `useAuth` writes). Returns `null` during SSR (no `sessionStorage`) or when the
+ * user is not signed in.
  */
 export function getToken(): string | null {
   try {
     if (typeof sessionStorage === 'undefined') return null;
-    return sessionStorage.getItem(SESSION_TOKEN_KEY);
+    return sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
-/** Read the configured server URL, falling back to the client default. */
+/**
+ * Read the configured server URL from localStorage (the SAME tier + key
+ * `useServerSettings` writes), falling back to the client default.
+ */
 export function getServerUrl(): string {
   try {
-    if (typeof sessionStorage === 'undefined') return DEFAULT_SERVER_URL;
-    return sessionStorage.getItem(SESSION_SERVER_URL_KEY) ?? DEFAULT_SERVER_URL;
+    if (typeof localStorage === 'undefined') return DEFAULT_SERVER_URL;
+    return localStorage.getItem(SERVER_URL_STORAGE_KEY) ?? DEFAULT_SERVER_URL;
   } catch {
     return DEFAULT_SERVER_URL;
   }

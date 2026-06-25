@@ -10,8 +10,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { DEFAULT_SERVER_URL } from './client';
+import { SERVER_URL_STORAGE_KEY } from './storageKeys';
 
-const STORAGE_KEY = 'graphvault:server-url';
+const STORAGE_KEY = SERVER_URL_STORAGE_KEY;
+
+// Re-export so existing call sites can import the canonical key from here.
+export { SERVER_URL_STORAGE_KEY };
 
 export function useServerSettings() {
   const [serverUrl, setServerUrlState] = useState(DEFAULT_SERVER_URL);

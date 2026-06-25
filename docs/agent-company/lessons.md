@@ -836,3 +836,65 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 - Relocating inbox tokens/audit into the async `Storage` layer made several
   `InboxService` methods `async`; audit every caller (routes needed an explicit `await`
   on `revokeToken`).
+
+## Audit fixes — web critical
+
+### Centralize storage-key constants — drift across copies is a silent P0
+
+- **Bug:** 4 proxy adapters + the graph share path each hardcoded `gv:auth:token`/
+  `gv:serverUrl`, but the real keys are `graphvault:auth-token:v1` (sessionStorage)
+  and `graphvault:server-url` (**localStorage**). Every cloud backend's
+  `isAvailable()` was false → all dead on arrival, masked by adapter tests that used
+  the wrong keys too. **Fix:** one `lib/api/storageKeys.ts`; hooks + adapters import
+  it. Note the two values live in DIFFERENT tiers (token=session, url=local) — a
+  copy-pasted `getServerUrl` reading sessionStorage was part of the bug.
+
+### View-mode flags must neutralize conflicting persisted layout state
+
+- **Bug:** focus mode hid panes by render condition but never cleared a persisted
+  `maximized` → all columns hidden = blank workspace that survives reload. **Fix:**
+  clear `maximized` on entering focus mode AND compute an `effectiveMaximized`
+  (focus ⇒ null) at the render site (defense-in-depth for already-persisted blanks).
+
+### "Never lose data" needs beforeunload + visibilitychange flush
+
+- A debounced autosave that only flushes on React unmount/tab-switch loses the
+  pending window on hard close / mobile background. Wire `beforeunload` AND
+  `visibilitychange==='hidden'` to the existing flush. Pull it into a DOM-only
+  helper so it's unit-testable without a renderer.
+
+### Don't combine encryption with a non-localStorage adapter (split-vault risk)
+
+- The encrypted store hard-wires localStorage while the unencrypted path uses the
+  active adapter. Gate "enable encryption" on the active adapter being localStorage
+  rather than reworking encryption-through-any-adapter — prevents ciphertext-to-local
+  while the cloud copy stays stale.
+
+### Canvas/WebGL colors must read the theme tokens, not hardcode dark
+
+- The force-graph canvas hardcoded `#0a0a0a` bg/labels → a black block in light
+  theme. Read `--n-*` via `getComputedStyle` and re-read on a `data-theme`
+  MutationObserver. Snapshot share also leaked full note paths (`i: n.id` where id IS
+  the path) — emit opaque ids and remap edges.
+
+## End-to-end ship-readiness audit (5-agent) — data-safety fixes
+
+### Conflict resolution: "preserve content over honoring a delete" must hold for BOTH directions
+
+- **Bug:** `settle` implemented only the symmetric (client-delete/server-edit) direction and unconditionally adopted server state as canonical. So when the SERVER held a tombstone and the CLIENT held an edit, a delete beat a concurrent edit and devices diverged (edit demoted to a conflict copy under a different path). **Fix:** special-case `DELETE_EDIT_CONFLICT` — if local is a non-deleted edit and `conflict.server` is a tombstone, keep the edit canonical (re-base so it re-pushes and wins). Spec §6.3. Test the failing direction explicitly — the original test only covered the opposite one, masking the bug.
+
+### Conflict-copy paths must be uniquified, not just date-stamped
+
+- **Bug:** `conflictCopyPath(path, device, YYYY-MM-DD)` is deterministic, so two same-day conflicts on one file/device produced an identical path → the second silently overwrote the first preserved copy. **Fix:** pass the live index and append ` (2)`, ` (3)`… until unique. Sanitize device names against C0 control chars + `..`, not just slashes.
+
+### STALE_BASE with `server: null` must re-base to 0, not livelock
+
+- **Bug:** an op with `baseRevision > 0` but no server file never advanced (guard required `conflict.server`), re-pushed forever, hit maxRounds, threw — one bad file aborted the whole sync. **Fix:** when STALE_BASE carries a null server, re-base to revision 0 (treat as brand-new → fast-forwards).
+
+### Normalize-at-the-boundary is necessary but not sufficient
+
+- **Bug:** spec mandates NFC path normalization but nothing applied it. Adding `.transform(p => p.normalize('NFC'))` to `filePathSchema` only protects the validated boundary (the server); the engine and sync-core cast `FilePath` strings directly and bypass it. **Fix:** also NFC-normalize keys/lookups in the engine resolution maps and the sync index. NFD/NFC test fixtures are fragile — author them with explicit `\u` escapes (editors silently NFC-normalize source).
+
+### Duplicate paths: dedup BEFORE the edge pass
+
+- **Bug:** `buildIndex` did last-write-wins on nodes but built edges from ALL parsed entries, so a discarded duplicate's links survived as phantom edges. **Fix:** dedup parsed entries by path (last-wins) before building edges so nodes and edges stay consistent.

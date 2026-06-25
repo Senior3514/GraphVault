@@ -147,10 +147,22 @@ export function createVaultApiServer(notes: NoteInput[], index: GraphIndex): htt
         }
         const results = searchNotes(index, notes, q);
         const limitRaw = url.searchParams.get('limit');
-        const limited =
-          limitRaw !== null && Number.isFinite(Number(limitRaw)) && Number(limitRaw) >= 0
-            ? results.slice(0, Number(limitRaw))
-            : results;
+        let limited = results;
+        if (limitRaw !== null) {
+          const n = Number(limitRaw);
+          if (!Number.isFinite(n) || n < 0) {
+            sendJson(
+              res,
+              400,
+              errorBody('BAD_REQUEST', 'Query parameter "limit" must be a non-negative number'),
+            );
+            return;
+          }
+          // Clamp to a sane maximum so a single request can't ask for an
+          // unbounded slice (mirrors the 500-result cap the MCP tools enforce).
+          const limit = Math.min(Math.floor(n), 500);
+          limited = results.slice(0, limit);
+        }
         sendJson(res, 200, { query: q, results: limited });
         return;
       }

@@ -42,7 +42,11 @@
 
 /** A single node in the embed snapshot — titles only, no content. */
 export interface SnapshotNode {
-  /** Unique opaque ID (matches the engine's node.id, which is the vault path). */
+  /**
+   * Unique OPAQUE id (e.g. "n0", "n1"), assigned by `buildSnapshot`. Never the
+   * vault path — paths would leak directory structure. Edges reference these
+   * opaque ids; the embed page treats them as opaque labels.
+   */
   i: string;
   /** Human-readable title for hover labels. */
   t: string;
@@ -387,17 +391,23 @@ export function buildSnapshot(
   nodes: readonly GraphNode[],
   edges: readonly GraphEdge[],
 ): EmbedSnapshot {
-  const nodeIds = new Set(nodes.map((n) => n.id));
-
-  const snapshotNodes: SnapshotNode[] = nodes.map((n) => ({
-    i: n.id,
-    t: n.title,
-  }));
+  // PRIVACY: the engine's node.id IS the vault path (e.g. "Projects/Q3/plan.md"),
+  // which leaks directory structure. Remap every node to an opaque sequential id
+  // and route edges through the same map so NO path ever travels in the URL. The
+  // embed page already treats ids as opaque labels, so this is transparent to it.
+  const idToOpaque = new Map<string, string>();
+  const snapshotNodes: SnapshotNode[] = nodes.map((n, i) => {
+    const opaque = `n${i}`;
+    idToOpaque.set(n.id, opaque);
+    return { i: opaque, t: n.title };
+  });
 
   const snapshotEdges: SnapshotEdge[] = [];
   for (const e of edges) {
     if (!e.resolved) continue;
-    if (!nodeIds.has(e.source) || !nodeIds.has(e.target)) continue;
+    const s = idToOpaque.get(e.source);
+    const t = idToOpaque.get(e.target);
+    if (s === undefined || t === undefined) continue;
     let k: 'w' | 'm' | 'r';
     if (e.type === 'wikilink') {
       k = 'w';
@@ -406,7 +416,7 @@ export function buildSnapshot(
     } else {
       k = 'r';
     }
-    snapshotEdges.push({ s: e.source, t: e.target, k });
+    snapshotEdges.push({ s, t, k });
   }
 
   return { v: 1, n: snapshotNodes, e: snapshotEdges };

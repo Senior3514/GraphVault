@@ -93,8 +93,9 @@ The server can optionally encrypt blob bytes **at rest** with a server-held key.
 
 - **Cipher:** AES-256-GCM (authenticated encryption — confidentiality plus
   tamper detection).
-- **Key:** supplied via `GRAPHVAULT_ENCRYPTION_KEY` (a 32-byte key, hex- or
-  base64-encoded). Generate one with `openssl rand -hex 32`.
+- **Key:** supplied via `GRAPHVAULT_ENCRYPTION_KEY`, **base64-encoded and
+  decoding to exactly 32 bytes** (AES-256). A malformed key — wrong alphabet or
+  wrong length — fails fast at boot. Generate one with `openssl rand -base64 32`.
 - **Hash-of-plaintext invariant.** Content addressing is computed over the
   **plaintext** bytes. Encryption is a storage-layer concern: the `sha256` that
   identifies a blob is unchanged whether or not at-rest encryption is enabled, so
