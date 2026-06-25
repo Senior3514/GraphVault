@@ -74,6 +74,36 @@ test('duplicate identical edges are de-duplicated', () => {
   assert.equal(getOutbound(index, 'a.md').length, 1);
 });
 
+test('duplicate paths keep only the surviving note edges (no phantom edges)', () => {
+  // Two notes at the SAME path with different links. Last-write-wins on the
+  // node; the discarded duplicate's links must NOT survive as phantom edges.
+  const index = buildIndex([
+    note('a.md', '[[old-target]]'),
+    note('a.md', '[[new-target]]'),
+    note('old-target.md', 'x'),
+    note('new-target.md', 'y'),
+  ]);
+
+  const out = getOutbound(index, 'a.md');
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.target, 'new-target.md');
+
+  // The discarded note pointed at old-target; that backlink must not exist.
+  assert.equal(getBacklinks(index, 'old-target.md').length, 0);
+  assert.equal(getBacklinks(index, 'new-target.md').length, 1);
+  // And no stray edge anywhere references old-target.
+  assert.equal(index.edges.filter((e) => e.target === 'old-target.md').length, 0);
+});
+
+test('empty wikilink target [[]] produces no junk edge', () => {
+  const index = buildIndex([note('a.md', 'before [[]] after [[Real]]'), note('real.md', 'x')]);
+  const out = getOutbound(index, 'a.md');
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.target, 'real.md');
+  // No edge with an empty target text.
+  assert.equal(index.edges.filter((e) => e.target.trim() === '').length, 0);
+});
+
 test('typed relation edges use the relation name as type', () => {
   const index = buildIndex([
     note('a.md', '---\nrelations:\n  references:\n    - [[B]]\n---\nbody'),
@@ -84,6 +114,24 @@ test('typed relation edges use the relation name as type', () => {
   assert.equal(out[0]!.type, 'references');
   assert.equal(out[0]!.target, 'b.md');
   assert.equal(out[0]!.resolved, true);
+});
+
+test('NFD wikilink resolves to an NFC note path (Unicode normalization)', () => {
+  // `café` written two ways: NFD (e + combining acute) in the link, NFC
+  // (precomposed é) in the note path. They must be treated as the same note.
+  const nfdCafe = 'café'; // c a f e + U+0301
+  const nfcCafe = 'café'; // c a f é
+  assert.notEqual(nfdCafe, nfcCafe); // distinct code-point sequences
+
+  const index = buildIndex([
+    note('a.md', `link to [[${nfdCafe}]]`),
+    note(`${nfcCafe}.md`, '# Cafe'),
+  ]);
+
+  const out = getOutbound(index, 'a.md');
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.resolved, true);
+  assert.equal(out[0]!.target, `${nfcCafe}.md`);
 });
 
 test('wikilink alias and heading survive into the edge', () => {

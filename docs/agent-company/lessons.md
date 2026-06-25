@@ -809,3 +809,25 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 - **Rule:** a global Esc handler (exit focus mode) must check for an open
   `[role="dialog"][aria-modal="true"]` and bail if present, so Esc closes the
   palette/drawer/modal first instead of an unexpected mode change.
+
+## End-to-end ship-readiness audit (5-agent) — data-safety fixes
+
+### Conflict resolution: "preserve content over honoring a delete" must hold for BOTH directions
+
+- **Bug:** `settle` implemented only the symmetric (client-delete/server-edit) direction and unconditionally adopted server state as canonical. So when the SERVER held a tombstone and the CLIENT held an edit, a delete beat a concurrent edit and devices diverged (edit demoted to a conflict copy under a different path). **Fix:** special-case `DELETE_EDIT_CONFLICT` — if local is a non-deleted edit and `conflict.server` is a tombstone, keep the edit canonical (re-base so it re-pushes and wins). Spec §6.3. Test the failing direction explicitly — the original test only covered the opposite one, masking the bug.
+
+### Conflict-copy paths must be uniquified, not just date-stamped
+
+- **Bug:** `conflictCopyPath(path, device, YYYY-MM-DD)` is deterministic, so two same-day conflicts on one file/device produced an identical path → the second silently overwrote the first preserved copy. **Fix:** pass the live index and append ` (2)`, ` (3)`… until unique. Sanitize device names against C0 control chars + `..`, not just slashes.
+
+### STALE_BASE with `server: null` must re-base to 0, not livelock
+
+- **Bug:** an op with `baseRevision > 0` but no server file never advanced (guard required `conflict.server`), re-pushed forever, hit maxRounds, threw — one bad file aborted the whole sync. **Fix:** when STALE_BASE carries a null server, re-base to revision 0 (treat as brand-new → fast-forwards).
+
+### Normalize-at-the-boundary is necessary but not sufficient
+
+- **Bug:** spec mandates NFC path normalization but nothing applied it. Adding `.transform(p => p.normalize('NFC'))` to `filePathSchema` only protects the validated boundary (the server); the engine and sync-core cast `FilePath` strings directly and bypass it. **Fix:** also NFC-normalize keys/lookups in the engine resolution maps and the sync index. NFD/NFC test fixtures are fragile — author them with explicit `\u` escapes (editors silently NFC-normalize source).
+
+### Duplicate paths: dedup BEFORE the edge pass
+
+- **Bug:** `buildIndex` did last-write-wins on nodes but built edges from ALL parsed entries, so a discarded duplicate's links survived as phantom edges. **Fix:** dedup parsed entries by path (last-wins) before building edges so nodes and edges stay consistent.
