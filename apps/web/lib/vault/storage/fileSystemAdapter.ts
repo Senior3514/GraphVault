@@ -38,6 +38,11 @@
 import { seedNotes } from '../seed';
 import type { Note } from '../types';
 import type { StorageAdapter } from './index';
+import {
+  clearDirectoryHandle,
+  loadDirectoryHandle,
+  saveDirectoryHandle,
+} from './handleStore';
 
 // ---------------------------------------------------------------------------
 // Minimal local interfaces for File System Access API surfaces we use.
@@ -61,6 +66,12 @@ interface GVFileHandle {
   createWritable(options?: { keepExistingData?: boolean }): Promise<GVWritableFileStream>;
 }
 
+/** Permission descriptor + state surfaces (not always in lib.dom.d.ts). */
+type GVPermissionState = 'granted' | 'denied' | 'prompt';
+interface GVPermissionDescriptor {
+  mode?: 'read' | 'readwrite';
+}
+
 interface GVDirectoryHandle {
   readonly kind: string;
   readonly name: string;
@@ -68,6 +79,8 @@ interface GVDirectoryHandle {
   getFileHandle(name: string, options?: { create?: boolean }): Promise<GVFileHandle>;
   getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<GVDirectoryHandle>;
   removeEntry(name: string, options?: { recursive?: boolean }): Promise<void>;
+  queryPermission?: (descriptor?: GVPermissionDescriptor) => Promise<GVPermissionState>;
+  requestPermission?: (descriptor?: GVPermissionDescriptor) => Promise<GVPermissionState>;
 }
 
 interface GVDirectoryPickerOptions {
@@ -115,6 +128,39 @@ async function* collectMdFiles(
     } else if (handle.kind === 'file' && handle.name.endsWith('.md')) {
       yield { handle: handle as GVFileHandle, path: relPath };
     }
+  }
+}
+
+/**
+ * Verify (and optionally request) readwrite permission on a directory handle
+ * that was read back from IndexedDB. Handles loaded from storage may report
+ * `prompt` even if previously granted, so we query first and (when allowed)
+ * request inside the caller's user gesture.
+ *
+ * Returns the resulting permission state; `granted` means the handle is usable.
+ * Any unexpected error is treated as `denied` rather than throwing.
+ */
+export async function verifyPermission(
+  handle: GVDirectoryHandle,
+  request: boolean,
+): Promise<GVPermissionState> {
+  const opts: GVPermissionDescriptor = { mode: 'readwrite' };
+  try {
+    if (typeof handle.queryPermission === 'function') {
+      const state = await handle.queryPermission(opts);
+      if (state === 'granted') return 'granted';
+      if (state === 'denied') return 'denied';
+      // state === 'prompt'
+      if (request && typeof handle.requestPermission === 'function') {
+        return await handle.requestPermission(opts);
+      }
+      return 'prompt';
+    }
+    // No permission API (older/partial impls): assume usable; a later read will
+    // surface a real error if not.
+    return 'granted';
+  } catch {
+    return 'denied';
   }
 }
 
@@ -175,7 +221,48 @@ export class FileSystemAdapter implements StorageAdapter {
       );
     }
     const handle = await picker({ id: 'graphvault', mode: 'readwrite' });
+    // Persist the handle so the folder reconnects on the next session. Handles
+    // are structured-clonable, so IndexedDB can hold them. Best-effort.
+    await saveDirectoryHandle(handle);
     return new FileSystemAdapter(handle);
+  }
+
+  /**
+   * Attempt to reconnect to a previously-selected folder from a prior session.
+   *
+   * Reads the persisted handle from IndexedDB and verifies read/write
+   * permission. Permission may still be `granted` (silent reconnect) or have
+   * lapsed to `prompt`; in the latter case re-granting requires a user gesture,
+   * so by default we only reconnect when permission is already granted.
+   *
+   * @param requestIfNeeded When true and permission is in the `prompt` state,
+   *   actively requests permission (must be called within a user gesture).
+   * @returns The reconnected adapter, or `null` when there is no stored handle,
+   *   the API is unavailable, or permission is not (yet) granted.
+   */
+  static async restore(requestIfNeeded = false): Promise<FileSystemAdapter | null> {
+    if (!FileSystemAdapter.isApiAvailable()) return null;
+    const handle = await loadDirectoryHandle<GVDirectoryHandle>();
+    if (!handle) return null;
+    const state = await verifyPermission(handle, requestIfNeeded);
+    if (state !== 'granted') return null;
+    return new FileSystemAdapter(handle);
+  }
+
+  /**
+   * Whether a folder was selected in a previous session (a handle is persisted),
+   * regardless of whether permission is currently granted. The UI uses this to
+   * show a "reconnect your folder" banner instead of silently reverting to
+   * localStorage.
+   */
+  static async hasPersistedHandle(): Promise<boolean> {
+    if (!FileSystemAdapter.isApiAvailable()) return false;
+    return (await loadDirectoryHandle()) !== null;
+  }
+
+  /** Forget any persisted folder handle (used when switching to localStorage). */
+  static async forgetPersistedHandle(): Promise<void> {
+    await clearDirectoryHandle();
   }
 
   /**

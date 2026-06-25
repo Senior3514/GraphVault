@@ -51,6 +51,7 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState 
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
 
 import { type GraphPhysics, radiusForDegree, shouldShowLabel } from '../../lib/graph/physics';
+import { makePositioningForce, type PositioningForce } from '../../lib/graph/forces';
 import type { RenderLink, RenderModel, RenderNode } from '../../lib/graph/model';
 
 /** Imperative handle the page can use to drive the view (zoom-to-fit, reset, zoom in/out). */
@@ -59,6 +60,12 @@ export interface ForceGraphHandle {
   resetView: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /**
+   * Unpin every node: clears `fx`/`fy` on all nodes and reheats the simulation
+   * so the freed nodes settle back into the layout. Returns the previously
+   * pinned node ids so the caller can keep external state in sync.
+   */
+  unpinAll: () => void;
 }
 
 export interface ForceGraphCanvasProps {
@@ -324,6 +331,11 @@ export default function ForceGraphCanvas({
     [model],
   );
 
+  // Keep a live ref to the current graph data so imperative handlers (e.g.
+  // unpinAll) can reach the exact node objects the force lib mutates in place.
+  const graphDataRef = useRef(graphData);
+  graphDataRef.current = graphData;
+
   // Clear pin state when the model changes (new filter / mode switch).
   useEffect(() => {
     pinnedRef.current = new Set();
@@ -379,11 +391,25 @@ export default function ForceGraphCanvas({
     if (link && typeof link.distance === 'function') link.distance(physics.linkDistance);
     const charge = fg.d3Force('charge');
     if (charge && typeof charge.strength === 'function') charge.strength(physics.chargeStrength);
-    // Centre gravity via x/y positioning forces toward the origin.
-    const fx = fg.d3Force('x');
-    if (fx && typeof fx.strength === 'function') fx.strength(physics.centerGravity);
-    const fy = fg.d3Force('y');
-    if (fy && typeof fy.strength === 'function') fy.strength(physics.centerGravity);
+
+    // Centre gravity via x/y positioning forces toward the origin. force-graph
+    // does not register these by default, so we lazily register our own
+    // dependency-free positioning forces the first time and just retune their
+    // strength on subsequent updates. This makes the "Centre gravity" slider a
+    // real, layout-affecting control rather than a no-op.
+    let fx = fg.d3Force('x') as PositioningForce | undefined;
+    if (!fx || typeof fx.strength !== 'function') {
+      fx = makePositioningForce('x', 0);
+      fg.d3Force('x', fx);
+    }
+    fx.strength(physics.centerGravity);
+    let fy = fg.d3Force('y') as PositioningForce | undefined;
+    if (!fy || typeof fy.strength !== 'function') {
+      fy = makePositioningForce('y', 0);
+      fg.d3Force('y', fy);
+    }
+    fy.strength(physics.centerGravity);
+
     fg.d3ReheatSimulation();
   }, [physics.linkDistance, physics.chargeStrength, physics.centerGravity, graphData]);
 
@@ -410,8 +436,26 @@ export default function ForceGraphCanvas({
         const current: number = (fg.zoom() as number | undefined) ?? 1;
         fg.zoom(current / ZOOM_STEP, reducedMotion ? 0 : 200);
       },
+      unpinAll: () => {
+        const fg = fgRef.current;
+        if (!fg) return;
+        // Delete fx/fy on every node so the simulation can move them again. The
+        // force lib mutates these exact node objects in place, so clearing them
+        // on our `graphData.nodes` reference unpins the live simulation.
+        for (const node of graphDataRef.current.nodes as LiveNode[]) {
+          delete node.fx;
+          delete node.fy;
+        }
+        // Clear internal pin state and notify the page so the glyphs/control update.
+        if (pinnedRef.current.size > 0) {
+          pinnedRef.current = new Set();
+          onPinnedChange?.(new Set());
+        }
+        // Reheat so the freed nodes settle back into the layout.
+        fg.d3ReheatSimulation();
+      },
     }),
-    [reducedMotion],
+    [reducedMotion, onPinnedChange],
   );
 
   // Whether labels should be globally suppressed for performance.
