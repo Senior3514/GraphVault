@@ -43,6 +43,8 @@ importers:
         specifier: ^2.5.0
         version: 2.11.2
 
+  apps/extension: {}
+
   apps/server:
     dependencies:
       '@fastify/cors':
