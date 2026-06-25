@@ -810,6 +810,33 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `[role="dialog"][aria-modal="true"]` and bail if present, so Esc closes the
   palette/drawer/modal first instead of an unexpected mode change.
 
+## Audit fixes — server durability (postgres persistence)
+
+### Don't advertise "encrypted at rest" while storing config in process memory
+
+- **Bug:** in postgres mode, provider/AI configs lived in `PrismaStorage` in-process
+  `Map`s (documented TODO) and inbox tokens/audit lived in `InboxService` Maps — all
+  silently wiped on restart while `/v1/server-info` claimed `credentialsEncryptedAtRest`.
+  **Fix:** add Prisma models (WebDav/S3/Azure/Gcs/Ai config + InboxToken/InboxAuditEntry)
+  and route everything through the `Storage` layer; move inbox state out of the service
+  into Storage so it survives restarts. In-memory impl unchanged. Added a
+  `credentialsPersisted` server-info flag so the claim is honest per backend.
+
+### prisma validate/generate + gitignored client gotchas
+
+- `prisma validate` needs `DATABASE_URL` set just to parse the datasource — pass a dummy
+  DSN when there's no DB. The generated client is gitignored and NOT in root eslint
+  ignores, so a stray `prisma generate` floods eslint with artifact errors — remove the
+  generated dir after verifying. The store loads the client via runtime dynamic
+  `import()` + a structural `PrismaLike` type, so build/typecheck/test pass without a
+  generated client or a live DB (only the in-memory path is runtime-tested).
+
+### Moving sync service state into async Storage ripples to call sites
+
+- Relocating inbox tokens/audit into the async `Storage` layer made several
+  `InboxService` methods `async`; audit every caller (routes needed an explicit `await`
+  on `revokeToken`).
+
 ## Audit fixes — web critical
 
 ### Centralize storage-key constants — drift across copies is a silent P0

@@ -93,7 +93,7 @@ export function registerInboxRoutes(
   app.delete('/v1/inbox/tokens/:id', async (request, reply) => {
     const { user } = await auth(request);
     const { id } = request.params as { id: string };
-    inbox.revokeToken(user.id, id);
+    await inbox.revokeToken(user.id, id);
     return reply.code(204).send();
   });
 

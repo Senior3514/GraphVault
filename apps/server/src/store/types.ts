@@ -149,6 +149,35 @@ export interface AiConfigRecord {
 }
 
 /**
+ * A minted inbox ("connect anything") token, bound to one vault. Only the
+ * SHA-256 hash of the raw token is stored (like the auth {@link TokenRecord});
+ * the raw token is returned to the caller exactly once at creation.
+ */
+export interface InboxTokenRecord {
+  id: string;
+  userId: string;
+  vaultId: string;
+  label: string;
+  /** SHA-256 hex of the raw token (never the raw token itself). */
+  tokenHash: string;
+  createdAt: string; // ISO-8601
+  lastUsedAt: string | null;
+}
+
+/** One audit-log entry for an inbound webhook attempt (accepted or rejected). */
+export interface InboxAuditRecord {
+  id: string;
+  userId: string;
+  tokenId: string;
+  source: string;
+  /** The note path created (or attempted), or null for early rejects. */
+  path: string | null;
+  bytes: number;
+  status: 'accepted' | 'rejected';
+  at: string; // ISO-8601
+}
+
+/**
  * The current state of one file within a vault, plus the version history needed
  * for conflict recovery. `state` is the canonical wire representation.
  */
@@ -228,6 +257,29 @@ export interface Storage {
   getAiConfig(userId: string): Promise<AiConfigRecord | null>;
   upsertAiConfig(record: AiConfigRecord): Promise<void>;
   deleteAiConfig(userId: string): Promise<void>;
+
+  // --- inbox ("connect anything") tokens ---
+  createInboxToken(record: InboxTokenRecord): Promise<void>;
+  /** Resolve an inbox token by its SHA-256 hash (the inbound lookup key). */
+  getInboxTokenByHash(tokenHash: string): Promise<InboxTokenRecord | null>;
+  /** A user's tokens, oldest-first. */
+  listInboxTokens(userId: string): Promise<InboxTokenRecord[]>;
+  /** Stamp lastUsedAt onto a token (by hash). No-op if it no longer exists. */
+  touchInboxToken(tokenHash: string, lastUsedAt: string): Promise<void>;
+  /**
+   * Delete the user's token with the given id. Returns true if a row was
+   * removed, false if it didn't exist or isn't the caller's (→ 404 upstream).
+   */
+  deleteInboxToken(userId: string, tokenId: string): Promise<boolean>;
+
+  // --- inbox audit log (capped per user, oldest evicted) ---
+  /**
+   * Append an audit entry, then enforce the per-user cap by evicting the
+   * oldest entries beyond `cap`.
+   */
+  appendInboxAudit(record: InboxAuditRecord, cap: number): Promise<void>;
+  /** A user's audit entries, newest-first. */
+  listInboxAudit(userId: string): Promise<InboxAuditRecord[]>;
 }
 
 export interface ChangesPage {
