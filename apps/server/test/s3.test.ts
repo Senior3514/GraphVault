@@ -17,6 +17,12 @@ import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { InMemoryStorage } from '../src/store/memory.js';
 import { signS3Request, buildS3ObjectUrl } from '../src/services/s3.js';
+import {
+  __setResolverForTests,
+  __setTransportForTests,
+  type GuardedTransport,
+  type ResolveAllFn,
+} from '../src/services/ssrf.js';
 
 let app: FastifyInstance;
 let dataDir: string;
@@ -28,16 +34,15 @@ let token = '';
 // Fake S3 responses
 // ---------------------------------------------------------------------------
 
-type FetchFn = typeof globalThis.fetch;
-let originalFetch: FetchFn;
+let restoreTransport: (() => void) | undefined;
+let restoreResolver: (() => void) | undefined;
 
 /** In-memory S3 "bucket": stores object content keyed by URL. */
 const fakeS3Store = new Map<string, Buffer>();
 
-function makeFakeS3Fetch(): FetchFn {
-  return async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const method = (init?.method ?? 'GET').toUpperCase();
+function makeFakeS3Fetch(): GuardedTransport {
+  return async (url, init) => {
+    const method = (init.method ?? 'GET').toUpperCase();
 
     if (method === 'GET') {
       const content = fakeS3Store.get(url);
@@ -54,7 +59,7 @@ function makeFakeS3Fetch(): FetchFn {
     }
 
     if (method === 'PUT') {
-      const body = init?.body;
+      const body = init.body;
       let buf: Buffer;
       if (body instanceof Uint8Array) {
         buf = Buffer.from(body);
@@ -100,13 +105,14 @@ before(async () => {
   assert.equal(res.statusCode, 201, res.body);
   token = res.json().accessToken;
 
-  // Swap out the real fetch with our fake.
-  originalFetch = globalThis.fetch;
-  globalThis.fetch = makeFakeS3Fetch();
+  // Swap out the SSRF transport + DNS resolver with our fakes.
+  restoreTransport = __setTransportForTests(makeFakeS3Fetch());
+  restoreResolver = __setResolverForTests((async () => ['93.184.216.34']) as ResolveAllFn);
 });
 
 after(async () => {
-  globalThis.fetch = originalFetch;
+  restoreTransport?.();
+  restoreResolver?.();
   await app.close();
   await rm(dataDir, { recursive: true, force: true });
   fakeS3Store.clear();

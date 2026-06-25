@@ -28,6 +28,7 @@
 import { hkdfSync, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
 import { badRequest, notFound } from '../errors.js';
 import { signS3Request } from './s3.js';
+import { guardedFetch } from './ssrf.js';
 import type { GcsConfigRecord, Storage } from '../store/types.js';
 
 // ---------------------------------------------------------------------------
@@ -198,7 +199,7 @@ export class GcsService {
 
     let res: Response;
     try {
-      res = await fetch(signed.url, { method: 'GET', headers: signed.headers });
+      res = await guardedFetch(signed.url, { method: 'GET', headers: signed.headers });
     } catch (err) {
       throw badRequest(`GCS GET failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -232,7 +233,7 @@ export class GcsService {
 
     let res: Response;
     try {
-      res = await fetch(signed.url, {
+      res = await guardedFetch(signed.url, {
         method: 'PUT',
         headers: { ...signed.headers, 'content-length': String(body.length) },
         body,
@@ -261,7 +262,7 @@ export class GcsService {
 
     let res: Response;
     try {
-      res = await fetch(signed.url, { method: 'DELETE', headers: signed.headers });
+      res = await guardedFetch(signed.url, { method: 'DELETE', headers: signed.headers });
     } catch (err) {
       throw badRequest(`GCS DELETE failed: ${err instanceof Error ? err.message : String(err)}`);
     }

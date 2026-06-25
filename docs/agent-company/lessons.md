@@ -810,6 +810,39 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `[role="dialog"][aria-modal="true"]` and bail if present, so Esc closes the
   palette/drawer/modal first instead of an unexpected mode change.
 
+## Audit fixes — server SSRF + hardening
+
+### Every outbound proxy needs the SSRF guard, not just the clipper
+
+- **Bug:** only `clip.ts` validated user-supplied URLs; the WebDAV/S3/Azure/GCS/AI
+  custom-endpoint proxies fetched arbitrary hosts → an authed user could reach
+  `169.254.169.254` (cloud metadata) or internal services. **Fix:** factor the guard
+  into `services/ssrf.ts` (`assertSafeUrl`/`guardedFetch`/`isPrivateOrLoopbackIp`) and
+  route every outbound proxy fetch through it. Default-safe; loopback targets for
+  self-hosted backends gated behind `GRAPHVAULT_ALLOW_PRIVATE_PROXY_TARGETS` (clip
+  never relaxed).
+
+### DNS-pin to defeat rebinding; don't rewrite the URL host to a bare IP
+
+- **Bug:** resolve-then-fetch re-resolves the name independently (TOCTOU) — a name
+  that flips to a private IP between the two lookups bypasses the check. **Fix:**
+  resolve once, validate, then connect via `node:http(s)` with a custom `lookup` that
+  returns only a pre-validated IP. Keep the original hostname for SNI/`Host` so TLS
+  cert validation stays correct. Native `fetch`/undici exposes no public dispatcher
+  without a dep, so socket-level `node:http(s)` is the cleanest pin.
+
+### "Production-only" safety must key on EXPOSURE, not just NODE_ENV
+
+- **Bug:** the CORS-`*`/require-HTTPS preflight only fired when `NODE_ENV=production`;
+  self-hosters run on a VPS without setting it → open CORS, no warning. **Fix:** treat
+  a non-loopback bind host as production-equivalent for those checks. Localhost dev
+  unaffected.
+
+### AI cap is rate-limiting → 429, not 400
+
+- The daily AI cap threw `badRequest` (400); clients can't tell "malformed" from
+  "retry tomorrow." Throw `AppError(429, 'RATE_LIMITED', …)` to match the rest of the app.
+
 ## Audit fixes — server durability (postgres persistence)
 
 ### Don't advertise "encrypted at rest" while storing config in process memory

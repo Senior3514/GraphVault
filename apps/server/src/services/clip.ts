@@ -40,9 +40,13 @@
  * 3. Convert surviving tags to Markdown.
  */
 
-import { lookup } from 'node:dns/promises';
 import { badRequest } from '../errors.js';
+import { guardedFetch, isPrivateOrLoopbackIp } from './ssrf.js';
 import type { ClipResponse } from '@graphvault/shared';
+
+// Re-export the shared private-range check so existing imports
+// (`clip.js` → isPrivateOrLoopbackIp) and tests keep working unchanged.
+export { isPrivateOrLoopbackIp };
 
 // ---------------------------------------------------------------------------
 // Config
@@ -58,219 +62,74 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_REDIRECTS = 5;
 
 // ---------------------------------------------------------------------------
-// SSRF guard
+// SSRF-guarded fetch with redirect cap
 // ---------------------------------------------------------------------------
+//
+// The SSRF guard itself (private-IP detection, DNS-pinned connect, per-redirect
+// re-validation) lives in ./ssrf.ts and is shared by every outbound proxy.
+// Clipping fetches arbitrary user-supplied public URLs, so it ALWAYS runs the
+// guard with allowPrivate=false — the GRAPHVAULT_ALLOW_PRIVATE_PROXY_TARGETS
+// env opt-in (used by self-hosted storage backends on localhost) never relaxes
+// clipping.
 
 /**
- * Returns true if the given IPv4 or IPv6 address is in a range we must block:
- *   - IPv4 loopback:           127.0.0.0/8
- *   - IPv4 private (RFC 1918): 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
- *   - IPv4 link-local:         169.254.0.0/16  (includes 169.254.169.254 — cloud metadata)
- *   - IPv4 CGNAT:              100.64.0.0/10
- *   - IPv4 unspecified:        0.0.0.0/8
- *   - IPv6 loopback:           ::1
- *   - IPv6 link-local:         fe80::/10
- *   - IPv6 unique-local:       fc00::/7 (fc:: and fd::)
- *   - IPv6 unspecified:        ::
- */
-export function isPrivateOrLoopbackIp(address: string): boolean {
-  // Normalise lowercase.
-  const addr = address.trim().toLowerCase();
-
-  // --- IPv6 ---
-  if (addr.includes(':')) {
-    if (addr === '::1') return true; // loopback
-    if (addr === '::' || addr === '0:0:0:0:0:0:0:0') return true; // unspecified
-    // link-local: fe80::/10 (starts with fe8, fe9, fea, feb)
-    if (/^fe[89ab]/i.test(addr)) return true;
-    // unique-local: fc00::/7 (starts with fc or fd)
-    if (/^f[cd]/i.test(addr)) return true;
-    return false;
-  }
-
-  // --- IPv4 ---
-  const parts = addr.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
-    // Unparseable address — block it to be safe.
-    return true;
-  }
-  const [a, b, c] = parts as [number, number, number, number];
-
-  if (a === 127) return true; // 127.0.0.0/8 — loopback
-  if (a === 0) return true; // 0.0.0.0/8 — unspecified
-  if (a === 10) return true; // 10.0.0.0/8 — RFC 1918
-  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 — RFC 1918
-  if (a === 192 && b === 168) return true; // 192.168.0.0/16 — RFC 1918
-  if (a === 169 && b === 254) return true; // 169.254.0.0/16 — link-local + metadata
-  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 — CGNAT
-  if (a === 192 && b === 0 && c === 2) return true; // 192.0.2.0/24 — TEST-NET-1
-  if (a === 198 && b === 51 && c === 100) return true; // 198.51.100.0/24 — TEST-NET-2
-  if (a === 203 && b === 0 && c === 113) return true; // 203.0.113.0/24 — TEST-NET-3
-  if (a === 240) return true; // 240.0.0.0/4 — reserved
-  if (a === 255 && b === 255 && c === 255 && parts[3] === 255) return true; // broadcast
-
-  return false;
-}
-
-/**
- * Validate a URL for clipping:
- *  1. Must be http or https.
- *  2. Must not target a private/loopback/link-local address (SSRF).
- *  3. Must not use a non-standard port that maps to internal services (optional
- *     — we do NOT block by port since that is fragile; the IP check is enough).
- *
- * Throws an AppError (400) if the URL is disallowed.
- */
-async function assertSafeUrl(urlStr: string): Promise<URL> {
-  let url: URL;
-  try {
-    url = new URL(urlStr);
-  } catch {
-    throw badRequest(`Invalid URL: ${urlStr}`);
-  }
-
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw badRequest('Only http and https URLs are allowed');
-  }
-
-  const hostname = url.hostname;
-
-  // Quick hostname checks before DNS lookup.
-  // Block bare "localhost" and common internal hostnames.
-  const lowerHostname = hostname.toLowerCase();
-  if (
-    lowerHostname === 'localhost' ||
-    lowerHostname === 'ip6-localhost' ||
-    lowerHostname === 'ip6-loopback' ||
-    lowerHostname.endsWith('.localhost') ||
-    lowerHostname === 'metadata.google.internal' ||
-    lowerHostname.endsWith('.internal')
-  ) {
-    throw badRequest('URL resolves to a disallowed internal hostname');
-  }
-
-  // Resolve all addresses and check each one.
-  let addresses: string[];
-  try {
-    const records = await lookup(hostname, { all: true });
-    addresses = records.map((r) => r.address);
-  } catch {
-    throw badRequest(`Could not resolve hostname: ${hostname}`);
-  }
-
-  if (addresses.length === 0) {
-    throw badRequest(`Hostname did not resolve: ${hostname}`);
-  }
-
-  for (const addr of addresses) {
-    if (isPrivateOrLoopbackIp(addr)) {
-      throw badRequest(
-        `URL resolves to a private or loopback address and cannot be clipped (SSRF protection)`,
-      );
-    }
-  }
-
-  return url;
-}
-
-// ---------------------------------------------------------------------------
-// Fetch with redirect cap
-// ---------------------------------------------------------------------------
-
-/**
- * Fetch a URL manually, following up to MAX_REDIRECTS redirects and re-checking
- * the SSRF guard at every hop. This prevents redirect-chain attacks where an
- * initial public URL eventually redirects to an internal address.
+ * Fetch a URL through the shared SSRF guard, following up to MAX_REDIRECTS
+ * redirects (re-validated at every hop), and return the (size-capped) body.
  */
 async function safeFetch(urlStr: string): Promise<{ body: string; finalUrl: string }> {
-  const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-  let currentUrl = urlStr;
-  let hops = 0;
+  const res = await guardedFetch(
+    urlStr,
+    {
+      method: 'GET',
+      headers: {
+        // Identify as a web-clipper to be polite; don't impersonate a browser.
+        'User-Agent': 'GraphVault-WebClipper/1.0 (+https://github.com/graphvault)',
+        Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      timeoutMs: FETCH_TIMEOUT_MS,
+    },
+    { allowPrivate: false, maxRedirects: MAX_REDIRECTS },
+  );
 
-  while (hops <= MAX_REDIRECTS) {
-    // SSRF check at every hop.
-    await assertSafeUrl(currentUrl);
-
-    let res: Response;
-    try {
-      res = await fetch(currentUrl, {
-        method: 'GET',
-        redirect: 'manual', // handle redirects ourselves so we can re-check SSRF
-        signal,
-        headers: {
-          // Identify as a web-clipper to be polite; don't impersonate a major browser.
-          'User-Agent': 'GraphVault-WebClipper/1.0 (+https://github.com/graphvault)',
-          Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-      });
-    } catch (err) {
-      throw badRequest(
-        `Fetch failed for ${currentUrl}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-
-    // Follow redirects manually.
-    if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get('location');
-      if (!location) {
-        throw badRequest(`Redirect from ${currentUrl} missing Location header`);
-      }
-      // Resolve relative redirect URLs against the current URL.
-      try {
-        currentUrl = new URL(location, currentUrl).href;
-      } catch {
-        throw badRequest(`Redirect Location is not a valid URL: ${location}`);
-      }
-      hops++;
-      continue;
-    }
-
-    if (!res.ok) {
-      throw badRequest(`Remote server returned ${res.status} for ${currentUrl}`);
-    }
-
-    // Read the body with a size cap.
-    const contentType = res.headers.get('content-type') ?? '';
-    if (!contentType.includes('html') && !contentType.includes('xhtml')) {
-      // Non-HTML content — still attempt conversion but warn.
-      // (caller will handle it gracefully)
-    }
-
-    const chunks: Uint8Array[] = [];
-    let totalBytes = 0;
-    const reader = res.body?.getReader();
-    if (!reader) {
-      throw badRequest('Response has no readable body');
-    }
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        totalBytes += value.length;
-        if (totalBytes > MAX_BODY_BYTES) {
-          // Truncate — we have enough to extract content.
-          chunks.push(value.slice(0, MAX_BODY_BYTES - (totalBytes - value.length)));
-          break;
-        }
-        chunks.push(value);
-      }
-    }
-
-    const body = new TextDecoder('utf-8', { fatal: false }).decode(
-      chunks.reduce((acc, chunk) => {
-        const merged = new Uint8Array(acc.length + chunk.length);
-        merged.set(acc);
-        merged.set(chunk, acc.length);
-        return merged;
-      }, new Uint8Array(0)),
-    );
-
-    return { body, finalUrl: currentUrl };
+  if (!res.ok) {
+    throw badRequest(`Remote server returned ${res.status}`);
   }
 
-  throw badRequest(`Too many redirects (max ${MAX_REDIRECTS}) for ${urlStr}`);
+  // Read the body with a size cap.
+  const reader = res.body?.getReader();
+  if (!reader) {
+    // Some transports buffer eagerly and expose no stream; fall back to bytes.
+    const buf = Buffer.from(await res.arrayBuffer());
+    const capped = buf.subarray(0, MAX_BODY_BYTES);
+    return { body: new TextDecoder('utf-8', { fatal: false }).decode(capped), finalUrl: urlStr };
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      totalBytes += value.length;
+      if (totalBytes > MAX_BODY_BYTES) {
+        chunks.push(value.slice(0, MAX_BODY_BYTES - (totalBytes - value.length)));
+        break;
+      }
+      chunks.push(value);
+    }
+  }
+
+  const body = new TextDecoder('utf-8', { fatal: false }).decode(
+    chunks.reduce((acc, chunk) => {
+      const merged = new Uint8Array(acc.length + chunk.length);
+      merged.set(acc);
+      merged.set(chunk, acc.length);
+      return merged;
+    }, new Uint8Array(0)),
+  );
+
+  return { body, finalUrl: urlStr };
 }
 
 // ---------------------------------------------------------------------------

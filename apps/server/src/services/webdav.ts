@@ -27,6 +27,7 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import type { WebDavConfigInfo, WebDavConfigRequest } from '@graphvault/shared';
 import { badRequest, notFound } from '../errors.js';
+import { guardedFetch } from './ssrf.js';
 import type { Storage, WebDavConfigRecord } from '../store/types.js';
 
 // ---------------------------------------------------------------------------
@@ -187,7 +188,7 @@ export class WebDavService {
 
     let res: Response;
     try {
-      res = await fetch(targetUrl, {
+      res = await guardedFetch(targetUrl, {
         method: 'GET',
         headers: { Authorization: `Basic ${credentials}` },
       });
@@ -220,14 +221,14 @@ export class WebDavService {
 
     let res: Response;
     try {
-      res = await fetch(targetUrl, {
+      res = await guardedFetch(targetUrl, {
         method: 'PUT',
         headers: {
           Authorization: `Basic ${credentials}`,
           'Content-Type': contentType,
           'Content-Length': String(body.length),
         },
-        body: body,
+        body,
       });
     } catch (err) {
       throw badRequest(`WebDAV PUT failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -248,7 +249,7 @@ export class WebDavService {
 
     let res: Response;
     try {
-      res = await fetch(targetUrl, {
+      res = await guardedFetch(targetUrl, {
         method: 'DELETE',
         headers: { Authorization: `Basic ${credentials}` },
       });

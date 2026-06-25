@@ -20,6 +20,12 @@ import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { InMemoryStorage } from '../src/store/memory.js';
 import { isPrivateOrLoopbackIp, htmlToMarkdown } from '../src/services/clip.js';
+import {
+  __setResolverForTests,
+  __setTransportForTests,
+  type GuardedTransport,
+  type ResolveAllFn,
+} from '../src/services/ssrf.js';
 
 // ---------------------------------------------------------------------------
 // isPrivateOrLoopbackIp unit tests — run synchronously before app boots
@@ -181,20 +187,23 @@ const fetchResponses = new Map<
   { status: number; body: string; headers?: Record<string, string> }
 >();
 
-type FetchFn = typeof globalThis.fetch;
-let originalFetch: FetchFn;
+let restoreTransport: (() => void) | undefined;
+let restoreResolver: (() => void) | undefined;
 
-function makeFakeFetch(): FetchFn {
-  return async (input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const entry = fetchResponses.get(url);
-    if (!entry) {
-      return new Response('Not found', { status: 404 });
-    }
-    const headers = new Headers({ 'content-type': 'text/html', ...entry.headers });
-    return new Response(entry.body, { status: entry.status, headers });
-  };
-}
+// Stub the SSRF transport (replaces the old globalThis.fetch monkey-patch): the
+// guarded fetch's validate + DNS-pin logic still runs; only the socket-level
+// transport is faked.
+const fakeTransport: GuardedTransport = async (url) => {
+  const entry = fetchResponses.get(url);
+  if (!entry) {
+    return new Response('Not found', { status: 404 });
+  }
+  const headers = new Headers({ 'content-type': 'text/html', ...entry.headers });
+  return new Response(entry.body, { status: entry.status, headers });
+};
+
+// Resolve any test host to a fixed public IP so the SSRF guard runs offline.
+const fakeResolver: ResolveAllFn = async () => ['93.184.216.34'];
 
 // Stub node:dns/promises lookup.
 // We monkey-patch the service module's import at load time by injecting a
@@ -242,13 +251,14 @@ before(async () => {
   assert.equal(res.statusCode, 201, res.body);
   token = res.json().accessToken;
 
-  // Install fake fetch.
-  originalFetch = globalThis.fetch;
-  globalThis.fetch = makeFakeFetch();
+  // Install the fake SSRF transport + resolver.
+  restoreTransport = __setTransportForTests(fakeTransport);
+  restoreResolver = __setResolverForTests(fakeResolver);
 });
 
 after(async () => {
-  globalThis.fetch = originalFetch;
+  restoreTransport?.();
+  restoreResolver?.();
   await app.close();
   await rm(dataDir, { recursive: true, force: true });
 });

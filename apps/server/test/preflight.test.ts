@@ -97,15 +97,85 @@ test('preflight: multiple insecure settings accumulate multiple errors', () => {
 });
 
 test('preflight: dev/test environments are never flagged (insecure config tolerated)', () => {
-  // The most insecure possible config, but not production -> no findings.
+  // The most insecure possible config, but loopback-bound and not production
+  // -> no findings, so local http development is unaffected.
   const insecure = loadConfig({
     NODE_ENV: 'development',
     GRAPHVAULT_CORS_ORIGIN: '*',
     GRAPHVAULT_REQUIRE_HTTPS: 'false',
-    GRAPHVAULT_HOST: '0.0.0.0',
+    GRAPHVAULT_HOST: '127.0.0.1',
   });
   assert.deepEqual(preflightConfig(insecure, 'development'), { errors: [], warnings: [] });
   assert.deepEqual(preflightConfig(insecure, 'test'), { errors: [], warnings: [] });
+
+  // Default host (unset) is loopback-equivalent and also clean.
+  const defaultHost = loadConfig({
+    NODE_ENV: 'development',
+    GRAPHVAULT_CORS_ORIGIN: '*',
+    GRAPHVAULT_REQUIRE_HTTPS: 'false',
+  });
+  assert.deepEqual(preflightConfig(defaultHost, 'development'), { errors: [], warnings: [] });
+});
+
+// --- NEW: fail-fast when exposed off-box even without NODE_ENV=production ---
+
+test('preflight: CORS "*" on a non-loopback host is an error even in dev', () => {
+  // A self-hoster on a VPS with NODE_ENV unset, binding 0.0.0.0, with the
+  // leftover open-CORS default. This must fail fast.
+  const config = loadConfig({
+    NODE_ENV: 'development',
+    GRAPHVAULT_CORS_ORIGIN: '*',
+    GRAPHVAULT_REQUIRE_HTTPS: 'true',
+    GRAPHVAULT_HOST: '0.0.0.0',
+  });
+  const result = preflightConfig(config, 'development');
+  assert.ok(
+    result.errors.some((e) => /GRAPHVAULT_CORS_ORIGIN/.test(e)),
+    JSON.stringify(result.errors),
+  );
+  // The error explains it is the public bind, not NODE_ENV, that triggered it.
+  assert.ok(
+    result.errors.some((e) => /non-loopback/.test(e)),
+    JSON.stringify(result.errors),
+  );
+});
+
+test('preflight: REQUIRE_HTTPS=false on a non-loopback host is an error even in dev', () => {
+  const config = loadConfig({
+    NODE_ENV: 'development',
+    GRAPHVAULT_CORS_ORIGIN: 'https://notes.example.com',
+    GRAPHVAULT_REQUIRE_HTTPS: 'false',
+    GRAPHVAULT_HOST: '0.0.0.0',
+  });
+  const result = preflightConfig(config, 'development');
+  assert.ok(
+    result.errors.some((e) => /GRAPHVAULT_REQUIRE_HTTPS/.test(e)),
+    JSON.stringify(result.errors),
+  );
+});
+
+test('preflight: a concrete public IP host (not 0.0.0.0) also triggers exposure checks', () => {
+  const config = loadConfig({
+    NODE_ENV: 'development',
+    GRAPHVAULT_CORS_ORIGIN: '*',
+    GRAPHVAULT_REQUIRE_HTTPS: 'false',
+    GRAPHVAULT_HOST: '203.0.113.10',
+  });
+  const result = preflightConfig(config, 'development');
+  assert.equal(result.errors.length, 2, JSON.stringify(result.errors));
+});
+
+test('preflight: a SAFE config on a non-loopback host in dev produces no errors', () => {
+  // Exposed off-box but with an explicit allowlist + HTTPS enforced: clean.
+  const config = loadConfig({
+    NODE_ENV: 'development',
+    GRAPHVAULT_CORS_ORIGIN: 'https://notes.example.com',
+    GRAPHVAULT_REQUIRE_HTTPS: 'true',
+    GRAPHVAULT_HOST: '0.0.0.0',
+    GRAPHVAULT_TRUST_PROXY: 'true',
+  });
+  const result = preflightConfig(config, 'development');
+  assert.deepEqual(result.errors, []);
 });
 
 // --- new connection-hardening / body-limit config parsing ---
