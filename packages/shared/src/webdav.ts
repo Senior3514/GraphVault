@@ -41,16 +41,62 @@ export const webdavConfigInfoSchema = z.object({
 export type WebDavConfigInfo = z.infer<typeof webdavConfigInfoSchema>;
 
 /**
+ * Return true when `segment` is a dot-dot traversal component in any encoding.
+ *
+ * Fastify only URL-decodes path parameters once, so a double-encoded input
+ * `%252e%252e` arrives as `%2e%2e` in `request.params['*']`.  The old
+ * `includes('..')` check missed this because `%2e%2e` contains no literal dots.
+ *
+ * The fix: fully decode the path component (repeated decodeURIComponent until
+ * stable) before checking for `..` segments, then also reject the raw encoded
+ * forms `%2e` / `%252e` as dots.
+ */
+function containsPathTraversal(p: string): boolean {
+  // 1. Fast path: literal dots already in the string.
+  if (p.includes('..')) return true;
+
+  // 2. Detect any URL-encoded dot form in the raw string:
+  //    %2e or %2E (single percent), %252e / %252E (double percent), etc.
+  //    We normalise to lowercase for the check.
+  const lower = p.toLowerCase();
+  if (lower.includes('%2e') || lower.includes('%252e')) return true;
+
+  // 3. Fully decode and re-check.  decodeURIComponent throws on malformed
+  //    sequences; treat those as traversal (reject, not crash).
+  let decoded = p;
+  try {
+    let prev = '';
+    // Repeatedly decode until stable, to catch any depth of percent-encoding.
+    while (decoded !== prev) {
+      prev = decoded;
+      decoded = decodeURIComponent(decoded);
+    }
+  } catch {
+    // Malformed percent sequence — reject for safety.
+    return true;
+  }
+  if (decoded.includes('..')) return true;
+
+  return false;
+}
+
+/**
  * Vault-relative sub-path for a proxy operation. The server will append this
  * to the stored WebDAV base URL. Must be safe (no path traversal).
+ *
+ * Security note: the literal `..` check alone is insufficient because Fastify
+ * only decodes path parameters once.  A double-encoded input `%252e%252e`
+ * arrives as `%2e%2e` in the wildcard param; `includes('..')` would return
+ * false.  `containsPathTraversal` above catches all encoding depths.
  */
 export const webdavProxyPathSchema = z
   .string()
   .max(1024)
   .refine(
-    // Reject path traversal, leading slashes, and ASCII control characters.
+    // Reject path traversal (all encodings), leading slashes, and ASCII
+    // control characters.
     // eslint-disable-next-line no-control-regex
-    (p) => !p.includes('..') && !p.startsWith('/') && !/[\x00-\x1f]/.test(p),
+    (p) => !containsPathTraversal(p) && !p.startsWith('/') && !/[\x00-\x1f]/.test(p),
     'invalid proxy path',
   );
 export type WebDavProxyPath = z.infer<typeof webdavProxyPathSchema>;

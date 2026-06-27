@@ -94,13 +94,40 @@ function decryptPassword(ciphertext: string, userId: string, serverKey?: Buffer)
 // ---------------------------------------------------------------------------
 
 /**
+ * Return true when `s` contains a dot-dot path traversal in any encoding.
+ *
+ * `webdavProxyPathSchema` is the first line of defence, but `joinWebDavUrl` is
+ * the second (belt-and-suspenders). Fastify decodes path parameters only once,
+ * so a double-encoded input `%252e%252e` arrives here as `%2e%2e`.  The old
+ * `includes('..')` check missed that because `%2e%2e` contains no literal dots.
+ * The fix: also reject percent-encoded dot forms and fully-decoded traversal.
+ */
+function containsTraversal(s: string): boolean {
+  if (s.includes('..')) return true;
+  const lower = s.toLowerCase();
+  if (lower.includes('%2e') || lower.includes('%252e')) return true;
+  // Iteratively decode (handles any depth) and re-check.
+  let decoded = s;
+  try {
+    let prev = '';
+    while (decoded !== prev) {
+      prev = decoded;
+      decoded = decodeURIComponent(decoded);
+    }
+  } catch {
+    return true; // malformed percent sequence — reject for safety
+  }
+  return decoded.includes('..');
+}
+
+/**
  * Join the stored base URL with a vault-relative proxy path, preventing any
  * path traversal. The base URL is the canonical WebDAV root that the user
  * configured; the proxy path is the vault-relative portion from the client.
  *
  * Rules:
  * - The base URL must end with `/` (we normalise it).
- * - The proxy path must not contain `..` or start with `/`.
+ * - The proxy path must not contain `..` in any encoding, or start with `/`.
  * - The result is always a descendant of the base URL.
  */
 export function joinWebDavUrl(base: string, proxyPath: string): string {
@@ -108,9 +135,8 @@ export function joinWebDavUrl(base: string, proxyPath: string): string {
   const normalised = base.endsWith('/') ? base : `${base}/`;
   // Strip any leading slashes from proxy path.
   const clean = proxyPath.replace(/^\/+/, '');
-  // Guard against path traversal once more (belt-and-suspenders; the zod
-  // schema already validated this on the way in).
-  if (clean.includes('..')) {
+  // Guard against path traversal in ALL encodings (literal, single-, double-).
+  if (containsTraversal(clean)) {
     throw new Error('Path traversal in WebDAV proxy path');
   }
   return `${normalised}${clean}`;
