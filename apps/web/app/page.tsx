@@ -74,12 +74,12 @@ export default function LandingPage() {
                 <GitHubIcon className="h-4 w-4" />
                 GitHub
               </a>
-              {/* Tap target ≥ 40px via min-h-[40px] */}
+              {/* Tap target ≥ 44px via min-h-[44px] */}
               <Link
                 href="/vault"
-                className="inline-flex min-h-[40px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-neutral-950 shadow-md shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-neutral-950 shadow-md shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
-                Open the app
+                Open GraphVault
               </Link>
             </div>
           </nav>
@@ -140,15 +140,19 @@ export default function LandingPage() {
               </span>
             </p>
 
-            {/* CTAs — min-h-[44px] ensures touch targets meet accessibility guidelines */}
+            {/* CTAs — the primary action is unmistakable; min-h-[44px] keeps
+                every touch target above the accessibility floor. */}
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/vault"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 font-semibold text-neutral-950 shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
-                Open the app
+                Open GraphVault
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
+              {/* PWA install affordance — platform-aware; renders nothing when
+                  already installed or when install isn't possible. */}
+              <InstallButton />
               <a
                 href="https://github.com/Senior3514/GraphVault"
                 target="_blank"
@@ -158,9 +162,12 @@ export default function LandingPage() {
                 <GitHubIcon className="h-4 w-4 text-neutral-400" />
                 Star on GitHub
               </a>
-              {/* PWA install button — shown only when browser supports it */}
-              <InstallButton />
             </div>
+
+            {/* One-line trust statement — the whole pitch in a breath. */}
+            <p className="mt-4 text-sm text-neutral-500">
+              Works offline · No account · Your files stay yours.
+            </p>
           </div>
 
           {/* Right — product preview */}
