@@ -22,7 +22,7 @@ function userText(text: string): GetPromptResult['messages'][number] {
 export const SYNTHESIZE_MAX_NOTES = 8;
 
 /**
- * `summarize_note` — embed a note's markdown and ask for a concise summary.
+ * `summarize_note` - embed a note's markdown and ask for a concise summary.
  */
 export function summarizeNotePrompt(snapshot: VaultSnapshot, path: string): GetPromptResult {
   const content = readNote(snapshot, path); // throws "Note not found" for an unknown path
@@ -41,7 +41,7 @@ export function summarizeNotePrompt(snapshot: VaultSnapshot, path: string): GetP
 }
 
 /**
- * `find_connections` — embed a note plus its backlinks and local-graph
+ * `find_connections` - embed a note plus its backlinks and local-graph
  * neighbors, and ask for related notes and missing links.
  */
 export function findConnectionsPrompt(snapshot: VaultSnapshot, path: string): GetPromptResult {
@@ -75,7 +75,7 @@ export function findConnectionsPrompt(snapshot: VaultSnapshot, path: string): Ge
 }
 
 /**
- * `search_and_synthesize` — embed the top notes matching a query and ask for a
+ * `search_and_synthesize` - embed the top notes matching a query and ask for a
  * synthesis across them.
  */
 export function searchAndSynthesizePrompt(snapshot: VaultSnapshot, query: string): GetPromptResult {
@@ -95,7 +95,7 @@ export function searchAndSynthesizePrompt(snapshot: VaultSnapshot, query: string
   const sections = hits
     .map((h) => {
       const body = readNote(snapshot, h.path);
-      return `## ${h.path}${h.title && h.title !== h.path ? ` — ${h.title}` : ''}\n\n${body}`;
+      return `## ${h.path}${h.title && h.title !== h.path ? ` - ${h.title}` : ''}\n\n${body}`;
     })
     .join('\n\n');
 

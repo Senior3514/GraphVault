@@ -28,7 +28,7 @@ automatic certificate renewal.
 
 ## Authentication
 
-### Password hashing — Argon2id
+### Password hashing - Argon2id
 
 User passwords are hashed with **Argon2id** (a memory-hard, side-channel-
 resistant KDF) before storage. If the native `argon2` addon is unavailable at
@@ -43,7 +43,7 @@ runtime, the server falls back to Node's built-in **scrypt**. Either way:
 After `register`/`login`, the server issues an opaque **bearer token**:
 
 - Tokens are random and opaque (no embedded claims to tamper with).
-- Only the **SHA-256 hash** of the token is stored server-side — a database leak
+- Only the **SHA-256 hash** of the token is stored server-side - a database leak
   does not reveal usable tokens.
 - Each token has an expiry (`expiresAt`) and is **bound to a device**
   (`deviceId`), so a device can be reasoned about and (in future) revoked
@@ -51,7 +51,7 @@ After `register`/`login`, the server issues an opaque **bearer token**:
 - Clients send `Authorization: Bearer <accessToken>` on every request after
   login.
 
-## Authorization — vault ownership
+## Authorization - vault ownership
 
 Every vault is owned by exactly one user. On **every** vault-scoped request
 (pull, push, blob access within a vault context), the server checks that the
@@ -80,7 +80,7 @@ Integrity is a first-class concern, per the protocol:
 
 - **Content addressing.** Blobs are identified by `sha256:<hex>` of their bytes.
   On upload (`PUT /v1/blobs/:hash`) the server **recomputes** the hash and
-  rejects any mismatch — this prevents content poisoning and detects corruption.
+  rejects any mismatch - this prevents content poisoning and detects corruption.
 - **Deterministic conflict detection.** The server never merges file contents;
   it decides accept-vs-conflict deterministically (sync-protocol §6) and
   preserves the losing side as a conflict copy. **No silent data loss.**
@@ -91,11 +91,11 @@ Integrity is a first-class concern, per the protocol:
 
 The server can optionally encrypt blob bytes **at rest** with a server-held key.
 
-- **Cipher:** AES-256-GCM (authenticated encryption — confidentiality plus
+- **Cipher:** AES-256-GCM (authenticated encryption - confidentiality plus
   tamper detection).
 - **Key:** supplied via `GRAPHVAULT_ENCRYPTION_KEY`, **base64-encoded and
-  decoding to exactly 32 bytes** (AES-256). A malformed key — wrong alphabet or
-  wrong length — fails fast at boot. Generate one with `openssl rand -base64 32`.
+  decoding to exactly 32 bytes** (AES-256). A malformed key - wrong alphabet or
+  wrong length - fails fast at boot. Generate one with `openssl rand -base64 32`.
 - **Hash-of-plaintext invariant.** Content addressing is computed over the
   **plaintext** bytes. Encryption is a storage-layer concern: the `sha256` that
   identifies a blob is unchanged whether or not at-rest encryption is enabled, so
@@ -118,7 +118,7 @@ compromised. v0 documents the direction but ships server-side at-rest encryption
 as the supported option; E2E key management and per-vault key rotation are
 tracked as open questions in [`sync-protocol.md`](./sync-protocol.md) §9.
 
-## Telemetry — none
+## Telemetry - none
 
 GraphVault makes **no outbound telemetry calls** by default. The only network
 traffic is between your clients and your server, plus whatever you explicitly
@@ -129,10 +129,10 @@ analytics, crash-reporting, or phone-home endpoints.
 
 Two things hold your data; back up **both**, consistently:
 
-1. **The PostgreSQL database** — users, devices, tokens, vaults, files, file
+1. **The PostgreSQL database** - users, devices, tokens, vaults, files, file
    versions, revisions, and blob metadata. This is the source of truth for note
    structure and history.
-2. **The blob `dataDir`** — the content-addressed file bytes on disk (the
+2. **The blob `dataDir`** - the content-addressed file bytes on disk (the
    `GRAPHVAULT_DATA_DIR` / mounted `/data` volume). The database references
    blobs by hash; without the bytes, the metadata is incomplete.
 
@@ -142,10 +142,10 @@ Recommendations:
   directory with a file-level backup (restic, borg, rsync, or volume snapshots).
 - Try to capture both at a consistent point in time. Because blobs are
   content-addressed and immutable, a slightly newer blob set than the DB is
-  harmless (extra unreferenced bytes); a **newer DB than blob set** can dangle —
+  harmless (extra unreferenced bytes); a **newer DB than blob set** can dangle -
   prefer snapshotting blobs at or after the DB.
 - If you enable at-rest encryption, back up `GRAPHVAULT_ENCRYPTION_KEY`
-  **separately** and securely — the encrypted blob backup is useless without it.
+  **separately** and securely - the encrypted blob backup is useless without it.
 - Test restores periodically. See [`deployment.md`](./deployment.md) for the
   backup/restore procedure.
 

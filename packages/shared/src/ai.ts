@@ -6,7 +6,7 @@ import { z } from 'zod';
  * Security model:
  *   - The `server` provider mode sends prompts to the GraphVault server's
  *     POST /v1/ai/chat endpoint (authenticated). The server holds the API key
- *     (encrypted at rest with AES-256-GCM + per-user HKDF — same pattern as
+ *     (encrypted at rest with AES-256-GCM + per-user HKDF - same pattern as
  *     WebDAV and S3). The browser never touches the key.
  *   - The `off` and `local` modes never use these schemas (local Ollama stays
  *     entirely client-side as before).
@@ -23,7 +23,7 @@ import { z } from 'zod';
  * The `apiKey` is encrypted before being written to storage.
  *
  * `gateway` selects the outbound gateway the server will use:
- *   - `openrouter` (default): https://openrouter.ai/api/v1 — 400+ models
+ *   - `openrouter` (default): https://openrouter.ai/api/v1 - 400+ models
  *   - `custom`: a direct base URL (Anthropic/OpenAI/any OpenAI-compat endpoint)
  */
 export const aiConfigRequestSchema = z.object({
@@ -157,7 +157,7 @@ export const aiChatResponseSchema = z.object({
 export type AiChatResponse = z.infer<typeof aiChatResponseSchema>;
 
 // ---------------------------------------------------------------------------
-// AI streaming (SSE) event frames — server → browser
+// AI streaming (SSE) event frames - server → browser
 // ---------------------------------------------------------------------------
 
 /**

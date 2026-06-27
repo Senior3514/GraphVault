@@ -36,7 +36,7 @@ the stack.
 
 The Markdown preview (`MarkdownPreview` component) sanitises rendered HTML with
 DOMPurify before inserting it into the DOM. This prevents stored-XSS from
-crafted note content — for example, a note containing `<script>` tags or
+crafted note content - for example, a note containing `<script>` tags or
 malicious `javascript:` href values.
 
 The editor surface is a plain `<textarea>` and renders no HTML, so it is not
@@ -73,7 +73,7 @@ proxy** (Caddy or nginx). In production:
 
 ## Authentication
 
-### Password storage — Argon2id
+### Password storage - Argon2id
 
 User passwords are hashed with **Argon2id** (memory-hard, side-channel-
 resistant). If the native `argon2` addon is unavailable at runtime, the server
@@ -90,7 +90,7 @@ After register/login the server issues an opaque bearer token:
 - Each token has an expiry and is bound to a `deviceId`.
 - Clients send `Authorization: Bearer <accessToken>` on every request.
 
-## Authorization — vault ownership
+## Authorization - vault ownership
 
 Every vault is owned by exactly one user. The server checks ownership on every
 vault-scoped request (pull, push, blob access). There are no cross-user shared
@@ -116,8 +116,8 @@ disk with **AES-256-GCM** (authenticated encryption):
 - The content hash remains the SHA-256 of the **plaintext** bytes. Encryption
   is a storage-layer detail; the wire protocol and dedupe logic are unchanged.
 - The key must be **base64-encoded and decode to exactly 32 bytes** (AES-256);
-  it is read from the environment at startup. A malformed key — wrong alphabet,
-  or decoding to any length other than 32 bytes — causes a fast fail. (A hex
+  it is read from the environment at startup. A malformed key - wrong alphabet,
+  or decoding to any length other than 32 bytes - causes a fast fail. (A hex
   string is rejected: decode it to base64 first.)
 - Protects against disk / volume theft. Does not protect against a compromised
   running server (the key is in memory while the server runs).
@@ -139,15 +139,15 @@ local vault store at rest in the browser (`apps/web/lib/crypto/vaultCrypto.ts`,
 `EncryptionSection` in Settings). This protects the locally-persisted vault on a
 shared or stolen device; the passphrase is never stored.
 
-End-to-end encryption of synced note content — so the **sync server** never sees
-plaintext even when fully compromised — is a separate, larger effort: E2E key
+End-to-end encryption of synced note content - so the **sync server** never sees
+plaintext even when fully compromised - is a separate, larger effort: E2E key
 management and per-vault key rotation for the sync server are tracked as open
 questions in [`sync-protocol.md §9`](./sync-protocol.md).
 
 ## Content integrity
 
 - **Content addressing**: blobs are identified by `sha256:<hex>` of their
-  bytes. On upload, the server recomputes the hash and rejects any mismatch —
+  bytes. On upload, the server recomputes the hash and rejects any mismatch -
   preventing content poisoning and detecting corruption.
 - **Conflict copies**: the sync server and the import pipeline both preserve
   the losing side of any content collision. No silent data loss.
@@ -160,8 +160,8 @@ On startup with `NODE_ENV=production` the server audits its own configuration
 ([`preflight.ts`](../apps/server/src/preflight.ts)) and **refuses to boot** on an
 insecure setup, exiting non-zero with an actionable message:
 
-- `GRAPHVAULT_CORS_ORIGIN='*'` — an open CORS policy in production.
-- `GRAPHVAULT_REQUIRE_HTTPS=false` — plaintext would be accepted.
+- `GRAPHVAULT_CORS_ORIGIN='*'` - an open CORS policy in production.
+- `GRAPHVAULT_REQUIRE_HTTPS=false` - plaintext would be accepted.
 - `GRAPHVAULT_STORAGE=postgres` with no `DATABASE_URL`.
 
 It warns (but boots) on a missing `GRAPHVAULT_ENCRYPTION_KEY` or binding all
@@ -180,8 +180,8 @@ cap. SIGTERM/SIGINT trigger a graceful `app.close()` drain.
 
 ## Hardening checklist (operators)
 
-See [`hardening.md`](./hardening.md) for the full VPS checklist — TLS reverse
+See [`hardening.md`](./hardening.md) for the full VPS checklist - TLS reverse
 proxy, UFW, fail2ban, a hardened systemd unit, unattended upgrades, backups, and
-how the preflight enforces safe config — and
+how the preflight enforces safe config - and
 [`security-basics.md`](./security-basics.md#hardening-checklist) for the original
 operator notes.

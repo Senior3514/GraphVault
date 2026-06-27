@@ -12,7 +12,7 @@
  *
  * When vault encryption is enabled the hook uses an {@link EncryptedVaultStore}
  * to transparently encrypt/decrypt the notes blob. The passphrase is held in
- * memory only — never persisted.
+ * memory only - never persisted.
  *
  * On first load, if the sentinel flag indicates the vault is encrypted but no
  * passphrase has been supplied yet, `ready` stays `false` and
@@ -25,7 +25,7 @@
  * {@link BackupStore}. The delay is intentionally longer than the autosave
  * debounce (autosave: immediate-on-change, snapshot: 5 s after the last change
  * settles) so rapid typing does not produce hundreds of snapshots. The snapshot
- * is fire-and-forget — a failure never blocks a render or an autosave.
+ * is fire-and-forget - a failure never blocks a render or an autosave.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -103,7 +103,7 @@ export interface UseVault {
    * This is the safe path for beforeunload / visibilitychange=hidden handlers:
    * React's useEffect is async and may not fire before the browser unloads the
    * page. Calling `updateContent` (which dispatches `setRawNotes`) is therefore
-   * NOT safe from a beforeunload handler — the last keystrokes would be lost.
+   * NOT safe from a beforeunload handler - the last keystrokes would be lost.
    *
    * `directFlush` applies the patches to the current in-memory notes, calls
    * `adapter.save()` immediately (so the write races to complete before unload),
@@ -111,7 +111,7 @@ export interface UseVault {
    * for the case where the tab is NOT closed (e.g. visibilitychange=hidden on
    * mobile where the app can resume later).
    *
-   * @param updates  Array of `{ path, content }` pairs — the pending draft
+   * @param updates  Array of `{ path, content }` pairs - the pending draft
    *   content for each tab that has unsaved edits. Unknown paths are silently
    *   skipped (the note may have been deleted between capturing the draft and
    *   the flush firing).
@@ -120,7 +120,7 @@ export interface UseVault {
   resetVault(): Promise<void>;
   /**
    * Non-destructively reload notes from the active storage adapter into React
-   * state. Unlike {@link resetVault}, this NEVER clears or reseeds storage — it
+   * state. Unlike {@link resetVault}, this NEVER clears or reseeds storage - it
    * just re-reads what is already persisted. Used after a storage-backend switch
    * (migrate copies notes to the new adapter; reload surfaces them) so the
    * migrate "source preserved" promise is honoured.
@@ -198,7 +198,7 @@ export function useVault(): UseVault {
         .takeSnapshot(notes)
         .then(() => getBackupStore().pruneOld())
         .catch(() => {
-          // Snapshot failures are silent — never block a render or autosave.
+          // Snapshot failures are silent - never block a render or autosave.
         });
     }, SNAPSHOT_DEBOUNCE_MS);
     debouncedSnapshotRef.current = fn;
@@ -214,14 +214,14 @@ export function useVault(): UseVault {
     // Check if the sentinel says the vault is encrypted.
     const sentinel = isVaultEncryptedSentinel();
     if (sentinel) {
-      // The vault is encrypted — we need a passphrase before we can load.
+      // The vault is encrypted - we need a passphrase before we can load.
       setEncryptionEnabled(true);
       setNeedsPassphrase(true);
       // `ready` stays false until unlock() is called.
       return;
     }
 
-    // Not encrypted — load normally.
+    // Not encrypted - load normally.
     store.load().then((loaded) => {
       if (!active) return;
       setRawNotes(loaded);
@@ -288,7 +288,7 @@ export function useVault(): UseVault {
   const unlock = useCallback(async (passphrase: string): Promise<void> => {
     const evs = new EncryptedVaultStore(getRawStorage(), LOCAL_STORAGE_KEY, passphrase);
 
-    // Throws VaultDecryptionError if passphrase is wrong — we let it propagate.
+    // Throws VaultDecryptionError if passphrase is wrong - we let it propagate.
     const loaded = await evs.load();
 
     encryptedStore.current = evs;
@@ -327,7 +327,7 @@ export function useVault(): UseVault {
       new EncryptedVaultStore(getRawStorage(), LOCAL_STORAGE_KEY, passphrase);
 
     evs.setPassphrase(passphrase);
-    // Throws VaultDecryptionError on wrong passphrase — blob is NOT mutated.
+    // Throws VaultDecryptionError on wrong passphrase - blob is NOT mutated.
     const decrypted = await evs.decryptExisting();
 
     evs.lock();
@@ -389,19 +389,19 @@ export function useVault(): UseVault {
       if (updates.length === 0) return;
 
       // Apply patches to the CURRENT rawNotes synchronously using the functional
-      // updater pattern — we need the patched array both for the immediate
+      // updater pattern - we need the patched array both for the immediate
       // storage write AND for the React state update.
       let patched = latestNotesRef.current;
       for (const { path, content } of updates) {
         try {
           patched = updateNoteContentOp(patched, path, content);
         } catch {
-          // Note deleted between draft capture and flush — skip, don't abort.
+          // Note deleted between draft capture and flush - skip, don't abort.
         }
       }
 
       // Write DIRECTLY to storage. This races to complete before the browser
-      // unloads the page — unlike setRawNotes which defers through useEffect.
+      // unloads the page - unlike setRawNotes which defers through useEffect.
       if (encryptedStore.current) {
         await encryptedStore.current.save(patched);
       } else {
@@ -429,7 +429,7 @@ export function useVault(): UseVault {
 
   const reload = useCallback(async () => {
     // Re-read from whichever store is currently active (encrypted or adapter).
-    // No clear, no reseed — purely a refresh of in-memory state.
+    // No clear, no reseed - purely a refresh of in-memory state.
     const source = encryptedStore.current ?? store;
     const loaded = await source.load();
     setRawNotes(loaded);

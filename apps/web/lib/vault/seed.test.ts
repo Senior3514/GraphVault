@@ -98,6 +98,6 @@ test('seed vault notes have realistic timestamps (ctime ≤ mtime)', () => {
 });
 
 test('seed notes use indexNotes without throwing', () => {
-  // indexNotes is the full vault indexing pipeline — exercises parse + link resolution.
+  // indexNotes is the full vault indexing pipeline - exercises parse + link resolution.
   assert.doesNotThrow(() => indexNotes(raw));
 });

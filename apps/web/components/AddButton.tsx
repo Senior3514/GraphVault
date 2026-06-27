@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * AddButton — primary "+" fast-capture action for the vault.
+ * AddButton - primary "+" fast-capture action for the vault.
  *
  * Renders in two modes depending on the viewport:
  *  - Desktop (>= md): an inline "+ New" button in the note-list header area.
@@ -10,9 +10,9 @@
  *    not overlap existing chrome.
  *
  * One tap opens a small menu:
- *   • New note   — collision-safe Untitled.md, opened immediately (fast capture)
- *   • Import…    — triggers the folder-picker flow (same as command palette)
- *   • New folder — prompts for a folder name, creates Untitled.md inside it
+ *   • New note   - collision-safe Untitled.md, opened immediately (fast capture)
+ *   • Import…    - triggers the folder-picker flow (same as command palette)
+ *   • New folder - prompts for a folder name, creates Untitled.md inside it
  *
  * The menu is keyboard-accessible: arrow keys navigate, Enter runs, Esc closes.
  * Animations are gated on `prefers-reduced-motion`. The component is ARIA-labelled

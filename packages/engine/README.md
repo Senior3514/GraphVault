@@ -13,7 +13,7 @@ It is intentionally **framework-free and filesystem-free**:
   renderer (force-directed React graph, Cytoscape, server JSON, …).
 
 This keeps the engine reusable across the web client, desktop client, and
-server (see `CLAUDE.md` — "keep the engine decoupled from the UI").
+server (see `CLAUDE.md` - "keep the engine decoupled from the UI").
 
 ## Install
 
@@ -51,28 +51,28 @@ filterGraph(index, { tags: ['project'] });
 
 ### Parsing
 
-- `parseNote(path, content): ParsedNote` — extract title, frontmatter, tags and
+- `parseNote(path, content): ParsedNote` - extract title, frontmatter, tags and
   outbound links from one note.
 - `splitFrontmatter(content): { frontmatter, frontmatterRaw, body }`.
 
 ### Index
 
-- `buildIndex(notes: NoteInput[]): GraphIndex` — parse all notes, resolve links,
+- `buildIndex(notes: NoteInput[]): GraphIndex` - parse all notes, resolve links,
   compute backlinks. Deterministic and pure.
 - `getOutbound(index, noteId): GraphEdge[]`
-- `getBacklinks(index, noteId): GraphEdge[]` — resolved inbound edges.
+- `getBacklinks(index, noteId): GraphEdge[]` - resolved inbound edges.
 
 ### Graph queries (all return `GraphPayload = { nodes, edges, truncated }`)
 
-- `getGraph(index, { nodeCap?, includeUnresolved? })` — the full graph, capped
+- `getGraph(index, { nodeCap?, includeUnresolved? })` - the full graph, capped
   at `nodeCap` nodes (default `DEFAULT_NODE_CAP = 2000`). `truncated` is `true`
   when the cap dropped nodes. Unresolved (missing-target) edges are excluded
   unless `includeUnresolved` is set.
 - `getLocalGraph(index, noteId, depth, { includeBacklinks?, includeUnresolved? })`
-  — BFS subgraph around `noteId` out to `depth` hops. Depth `0` is the note
-  alone; depth `1` adds direct neighbours. Traversal follows outbound links and
-  (by default) resolved backlinks. Unknown `noteId` returns an empty payload.
-- `filterGraph(index, criteria)` — filter nodes by `tags`, `folders`,
+  - BFS subgraph around `noteId` out to `depth` hops. Depth `0` is the note
+    alone; depth `1` adds direct neighbours. Traversal follows outbound links and
+    (by default) resolved backlinks. Unknown `noteId` returns an empty payload.
+- `filterGraph(index, criteria)` - filter nodes by `tags`, `folders`,
   `updatedFrom`/`updatedTo` (epoch ms), and edges by `linkTypes`. All criteria
   are AND-combined. Also honours `nodeCap` and `includeUnresolved`.
 
@@ -185,7 +185,7 @@ raw target text preserved, so the host can surface "missing note" affordances.
 To stay dependency-light the engine ships a small, forgiving YAML parser rather
 than a full YAML implementation. It supports what note frontmatter needs:
 
-- `key: scalar` — strings, integers, floats, `true`/`false`, `null`/`~`.
+- `key: scalar` - strings, integers, floats, `true`/`false`, `null`/`~`.
 - Quoted scalars (`'…'`, `"…"`).
 - Flow lists: `key: [a, b, c]`.
 - Block lists:
@@ -198,7 +198,7 @@ than a full YAML implementation. It supports what note frontmatter needs:
 - `# comments` (outside quotes).
 
 Anything beyond this (anchors, multi-line scalars, deep nesting) is out of scope
-for v0; such notes still parse — unsupported lines are simply skipped.
+for v0; such notes still parse - unsupported lines are simply skipped.
 
 ## Scripts
 

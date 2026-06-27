@@ -67,7 +67,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 test('normalizeServerOrigin accepts http and https, returns bare origin', () => {
   assert.equal(normalizeServerOrigin('http://127.0.0.1:4000'), 'http://127.0.0.1:4000');
   assert.equal(normalizeServerOrigin('https://graphs.example.com'), 'https://graphs.example.com');
-  // Path/query/hash are discarded — only the origin survives.
+  // Path/query/hash are discarded - only the origin survives.
   assert.equal(
     normalizeServerOrigin('https://example.com/some/path?x=1#frag'),
     'https://example.com',
@@ -100,7 +100,7 @@ test('buildShortEmbedUrl produces /embed/?id=&srv= with encoded server origin', 
   const url = buildShortEmbedUrl('https://app.example.com', 'http://127.0.0.1:4000', 'abc123');
   const parsed = new URL(url);
   assert.equal(parsed.origin, 'https://app.example.com');
-  // Trailing slash before the query — static export uses trailingSlash: true.
+  // Trailing slash before the query - static export uses trailingSlash: true.
   assert.equal(parsed.pathname, '/embed/');
   assert.equal(parsed.searchParams.get('id'), 'abc123');
   assert.equal(parsed.searchParams.get('srv'), 'http://127.0.0.1:4000');

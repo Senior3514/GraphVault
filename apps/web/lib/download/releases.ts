@@ -9,7 +9,7 @@
  *
  * Why a pure matcher: release asset filenames are VERSION-specific (e.g.
  * `GraphVault_0.2.0_x64-setup.exe`), so they can never be hardcoded. The
- * matcher is tolerant — it keys off the file extension plus platform tokens —
+ * matcher is tolerant - it keys off the file extension plus platform tokens -
  * so it keeps working as the version bumps, the architecture changes, or the
  * release pipeline tweaks the naming scheme. Keeping it pure makes it fully
  * unit-testable in Node with realistic asset lists and zero network.
@@ -55,9 +55,9 @@ export interface InstallerLink {
 
 /**
  * The installers resolved for a single OS:
- *  - `primary`   — the recommended one-click installer (`.exe` / `.dmg` /
+ *  - `primary`   - the recommended one-click installer (`.exe` / `.dmg` /
  *                  `.AppImage`), or `null` if the release has none for this OS.
- *  - `alternates`— other available formats for the same OS (`.msi`, `.deb`, …),
+ *  - `alternates`- other available formats for the same OS (`.msi`, `.deb`, …),
  *                  offered as "other formats".
  */
 export interface OsInstallers {
@@ -81,12 +81,12 @@ const FORMAT_RULES: ReadonlyArray<{
   label: string;
   priority: number;
 }> = [
-  // Windows — prefer the NSIS .exe setup, offer the .msi as an alternate.
+  // Windows - prefer the NSIS .exe setup, offer the .msi as an alternate.
   { os: 'windows', ext: '.exe', format: '.exe', label: 'Windows installer (.exe)', priority: 0 },
   { os: 'windows', ext: '.msi', format: '.msi', label: 'Windows installer (.msi)', priority: 1 },
-  // macOS — the universal .dmg is the only/primary format.
+  // macOS - the universal .dmg is the only/primary format.
   { os: 'macos', ext: '.dmg', format: '.dmg', label: 'macOS disk image (.dmg)', priority: 0 },
-  // Linux — prefer the portable AppImage, offer the .deb as an alternate.
+  // Linux - prefer the portable AppImage, offer the .deb as an alternate.
   { os: 'linux', ext: '.appimage', format: '.AppImage', label: 'Linux AppImage', priority: 0 },
   { os: 'linux', ext: '.deb', format: '.deb', label: 'Debian/Ubuntu package (.deb)', priority: 1 },
 ];
@@ -112,7 +112,7 @@ function matchAsset(name: string): (typeof FORMAT_RULES)[number] | null {
  * Resolve the installer(s) for a given OS from a release's asset list. Pure:
  * same inputs → same output, no DOM/network.
  *
- * - Mobile (`ios`/`android`) and `unknown` always return no installers — there
+ * - Mobile (`ios`/`android`) and `unknown` always return no installers - there
  *   is no native mobile binary; those users get the web/PWA path.
  * - For desktop OSes, assets are matched by extension + platform token, sorted
  *   by the rule priority (then filename for determinism), and the

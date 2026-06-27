@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Recursive folder/file tree for the vault sidebar — virtualized.
+ * Recursive folder/file tree for the vault sidebar - virtualized.
  *
  * Performance design:
  * - The tree is flattened to a linear list of visible rows on each render
@@ -47,10 +47,10 @@ export function NoteTree({ notes, activePath, onSelect }: NoteTreeProps) {
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
 
-  // Rebuild tree only when notes change — O(n) but amortized.
+  // Rebuild tree only when notes change - O(n) but amortized.
   const tree = useMemo(() => buildTree(notes), [notes]);
 
-  // Flatten the visible tree to a linear row list — O(visible nodes).
+  // Flatten the visible tree to a linear row list - O(visible nodes).
   const rows = useMemo(
     () =>
       flattenTree<TreeNode>(

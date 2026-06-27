@@ -13,7 +13,7 @@ test('computeVirtualWindow: empty list returns zeros', () => {
 });
 
 test('computeVirtualWindow: renders all when list fits in viewport', () => {
-  // 10 items × 28 px = 280 px, viewport 600 px — all visible
+  // 10 items × 28 px = 280 px, viewport 600 px - all visible
   const w = computeVirtualWindow(10, 28, 0, 600, 0 /* no overscan for determinism */);
   assert.equal(w.startIndex, 0);
   assert.equal(w.endIndex, 10);
@@ -84,14 +84,14 @@ test('flattenTree: single root leaf', () => {
   assert.equal(rows[0].depth, 0);
 });
 
-test('flattenTree: folder closed — children hidden', () => {
+test('flattenTree: folder closed - children hidden', () => {
   const roots: Node[] = [{ id: 'folder', children: [{ id: 'child', children: [] }] }];
   const rows = flattenTree(roots, children, open([])); // folder NOT open
   assert.equal(rows.length, 1);
   assert.equal(rows[0].item.id, 'folder');
 });
 
-test('flattenTree: folder open — children visible', () => {
+test('flattenTree: folder open - children visible', () => {
   const roots: Node[] = [{ id: 'folder', children: [{ id: 'child', children: [] }] }];
   const rows = flattenTree(roots, children, open(['folder']));
   assert.equal(rows.length, 2);
@@ -125,7 +125,7 @@ test('flattenTree: nested open folders recurse correctly', () => {
   );
 });
 
-test('flattenTree: only top-level open — grandchildren hidden', () => {
+test('flattenTree: only top-level open - grandchildren hidden', () => {
   const roots: Node[] = [
     {
       id: 'a',

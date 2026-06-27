@@ -1,5 +1,5 @@
 /**
- * Unit tests for the RSS/Atom/OPML connector — pure functions, no browser.
+ * Unit tests for the RSS/Atom/OPML connector - pure functions, no browser.
  *
  * The DOMParser shim (below) is needed because Node.js does not have DOMParser
  * built-in. We use a minimal recursive XML parser that covers the shapes our
@@ -430,7 +430,7 @@ test('htmlToMarkdown handles plain text without tags', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: parseRssOrOpml — error cases
+// Tests: parseRssOrOpml - error cases
 // ---------------------------------------------------------------------------
 
 test('parseRssOrOpml throws ConnectorError on empty source', () => {
@@ -497,7 +497,7 @@ test('RSS note mtime reflects pubDate', () => {
   for (const note of notes) {
     if (note.mtime !== undefined) {
       assert.ok(note.mtime > 0, 'mtime must be positive');
-      // pubDates are in Jan 2024 — epoch ms should be > 1700000000000
+      // pubDates are in Jan 2024 - epoch ms should be > 1700000000000
       assert.ok(note.mtime > 1_700_000_000_000, `mtime looks wrong: ${note.mtime}`);
     }
   }
@@ -632,7 +632,7 @@ test('importing feed where content changed keeps both versions (conflict copy)',
     },
   ];
 
-  // Import — same-path note has different content, so a copy is made.
+  // Import - same-path note has different content, so a copy is made.
   const result = mergeImport(existing, feedNotes);
   assert.equal(result.summary.renamed.length, 1, 'should create a conflict copy');
   // original + conflict copy + second feed note

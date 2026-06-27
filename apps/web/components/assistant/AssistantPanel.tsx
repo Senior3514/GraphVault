@@ -10,14 +10,14 @@
  * Before any request is sent the panel shows:
  *  - Which action is selected.
  *  - What context will be sent ("sending: current note (2 048 chars)").
- *  - A confirm button — the user must deliberately choose to send.
+ *  - A confirm button - the user must deliberately choose to send.
  *
  * AI output is rendered through the DOMPurify-sanitised markdown path (via
  * renderMarkdown with a no-op resolver so no wikilink anchors are injected),
  * never as raw HTML.
  *
  * The panel respects prefers-reduced-motion and does not disrupt the responsive
- * layout — it slides in as an overlay on mobile, as a right sidebar panel on
+ * layout - it slides in as an overlay on mobile, as a right sidebar panel on
  * wider screens.
  */
 
@@ -35,7 +35,7 @@ import { useAISettings } from './useAISettings';
 import { useAuth } from '../../lib/api/useAuth';
 import { useServerSettings } from '../../lib/api/useServerSettings';
 
-/** Custom event name — dispatched by the toolbar button and command-palette. */
+/** Custom event name - dispatched by the toolbar button and command-palette. */
 export const ASSISTANT_TOGGLE_EVENT = 'graphvault:assistant-toggle';
 
 /** Dispatch this from anywhere to toggle the assistant panel open/closed. */
@@ -53,7 +53,7 @@ const ACTIONS: { id: AssistantAction; label: string; description: string }[] = [
   {
     id: 'summarize',
     label: 'Summarize',
-    description: 'Get a concise 2–4 sentence summary of this note.',
+    description: 'Get a concise 2-4 sentence summary of this note.',
   },
   {
     id: 'find-related',
@@ -102,7 +102,7 @@ export function AssistantPanel() {
   // Streaming state (server BFF mode): raw accumulated text + usage/cost.
   const [streamText, setStreamText] = useState<string>('');
   const [usage, setUsage] = useState<AiUsage | null>(null);
-  // Live spend window from GET /v1/ai/config — gates the send button.
+  // Live spend window from GET /v1/ai/config - gates the send button.
   const [spendState, setSpendState] = useState<AiSpendCapState | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -137,7 +137,7 @@ export function AssistantPanel() {
 
   // When the panel is open in server mode, fetch the live spend window so the
   // budget gate is accurate before the user runs anything. Strictly a GET of
-  // non-secret status (no key, no prompt) — and only when signed in.
+  // non-secret status (no key, no prompt) - and only when signed in.
   const refreshSpendState = useCallback(async () => {
     if (settings.kind !== 'server' || !auth.token || !serverUrl) {
       setSpendState(null);
@@ -243,7 +243,7 @@ export function AssistantPanel() {
     const messages = buildPrompt(selectedAction, truncated, relatedTitles.slice(0, 50));
 
     // For `server` mode, stream via SSE so deltas render incrementally. The key
-    // never touches the browser — the bearer token authenticates the proxy call.
+    // never touches the browser - the bearer token authenticates the proxy call.
     if (settings.kind === 'server' && auth.token) {
       const controller = new AbortController();
       abortRef.current = controller;
@@ -348,7 +348,7 @@ export function AssistantPanel() {
 
   const isOff = settings.kind === 'off';
 
-  // Hide the assistant entirely when AI is off — no panel, no network, no hint
+  // Hide the assistant entirely when AI is off - no panel, no network, no hint
   // of a feature the user has not opted into. (The toggle button is likewise
   // hidden in AssistantButton.)
   if (!open || isOff) return null;
@@ -360,7 +360,7 @@ export function AssistantPanel() {
 
   return (
     <>
-      {/* Backdrop — visible on mobile only */}
+      {/* Backdrop - visible on mobile only */}
       <div
         aria-hidden="true"
         className="fixed inset-0 z-30 bg-neutral-950/60 backdrop-blur-sm md:hidden motion-safe:animate-fade-in"
@@ -411,7 +411,7 @@ export function AssistantPanel() {
           </button>
         </div>
 
-        {/* Privacy notice — always visible */}
+        {/* Privacy notice - always visible */}
         <div className="shrink-0 border-b border-neutral-800 bg-amber-950/20 px-4 py-2.5 text-xs text-amber-300">
           <strong>Privacy:</strong> your notes leave your device only if you enable a cloud
           provider. Local and Off modes keep everything on-device.{' '}
@@ -435,7 +435,7 @@ export function AssistantPanel() {
 
           {/* No note content */}
           {currentNotePath && !noteContent && (
-            <p className="text-sm text-neutral-500">This note is empty — nothing to send.</p>
+            <p className="text-sm text-neutral-500">This note is empty - nothing to send.</p>
           )}
 
           {currentNotePath && noteContent && (
@@ -465,7 +465,7 @@ export function AssistantPanel() {
                       />
                       <span>
                         <span className="font-medium">{action.label}</span>
-                        <span className="ml-1 text-neutral-500"> — {action.description}</span>
+                        <span className="ml-1 text-neutral-500"> - {action.description}</span>
                       </span>
                     </label>
                   ))}
@@ -569,7 +569,7 @@ export function AssistantPanel() {
                       </button>
                     )}
                   </div>
-                  {/* Live streaming text — shown as plain text while generating,
+                  {/* Live streaming text - shown as plain text while generating,
                       then re-rendered as sanitised markdown on completion. */}
                   {streamText && (
                     <div className="whitespace-pre-wrap break-words rounded-md border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-200">
@@ -601,7 +601,7 @@ export function AssistantPanel() {
                     className="markdown-preview rounded-md border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm"
                     dangerouslySetInnerHTML={{ __html: result }}
                   />
-                  {/* Usage / cost — surfaced from the terminal SSE usage frame. */}
+                  {/* Usage / cost - surfaced from the terminal SSE usage frame. */}
                   {usage && (
                     <p className="text-xs text-neutral-500">
                       {usage.costUsd != null && usage.costUsd > 0 && (

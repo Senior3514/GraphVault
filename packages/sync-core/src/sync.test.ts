@@ -150,7 +150,7 @@ test('client-edit/server-delete conflict keeps the local edit as canonical', asy
 
   // B edits the same file from the stale base → DELETE_EDIT_CONFLICT where the
   // CLIENT holds the edit and the SERVER holds the tombstone. Per §6.3 the
-  // edited (non-deleted) version must stay canonical — a delete must not beat
+  // edited (non-deleted) version must stay canonical - a delete must not beat
   // an edit.
   b.setContent('notes/keep.md' as FilePath, 'edited by B', 3000);
   const result = await runSync(b, remote, VAULT, optsFor('dev-b'));
@@ -314,7 +314,7 @@ test('multi-cycle convergence between two devices through one server', async () 
   const a = new FakeLocalVault();
   const b = new FakeLocalVault();
 
-  // A creates two notes, B creates one — all distinct paths.
+  // A creates two notes, B creates one - all distinct paths.
   a.setContent('notes/a1.md' as FilePath, 'a one', 1000);
   a.setContent('notes/a2.md' as FilePath, 'a two', 1001);
   b.setContent('notes/b1.md' as FilePath, 'b one', 1002);

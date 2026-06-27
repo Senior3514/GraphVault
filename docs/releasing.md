@@ -8,7 +8,7 @@ unsigned-draft) native installers for macOS, Linux, and Windows.
 ## Prerequisites
 
 - CI must be fully green on the commit you intend to tag. The release pipeline
-  does NOT run the test suite — that is CI's job. A tag on a red commit is a
+  does NOT run the test suite - that is CI's job. A tag on a red commit is a
   release of broken software.
 - You need write access (push tags) to the repository.
 - Optional: platform code-signing credentials stored as GitHub Actions secrets
@@ -36,7 +36,7 @@ unsigned-draft) native installers for macOS, Linux, and Windows.
    Pushing a `v*` tag triggers `.github/workflows/desktop-release.yml`
    automatically. No extra manual steps are needed.
 
-4. **Watch the Actions run.** Three parallel jobs start — one per platform
+4. **Watch the Actions run.** Three parallel jobs start - one per platform
    (`macos-latest`, `ubuntu-latest`, `windows-latest`). Each job:
 
    - Installs JS dependencies (`pnpm install --frozen-lockfile`).
@@ -120,7 +120,7 @@ If `tauri-plugin-updater` is enabled (not yet; see
 
 ---
 
-## CI vs release — responsibilities
+## CI vs release - responsibilities
 
 | Workflow        | File                                    | Purpose                                                             |
 | --------------- | --------------------------------------- | ------------------------------------------------------------------- |
@@ -128,7 +128,7 @@ If `tauri-plugin-updater` is enabled (not yet; see
 | Desktop Release | `.github/workflows/desktop-release.yml` | Every `v*` tag: cross-platform `tauri build` + GitHub Release draft |
 
 The CI workflow must be green before you tag. The release workflow does not
-re-run the test suite — it trusts CI.
+re-run the test suite - it trusts CI.
 
 ---
 

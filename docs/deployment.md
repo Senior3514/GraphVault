@@ -8,9 +8,9 @@
 > unattended upgrades), see [`hardening.md`](./hardening.md).
 
 > **Production preflight:** on first boot with `NODE_ENV=production` the server
-> runs a safety preflight and **refuses to start** on an insecure config —
+> runs a safety preflight and **refuses to start** on an insecure config -
 > `GRAPHVAULT_CORS_ORIGIN='*'`, `GRAPHVAULT_REQUIRE_HTTPS=false`, or
-> `GRAPHVAULT_STORAGE=postgres` with no `DATABASE_URL` — printing an actionable
+> `GRAPHVAULT_STORAGE=postgres` with no `DATABASE_URL` - printing an actionable
 > message and exiting non-zero. It warns (but boots) on a missing encryption key
 > or binding all interfaces without `GRAPHVAULT_TRUST_PROXY`. See
 > [`hardening.md`](./hardening.md#how-the-preflight-enforces-safe-config).
@@ -19,10 +19,10 @@
 
 A `docker compose` stack with two services:
 
-- **`server`** — the `@graphvault/server` sync API, built from
+- **`server`** - the `@graphvault/server` sync API, built from
   `docker/server.Dockerfile`. Speaks plain HTTP on port `4000` and stores blob
   bytes on a persistent volume.
-- **`db`** — PostgreSQL 16, the durable backend (`GRAPHVAULT_STORAGE=postgres`),
+- **`db`** - PostgreSQL 16, the durable backend (`GRAPHVAULT_STORAGE=postgres`),
   on its own named volume.
 
 In production you add a **reverse proxy** (Caddy/nginx) in front to terminate
@@ -34,7 +34,7 @@ TLS. The server is meant to sit behind it, not be exposed directly.
 compose version`).
 - A domain name pointing at the host (for TLS), if exposing publicly.
 
-## Quickstart — `docker compose up`
+## Quickstart - `docker compose up`
 
 From the repository root:
 
@@ -125,7 +125,7 @@ to an external object store so the **browser never holds the provider
 credentials**. Four backends are supported, all dependency-free:
 S3-compatible, WebDAV, **Azure Blob Storage** (Shared Key), and **Google Cloud
 Storage** (S3-compatible XML API with HMAC interop keys, AWS SigV4). No extra
-environment variables are required — users enter their credentials in Settings,
+environment variables are required - users enter their credentials in Settings,
 which are stored encrypted at rest (set `GRAPHVAULT_ENCRYPTION_KEY` so they
 survive restarts) and proxied via `/v1/storage/{s3,webdav,azure,gcs}`. See
 `apps/server/README.md` for the per-provider config fields. `GET /v1/server-info`
@@ -174,7 +174,7 @@ keys on the real client rather than the proxy.
 
 ## Backups
 
-Back up **both** the database and the blob directory — see
+Back up **both** the database and the blob directory - see
 [`security-basics.md`](./security-basics.md#backups) for why.
 
 ```bash
@@ -194,7 +194,7 @@ docker run --rm \
 > project name (defaults to the directory name). Check with
 > `docker volume ls`.
 
-If you set `GRAPHVAULT_ENCRYPTION_KEY`, back it up **separately and securely** —
+If you set `GRAPHVAULT_ENCRYPTION_KEY`, back it up **separately and securely** -
 the blob archive is unrecoverable without it.
 
 ## Restore
@@ -225,24 +225,24 @@ docker compose up -d
 
 Because the server runs `prisma db push` on boot, the database schema is synced
 automatically and idempotently during the restart. Take a fresh DB + blob backup
-before upgrading. Container images are stateless — all durable state lives in the
-`db-data` and `blob-data` volumes — so rebuilding the image never loses data.
+before upgrading. Container images are stateless - all durable state lives in the
+`db-data` and `blob-data` volumes - so rebuilding the image never loses data.
 
 ## Troubleshooting
 
-- **`server` keeps restarting** — check `docker compose logs server`. A common
+- **`server` keeps restarting** - check `docker compose logs server`. A common
   cause is the DB not being ready; the `depends_on … condition:
 service_healthy` gate normally prevents this, but a misconfigured
   `DATABASE_URL` will surface here.
-- **Health check fails** — `curl http://127.0.0.1:4000/v1/health` from the host;
+- **Health check fails** - `curl http://127.0.0.1:4000/v1/health` from the host;
   confirm the `ports:` mapping (or that the proxy is the intended entry point).
-- **CORS errors in the web client** — set `GRAPHVAULT_CORS_ORIGIN` to the web
+- **CORS errors in the web client** - set `GRAPHVAULT_CORS_ORIGIN` to the web
   app's exact origin.
 
 ## Web app (Vercel)
 
 The Next.js web client (`apps/web`) deploys to Vercel as a static-rendered app.
-It is **open-and-go**: no folder picker, no file-system permissions — the vault
+It is **open-and-go**: no folder picker, no file-system permissions - the vault
 is dynamic and ready the moment the page loads. On a static host it persists to
 the browser; set a server URL to add multi-device sync.
 
@@ -255,19 +255,19 @@ the browser; set a server URL to add multi-device sync.
    - install: `pnpm install --frozen-lockfile` (resolves the whole workspace),
    - build: `pnpm run build:web` (builds `@graphvault/shared`,
      `@graphvault/engine`, and `@graphvault/sync-core`, then the Next app),
-   - output: `apps/web/out` — a fully static export (no server runtime).
+   - output: `apps/web/out` - a fully static export (no server runtime).
 3. _(Optional)_ Add an environment variable
    `NEXT_PUBLIC_GRAPHVAULT_SERVER_URL = https://your-server.example.com` to point
    the client at a self-hosted sync server. Omit it for a local-only,
    browser-persisted vault.
-4. **Deploy.** Vercel gives you `https://<project>.vercel.app` — landing page at
+4. **Deploy.** Vercel gives you `https://<project>.vercel.app` - landing page at
    `/`, app at `/vault`, `/graph`, `/sync-status`, `/settings`.
 
 ### Enabling cloud sync
 
 Static hosting serves the UI only; the sync server is a separate process. To get
 multi-device sync, deploy the server (see the Docker section above) on a host
-that can run Node + PostgreSQL — a VPS, Railway, Render, or Fly.io — put it
+that can run Node + PostgreSQL - a VPS, Railway, Render, or Fly.io - put it
 behind TLS, set `GRAPHVAULT_CORS_ORIGIN` to your Vercel origin, and set
 `NEXT_PUBLIC_GRAPHVAULT_SERVER_URL` on the Vercel project to the server URL.
 The Fastify server does not run on Vercel's serverless runtime as-is.

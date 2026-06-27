@@ -6,12 +6,12 @@
  * to the client.
  *
  * Config endpoints:
- *   POST   /v1/ai/config   — save/update AI key + gateway config
- *   GET    /v1/ai/config   — read non-secret info (keySet + gateway + model)
- *   DELETE /v1/ai/config   — remove AI config
+ *   POST   /v1/ai/config   - save/update AI key + gateway config
+ *   GET    /v1/ai/config   - read non-secret info (keySet + gateway + model)
+ *   DELETE /v1/ai/config   - remove AI config
  *
  * Chat proxy:
- *   POST   /v1/ai/chat     — forward a chat completion request to the upstream
+ *   POST   /v1/ai/chat     - forward a chat completion request to the upstream
  *                            gateway using the stored key
  *
  * Security notes:

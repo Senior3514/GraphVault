@@ -41,7 +41,7 @@ const COLLAPSE_KEY = 'graphvault.sidebar.collapsed';
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // The marketing landing page and the public download page stand alone — they
+  // The marketing landing page and the public download page stand alone - they
   // bring their own full-bleed chrome and need no vault sidebar shell.
   if (pathname === '/' || pathname === '/download' || pathname === '/download/') {
     return <>{children}</>;
@@ -93,7 +93,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     try {
       setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === '1');
     } catch {
-      /* storage unavailable — fall back to expanded */
+      /* storage unavailable - fall back to expanded */
     }
     setHydrated(true);
   }, []);
@@ -125,7 +125,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   // Cmd/Ctrl+Shift+F toggles focus mode (distraction-free editing). Verified
   // not to collide: Cmd/Ctrl+K (palette), +B (sidebar), +E (preview/split),
   // and Cmd/Ctrl+Shift+A (AI assistant) are the only other global chords.
-  // Esc exits focus mode (but only when no overlay — palette/drawer/etc. —
+  // Esc exits focus mode (but only when no overlay - palette/drawer/etc. -
   // is consuming Escape; those mount their own handlers and stopPropagation
   // isn't used, so we guard by checking focusMode is on and let other Esc
   // handlers run first by not preventing default unless we act).
@@ -186,7 +186,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main content row: desktop sidebar + page content                    */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Desktop sidebar — hidden on mobile via `hidden md:flex`, and
+        {/* Desktop sidebar - hidden on mobile via `hidden md:flex`, and
             hidden entirely in focus mode. */}
         {!focusMode && (
           <div className="hidden md:flex">
@@ -194,7 +194,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Page content — `id` is the skip-link target from layout.tsx */}
+        {/* Page content - `id` is the skip-link target from layout.tsx */}
         <div id="main-content" className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {children}
         </div>
@@ -246,7 +246,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <CommandPalette />
-      {/* Version history / backup restore modal — opened via CommandPalette or
+      {/* Version history / backup restore modal - opened via CommandPalette or
           the OPEN_BACKUP_HISTORY_EVENT custom event. Mounted once so the IDB
           load is shared across all triggers. */}
       <BackupHistory />
@@ -256,7 +256,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           the graphvault.tour.open custom event. Mounted after the hint so they
           don't compete visually (tour has a higher z-index overlay). */}
       <Tour />
-      {/* AI assistant panel — toggleable, off by default, privacy-first.
+      {/* AI assistant panel - toggleable, off by default, privacy-first.
           Wrapped in Suspense because it reads useSearchParams() (current note),
           which requires a boundary for the static export to prerender. */}
       <Suspense fallback={null}>
@@ -344,7 +344,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
 }
 
 function FocusExitIcon() {
-  // "Collapse / exit fullscreen" glyph — inward-pointing corners.
+  // "Collapse / exit fullscreen" glyph - inward-pointing corners.
   return (
     <svg
       viewBox="0 0 20 20"

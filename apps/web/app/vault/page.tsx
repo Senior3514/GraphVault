@@ -57,7 +57,7 @@ export default function VaultPage() {
   const loadedTabId = useRef<string | null>(null);
 
   // Flush all pending saves (call before tab switch / unmount).
-  // Uses vault.updateContent — safe for in-session flushes where React's
+  // Uses vault.updateContent - safe for in-session flushes where React's
   // async effect pipeline is still running (tab switch, unmount, etc.).
   const flushAll = useCallback(() => {
     for (const [tabId, timer] of Object.entries(saveTimers.current)) {
@@ -74,7 +74,7 @@ export default function VaultPage() {
     }
   }, [layout.tabs, vault]);
 
-  // Flush all pending saves directly to storage — used by beforeunload and
+  // Flush all pending saves directly to storage - used by beforeunload and
   // visibilitychange=hidden where React's useEffect may not fire before the
   // page unloads.  vault.directFlush bypasses the setRawNotes→useEffect chain
   // and writes synchronously to the adapter.
@@ -200,7 +200,7 @@ export default function VaultPage() {
 
   // Flush on hard tab close / navigation away and on the tab being backgrounded
   // (mobile). Uses flushAllDirect (not flushAll) because beforeunload /
-  // visibilitychange handlers must write to storage NOW — React's useEffect
+  // visibilitychange handlers must write to storage NOW - React's useEffect
   // pipeline is async and may not fire before the browser unloads the page.
   // vault.directFlush writes directly to the adapter, bypassing setRawNotes.
   useEffect(() => registerFlushOnExit(flushAllDirect), [flushAllDirect]);
@@ -239,7 +239,7 @@ export default function VaultPage() {
       actions.openTab(path, title);
       // The tab id isn't available yet; we'll load the draft in the useEffect
       // that fires when activeTabId changes.
-      // We need to set the draft in draftStore by path for the next tab — but
+      // We need to set the draft in draftStore by path for the next tab - but
       // we don't have the id yet. We store by path and pick up in bootstrap effect.
       // Simpler: store draft immediately under a temp key matched by path.
       // Instead: scan for the new tab after the update.
@@ -260,7 +260,7 @@ export default function VaultPage() {
   useEffect(() => {
     if (layout.tabs.length > prevTabsLength.current) {
       prevTabsLength.current = layout.tabs.length;
-      // New tab just added — find it and load draft.
+      // New tab just added - find it and load draft.
       const newTab = layout.tabs.find((t) => t.id === layout.activeTabId);
       if (newTab && newTab.notePath) {
         // Check if we have a pending draft (set by openPath before the tab id was known).
@@ -420,7 +420,7 @@ export default function VaultPage() {
         />
       )}
 
-      {/* Editor header — wraps on very narrow screens to avoid overflow */}
+      {/* Editor header - wraps on very narrow screens to avoid overflow */}
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-neutral-800 px-3 py-2">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-medium text-neutral-100">
@@ -533,11 +533,11 @@ function EditorBody({
   if (splitMode === 'editor-preview') {
     return (
       <div className="flex min-h-0 flex-1">
-        {/* Editor — takes full width on mobile (split collapses) */}
+        {/* Editor - takes full width on mobile (split collapses) */}
         <div className="min-w-0 flex-1 md:border-r md:border-neutral-800">
           <MarkdownEditor value={draft} notes={notes} tags={tags} onChange={onDraftChange} />
         </div>
-        {/* Preview — hidden on mobile in split mode */}
+        {/* Preview - hidden on mobile in split mode */}
         <div className="hidden min-w-0 flex-1 overflow-auto md:block">
           <MarkdownPreview markdown={draft} resolve={resolveLink} onNavigate={onNavigate} />
         </div>
@@ -548,11 +548,11 @@ function EditorBody({
   if (splitMode === 'two-notes' && secondaryNote) {
     return (
       <div className="flex min-h-0 flex-1">
-        {/* Primary editor — takes full width on mobile */}
+        {/* Primary editor - takes full width on mobile */}
         <div className="min-w-0 flex-1 md:border-r md:border-neutral-800">
           <MarkdownEditor value={draft} notes={notes} tags={tags} onChange={onDraftChange} />
         </div>
-        {/* Secondary note — hidden on mobile in split mode */}
+        {/* Secondary note - hidden on mobile in split mode */}
         <div className="hidden min-w-0 flex-1 overflow-auto md:block">
           <MarkdownPreview
             markdown={secondaryDraft || secondaryNote.content}

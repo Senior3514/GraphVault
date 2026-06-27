@@ -1,5 +1,5 @@
 /**
- * Tests for vaultCrypto.ts — pure WebCrypto vault encryption.
+ * Tests for vaultCrypto.ts - pure WebCrypto vault encryption.
  *
  * Run:  node --test --import tsx apps/web/lib/crypto/vaultCrypto.test.ts
  *
@@ -30,7 +30,7 @@ import {
 // ---------------------------------------------------------------------------
 
 test('round-trip: string plaintext', async () => {
-  const plaintext = 'Hello, GraphVault! — Unicode: 🔐 héllo wörld 日本語';
+  const plaintext = 'Hello, GraphVault! - Unicode: 🔐 héllo wörld 日本語';
   const passphrase = 'correct-horse-battery-staple';
   const envelope = await encryptVault(plaintext, passphrase);
   const recovered = await decryptVault(envelope, passphrase);
@@ -241,7 +241,7 @@ test('isEncrypted: returns false for plain JSON', () => {
   assert.equal(isEncrypted(bytes), false);
 });
 
-test('isEncrypted: string overload — correct magic returns true', () => {
+test('isEncrypted: string overload - correct magic returns true', () => {
   // Build a string with the correct magic bytes "GVE1".
   const magic = String.fromCharCode(0x47, 0x56, 0x45, 0x31) + 'extra';
   assert.equal(isEncrypted(magic), true);
@@ -260,7 +260,7 @@ test('isEncrypted: returns false for short buffer (< header size)', () => {
 // ---------------------------------------------------------------------------
 
 test('base64 round-trip: serialize and deserialize envelope', async () => {
-  const plaintext = 'Base64 round-trip test — 日本語';
+  const plaintext = 'Base64 round-trip test - 日本語';
   const passphrase = 'b64-pass';
   const envelope = await encryptVault(plaintext, passphrase);
   const b64 = envelopeToBase64(envelope);

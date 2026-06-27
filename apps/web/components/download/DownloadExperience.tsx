@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * DownloadExperience — the Obsidian-style "get the app" surface.
+ * DownloadExperience - the Obsidian-style "get the app" surface.
  *
  * An end user (not a developer) lands here and either:
  *  - one-click downloads the native installer for their detected OS (the other
@@ -10,7 +10,7 @@
  *    installs it as a PWA.
  *
  * The native installer is resolved AT RUNTIME from the latest GitHub release
- * (the only network call here — public release metadata, no user data, no
+ * (the only network call here - public release metadata, no user data, no
  * telemetry; see {@link useLatestRelease}). Filenames are version-specific, so
  * nothing is hardcoded; the tolerant {@link pickAssets} matcher maps assets to
  * OSes by extension + platform token.
@@ -53,7 +53,7 @@ export function DownloadExperience() {
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-neutral-950 text-neutral-100">
-      {/* Ambient backdrop — pure CSS, no images, matches the landing page. */}
+      {/* Ambient backdrop - pure CSS, no images, matches the landing page. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(70rem_50rem_at_50%_-15%,theme(colors.sky.500/18),transparent)]"
@@ -76,7 +76,7 @@ export function DownloadExperience() {
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-neutral-400">
               {mobile
-                ? 'On mobile, GraphVault runs right in your browser — add it to your home screen for an app-like experience. No store, no install.'
+                ? 'On mobile, GraphVault runs right in your browser - add it to your home screen for an app-like experience. No store, no install.'
                 : 'Install the native desktop app, or skip the download entirely and use GraphVault in your browser. Both keep your notes on your device.'}
             </p>
           </div>
@@ -89,7 +89,7 @@ export function DownloadExperience() {
             </div>
           )}
 
-          {/* Instant, zero-install paths — always prominent and working today. */}
+          {/* Instant, zero-install paths - always prominent and working today. */}
           <InstantPaths emphasised={mobile} />
 
           {/* Trust line. */}
@@ -97,7 +97,7 @@ export function DownloadExperience() {
             Open-source · Works offline · No account · Your files stay yours.
           </p>
 
-          {/* Other OSes (desktop only) — secondary list. */}
+          {/* Other OSes (desktop only) - secondary list. */}
           {!mobile && release.status === 'ready' && (
             <OtherPlatforms release={release} detected={os} />
           )}
@@ -108,7 +108,7 @@ export function DownloadExperience() {
 }
 
 // ---------------------------------------------------------------------------
-// Native download — primary button for the detected OS + graceful states
+// Native download - primary button for the detected OS + graceful states
 // ---------------------------------------------------------------------------
 
 function NativeDownload({ release, os }: { release: ReleaseState; os: Os | null }) {
@@ -213,7 +213,7 @@ function ComingSoon() {
       <p className="font-medium text-neutral-100">Native installers are on the way.</p>
       <p className="mt-1.5 text-neutral-400">
         Desktop builds for Windows, macOS, and Linux are coming soon. In the meantime, GraphVault
-        works fully in your browser — no install needed.
+        works fully in your browser - no install needed.
       </p>
     </div>
   );
@@ -247,7 +247,7 @@ function PrimaryDownloadLink({
 }
 
 // ---------------------------------------------------------------------------
-// Instant paths — browser + PWA, zero install
+// Instant paths - browser + PWA, zero install
 // ---------------------------------------------------------------------------
 
 function InstantPaths({ emphasised }: { emphasised: boolean }) {
@@ -255,7 +255,7 @@ function InstantPaths({ emphasised }: { emphasised: boolean }) {
     <div className={emphasised ? 'mt-10' : 'mt-12'}>
       {emphasised && (
         <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-sky-400">
-          Use it now — zero install
+          Use it now - zero install
         </p>
       )}
       <div className="flex flex-wrap items-center justify-center gap-3">
@@ -266,12 +266,12 @@ function InstantPaths({ emphasised }: { emphasised: boolean }) {
           <BrowserIcon className="h-4 w-4 text-sky-400" />
           Open in your browser
         </Link>
-        {/* PWA install affordance — platform-aware; renders nothing when
+        {/* PWA install affordance - platform-aware; renders nothing when
             already installed or when install isn't possible. */}
         <InstallButton />
       </div>
       <p className="mt-3 text-xs text-neutral-500">
-        No download, no account — your notes are saved locally on this device.
+        No download, no account - your notes are saved locally on this device.
       </p>
     </div>
   );
@@ -359,7 +359,7 @@ function useDetectedOs(): Os | null {
 }
 
 // ---------------------------------------------------------------------------
-// Lightweight nav (back to the landing page) — keeps the page standalone
+// Lightweight nav (back to the landing page) - keeps the page standalone
 // ---------------------------------------------------------------------------
 
 function SiteNav() {

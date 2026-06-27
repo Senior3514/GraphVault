@@ -11,7 +11,7 @@
  * A d3 force is just a callable invoked each simulation tick with the current
  * `alpha`, plus an `initialize(nodes)` hook the simulation calls when the node
  * set changes. Each tick we nudge every (non-pinned) node's velocity on the
- * chosen axis toward `target`, scaled by `strength * alpha` — exactly what
+ * chosen axis toward `target`, scaled by `strength * alpha` - exactly what
  * d3-force's positioning forces do.
  *
  * Kept framework-free and unit-tested so the canvas component stays a thin

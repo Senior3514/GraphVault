@@ -6,7 +6,7 @@
  * the theme flips.
  *
  * The graph canvas draws to a `<canvas>` with the 2D API, which cannot consume
- * CSS variables directly — it needs literal colour strings. Previously these
+ * CSS variables directly - it needs literal colour strings. Previously these
  * were hard-coded to the dark ramp (`#0a0a0a`, `#d4d4d8`, …), so in light theme
  * the canvas rendered as a black rectangle. This hook reads the live computed
  * values from `document.documentElement` and watches the `data-theme` attribute
@@ -21,7 +21,7 @@ import { useEffect, useState } from 'react';
 export interface GraphThemeColors {
   /** Page/canvas background (`--n-950`). */
   background: string;
-  /** Placeholder node fill — same as background so the disc reads as hollow. */
+  /** Placeholder node fill - same as background so the disc reads as hollow. */
   placeholderFill: string;
   /** Primary label text (`--n-300`). */
   labelText: string;
@@ -33,7 +33,7 @@ export interface GraphThemeColors {
   labelHalo: string;
 }
 
-/** Dark-theme defaults — used during SSR and as a fallback. */
+/** Dark-theme defaults - used during SSR and as a fallback. */
 const DARK_DEFAULTS: GraphThemeColors = {
   background: '#0a0a0a',
   placeholderFill: '#0a0a0a',

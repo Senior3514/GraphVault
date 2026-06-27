@@ -3,7 +3,7 @@
 /**
  * Window control buttons rendered in a pane's header.
  *
- * Provides collapse, expand, and maximize/restore buttons — Obsidian-style.
+ * Provides collapse, expand, and maximize/restore buttons - Obsidian-style.
  * Icons are SVG inline to avoid any icon library dependency.
  */
 

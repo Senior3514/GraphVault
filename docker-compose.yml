@@ -13,7 +13,7 @@
 # TLS NOTE: the server speaks plain HTTP and is meant to sit BEHIND a
 # TLS-terminating reverse proxy (Caddy or nginx) in production. Do not expose
 # port 4000 directly to the public internet. The commented `proxy` service
-# below is a minimal Caddy example — uncomment and adapt it, then stop
+# below is a minimal Caddy example - uncomment and adapt it, then stop
 # publishing the server's port directly. See docs/deployment.md.
 #
 # CONTAINER HARDENING: both services run with `no-new-privileges`, drop all
@@ -114,7 +114,7 @@ services:
       - blob-data:/data
     # Sync the Prisma schema into the database before the server boots. The repo
     # ships no migration files (the schema is the source of truth), so we use
-    # `db push`, which creates/updates tables directly and is idempotent — safe
+    # `db push`, which creates/updates tables directly and is idempotent - safe
     # on every restart. Switch to `migrate deploy` once versioned migrations are
     # committed under apps/server/prisma/migrations. The `prisma` CLI is a
     # (dev)dependency of @graphvault/server, so pnpm places it under

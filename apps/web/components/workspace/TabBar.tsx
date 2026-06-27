@@ -11,7 +11,7 @@
  * - Split-mode toggle buttons (hidden on narrow/mobile screens where split is
  *   auto-disabled to save space).
  *
- * The tab list scrolls horizontally without overflow — it never causes the
+ * The tab list scrolls horizontally without overflow - it never causes the
  * container to grow wider than its parent. The split-mode toggles are
  * hidden below `md` (the WorkspaceLayout mobile view shows a single pane
  * anyway, so split is redundant there).
@@ -77,7 +77,7 @@ export function TabBar({
   return (
     // Use `min-w-0` to prevent the flex child from escaping its parent width.
     <div className="flex min-w-0 items-stretch border-b border-neutral-800 bg-neutral-950">
-      {/* Tab list — scrolls horizontally; never forces parent wider */}
+      {/* Tab list - scrolls horizontally; never forces parent wider */}
       <div className="scrollbar-none flex min-w-0 flex-1 items-stretch overflow-x-auto">
         {tabs.map((tab, idx) => {
           const isActive = tab.id === activeTabId;
@@ -156,7 +156,7 @@ export function TabBar({
         </button>
       </div>
 
-      {/* Split mode controls — hidden on mobile (single-pane mode anyway) */}
+      {/* Split mode controls - hidden on mobile (single-pane mode anyway) */}
       <div className="hidden shrink-0 items-center gap-0.5 border-l border-neutral-800 px-1 md:flex">
         <SplitButton
           active={splitMode === 'none'}

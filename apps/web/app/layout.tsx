@@ -6,9 +6,9 @@ import { ThemeProvider } from '../components/ThemeProvider';
 import { THEME_BOOT_SCRIPT } from '../lib/themeScript';
 
 export const metadata: Metadata = {
-  title: 'GraphVault — open and write. No folders, no file access.',
+  title: 'GraphVault - open and write. No folders, no file access.',
   description:
-    'A dynamic, cloud-ready notes vault with a graph you can think in. Open the app and start writing — no folders to pick, no file permissions, no setup.',
+    'A dynamic, cloud-ready notes vault with a graph you can think in. Open the app and start writing - no folders to pick, no file permissions, no setup.',
 };
 
 /**
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
  *  - `width: 'device-width'` makes the layout responsive (without it the page
  *    renders at a 980px desktop width and is unreadable on phones).
  *  - `viewportFit: 'cover'` is what makes `env(safe-area-inset-*)` return
- *    non-zero values on notched devices — the mobile chrome already pads with
+ *    non-zero values on notched devices - the mobile chrome already pads with
  *    those insets, but they are inert until the viewport opts into the full
  *    display with `cover`.
  *  - `themeColor` drives the browser/status-bar tint; matched to the dark and
@@ -44,7 +44,7 @@ export const viewport: Viewport = {
  *   (server-side, per-request only) and precomputed SHA-256 hashes (change
  *   every build) are both impractical for a fully-static site. All application
  *   JS still loads from '/_next/static/' (same origin), so the practical XSS
- *   attack surface is limited to injected script elements — which DOMPurify
+ *   attack surface is limited to injected script elements - which DOMPurify
  *   already prevents in the markdown preview path.
  *
  * WHY 'unsafe-inline' FOR STYLES:
@@ -58,7 +58,7 @@ export const viewport: Viewport = {
  * WHY img-src data::
  *   The react-force-graph-2d canvas renderer may export the graph as a data URI
  *   via canvas.toDataURL(). Allowing data: here is safe because no
- *   user-controlled HTML reaches an <img src> — DOMPurify strips all URLs.
+ *   user-controlled HTML reaches an <img src> - DOMPurify strips all URLs.
  *
  * All remote origins are absent: no CDN scripts, no external fonts, no analytics.
  * frame-ancestors is ignored in <meta> per spec; it is enforced as a response
@@ -73,7 +73,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   // Only same-origin images; data: covers canvas toDataURL() and SVG data URIs.
   "img-src 'self' data:",
-  // No external font CDNs — all typography is system / Tailwind stack.
+  // No external font CDNs - all typography is system / Tailwind stack.
   "font-src 'self'",
   // Fetch/XHR may go to the user-configured self-hosted sync server, typically a
   // different origin (a VPS, or 127.0.0.1 in dev). It can't be enumerated at
@@ -123,7 +123,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* PWA manifest. theme-color + viewport-fit are emitted by the
             `viewport` export above (Next.js merges them into <meta> tags). */}
         <link rel="manifest" href="/manifest.webmanifest" />
-        {/* Apple PWA meta — iOS uses these when added to Home Screen */}
+        {/* Apple PWA meta - iOS uses these when added to Home Screen */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="GraphVault" />
@@ -143,7 +143,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/*
          * ServiceWorkerRegistrar is a tiny 'use client' component that calls
          * navigator.serviceWorker.register('/sw.js') on mount. It renders
-         * nothing — purely a side-effect. Keeping it separate avoids making
+         * nothing - purely a side-effect. Keeping it separate avoids making
          * the entire layout a client component.
          */}
         <ServiceWorkerRegistrar />

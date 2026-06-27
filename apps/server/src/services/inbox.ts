@@ -13,8 +13,8 @@ import type { VaultService } from './vault.js';
  * A user mints a per-connector *inbox token* bound to one of their vaults. An
  * external service (Zapier, an email forwarder, an IFTTT recipe, a curl in a
  * cron job, …) then POSTs Markdown to `/v1/inbox/:token`, and the content lands
- * as a brand-new note in that vault. Every inbound attempt — accepted or
- * rejected — is recorded in a per-user audit log so the owner can see exactly
+ * as a brand-new note in that vault. Every inbound attempt - accepted or
+ * rejected - is recorded in a per-user audit log so the owner can see exactly
  * what each connector did.
  *
  * Data-safety first (the CLAUDE.md "never silently lose user data" rule):
@@ -101,7 +101,7 @@ export class InboxService {
   ): Promise<{ id: string; token: string; label: string }> {
     const trimmed = label.trim();
     if (trimmed.length === 0) throw badRequest('A non-empty label is required');
-    // Ownership: throws 404 (unknown) / 403 (not owner) — never mints a token
+    // Ownership: throws 404 (unknown) / 403 (not owner) - never mints a token
     // for a vault the caller doesn't own.
     await this.vault.requireOwned(userId, vaultId);
 
@@ -141,7 +141,7 @@ export class InboxService {
    */
   async submit(rawToken: string, input: InboxSubmission): Promise<{ path: string }> {
     const record = await this.storage.getInboxTokenByHash(hashToken(rawToken));
-    // Unknown token: do NOT leak existence. No audit entry — we have no user to
+    // Unknown token: do NOT leak existence. No audit entry - we have no user to
     // attribute it to, and recording would let an attacker spam someone's log.
     if (!record) throw notFound('Inbox token not found');
 
@@ -176,7 +176,7 @@ export class InboxService {
 
     if (result.conflicts.length > 0 || !result.applied.includes(path)) {
       // Should be impossible (we verified the path is absent), but never retry
-      // blindly onto an existing note — surface it and record the rejection.
+      // blindly onto an existing note - surface it and record the rejection.
       await this.appendAudit(record, source, path, bytes.byteLength, 'rejected');
       throw conflict('Inbound note could not be created without overwriting existing content');
     }
@@ -199,7 +199,7 @@ export class InboxService {
    * Pick a vault-relative path under `Inbox/` that is GUARANTEED ABSENT, so an
    * inbound write can never clobber an existing note. The id is fresh random
    * entropy; we still verify absence (and a live tombstone counts as "present"
-   * only if it carries content — a deleted path is free to reuse) and regenerate
+   * only if it carries content - a deleted path is free to reuse) and regenerate
    * on the impossible collision.
    */
   private async chooseFreshPath(vaultId: string, source: string): Promise<string> {

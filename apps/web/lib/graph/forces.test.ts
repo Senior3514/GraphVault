@@ -44,7 +44,7 @@ test('positioning force ignores pinned nodes (fx/fy set)', () => {
   const free: ForceNode = { x: 100, vx: 0 };
   force.initialize([pinned, free]);
   force(1);
-  assert.equal(pinned.vx, 0); // untouched — it's pinned
+  assert.equal(pinned.vx, 0); // untouched - it's pinned
   assert.equal(free.vx, -50); // moved
 });
 

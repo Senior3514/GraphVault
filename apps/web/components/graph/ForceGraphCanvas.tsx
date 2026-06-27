@@ -23,7 +23,7 @@
  * - Link curvature for multi-edges between the same pair.
  * - Performance: labels suppressed when node count exceeds `LABEL_NODE_CAP`.
  *
- * v3 (Lumen) additions — all additive, no v1/v2 regression:
+ * v3 (Lumen) additions - all additive, no v1/v2 regression:
  * - Radial-gradient node fill: rich centre → transparent edge, giving a soft
  *   3-D "glow dot" appearance without canvas shadow overhead.
  * - Soft outer ring: a faint outline ring at `radius * 1.45` that gives hubs
@@ -513,7 +513,7 @@ export default function ForceGraphCanvas({
     [onPinnedChange],
   );
 
-  // Memoised nodeCanvasObject callback — avoid closure recreation on every
+  // Memoised nodeCanvasObject callback - avoid closure recreation on every
   // hover/selection change by reading refs for the transient state.
   const focusRef = useRef(focus);
   focusRef.current = focus;
@@ -618,7 +618,7 @@ export default function ForceGraphCanvas({
       );
       ctx.restore();
 
-      // v2 preserved: Pin glyph — a small dot drawn above the node.
+      // v2 preserved: Pin glyph - a small dot drawn above the node.
       if (isPinned) {
         const pinSize = Math.max(4 / globalScale, 1.5);
         ctx.save();
@@ -656,7 +656,7 @@ export default function ForceGraphCanvas({
       ctx.globalAlpha = 1;
     },
     // focusRef, searchIdsRef, timelineIdsRef, selectedIdRef, contextViewRef and
-    // pinnedRef are intentionally read via refs so this callback can be stable —
+    // pinnedRef are intentionally read via refs so this callback can be stable -
     // it only needs to rebuild when the label threshold, density flag, or
     // reduced-motion preference changes.
     [physics.labelThreshold, denseGraph, reducedMotion],

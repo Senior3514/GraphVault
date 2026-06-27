@@ -7,7 +7,7 @@
  * `vault.updateContent(path, draft)` from within the `beforeunload` and
  * `visibilitychange=hidden` event listeners. `vault.updateContent` dispatches
  * a React state update (`setRawNotes`), whose persistence side-effect
- * (`localStorage.setItem`) lives in a `useEffect` — an async React callback
+ * (`localStorage.setItem`) lives in a `useEffect` - an async React callback
  * that runs AFTER the browser paints.
  *
  * Under `beforeunload`, the browser can unload the page between the event
@@ -17,8 +17,8 @@
  * ## The Fix
  *
  * `useVault` exposes a `directFlush(updates)` method that applies content
- * patches and writes them DIRECTLY to the active storage adapter — bypassing
- * React state — so the storage write is guaranteed to happen before the event
+ * patches and writes them DIRECTLY to the active storage adapter - bypassing
+ * React state - so the storage write is guaranteed to happen before the event
  * handler returns.
  *
  * ## This test
@@ -27,7 +27,7 @@
  * the storage-adapter level: given a spy adapter, `directFlush` must call
  * `adapter.save(...)` synchronously (no React render cycle required).
  *
- * The pre-fix path — going through `updateContent` → `setRawNotes` → effect —
+ * The pre-fix path - going through `updateContent` → `setRawNotes` → effect -
  * would NOT call `adapter.save` within the same tick; the test verifies the
  * post-fix path does.
  */
@@ -89,7 +89,7 @@ async function directFlushImpl(
       patched = updateNoteContent(patched, path as Note['path'], content);
     } catch {
       // Note may have been deleted between the draft being captured and the
-      // flush firing — skip it rather than aborting the rest.
+      // flush firing - skip it rather than aborting the rest.
     }
   }
   await store.save(patched);
@@ -107,7 +107,7 @@ test('directFlush writes to storage immediately, not deferred via React state', 
 
   // Simulate a pending edit that was captured in draftStore but not yet
   // written to the vault via autosave (timer still pending when user closed tab).
-  const updates = [{ path: 'a.md', content: '# Edited content — must survive close' }];
+  const updates = [{ path: 'a.md', content: '# Edited content - must survive close' }];
 
   // Call the direct-flush function.
   await directFlushImpl(store, notes, updates);
@@ -121,7 +121,7 @@ test('directFlush writes to storage immediately, not deferred via React state', 
   assert.equal(saved[0].path, 'a.md');
   assert.equal(
     saved[0].content,
-    '# Edited content — must survive close',
+    '# Edited content - must survive close',
     'last-typed content must be persisted after directFlush',
   );
 });
@@ -144,7 +144,7 @@ test('directFlush skips updates for deleted notes without aborting others', asyn
   // One update for a note that exists, one for a deleted note.
   const updates = [
     { path: 'deleted-note.md', content: 'ghost content' },
-    { path: 'survivor.md', content: '# Survivor — updated' },
+    { path: 'survivor.md', content: '# Survivor - updated' },
   ];
 
   await directFlushImpl(store, notes, updates);
@@ -153,7 +153,7 @@ test('directFlush skips updates for deleted notes without aborting others', asyn
   const saved = lastSaved();
   const survivor = saved.find((n) => n.path === 'survivor.md');
   assert.ok(survivor, 'survivor note must be in the saved set');
-  assert.equal(survivor.content, '# Survivor — updated');
+  assert.equal(survivor.content, '# Survivor - updated');
   // The ghost note must NOT appear in storage (it didn't exist).
   assert.ok(
     !saved.some((n) => n.path === 'deleted-note.md'),

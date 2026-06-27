@@ -38,7 +38,7 @@ function isLoopbackHost(host: string): boolean {
  * nothing, exits nothing. The caller decides what to do with the result.
  *
  * The hard, security-relevant checks (open CORS, plaintext transport) fire when
- * EITHER `nodeEnv === 'production'` OR the server binds a non-loopback host —
+ * EITHER `nodeEnv === 'production'` OR the server binds a non-loopback host -
  * i.e. the moment it is reachable off-box. This stops a self-hoster who runs on
  * a VPS without `NODE_ENV=production` from silently getting open CORS over
  * plaintext. Pure-local dev (loopback bind, non-production) is unaffected.
@@ -58,7 +58,7 @@ export function preflightConfig(config: ServerConfig, nodeEnv: string): Prefligh
     return { errors, warnings };
   }
 
-  // The reason this config is being audited as if it were production — used to
+  // The reason this config is being audited as if it were production - used to
   // make the error text actionable for the unset-NODE_ENV-on-a-VPS case.
   const exposureNote = isProduction
     ? 'in production'
@@ -84,7 +84,7 @@ export function preflightConfig(config: ServerConfig, nodeEnv: string): Prefligh
   }
 
   // Binding all interfaces without trusting the proxy means rate limiting keys on
-  // the proxy IP and X-Forwarded-Proto is ignored — degraded, not unsafe. This
+  // the proxy IP and X-Forwarded-Proto is ignored - degraded, not unsafe. This
   // is relevant whenever the server is exposed off-box, not only in production.
   if ((config.host === '0.0.0.0' || config.host === '::') && config.trustProxy === false) {
     warnings.push(

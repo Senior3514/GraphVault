@@ -1,4 +1,4 @@
-# DESIGN.md — GraphVault design direction
+# DESIGN.md - GraphVault design direction
 
 This is a high-level design summary. Detailed specs live in `docs/`.
 
@@ -8,7 +8,7 @@ This is a high-level design summary. Detailed specs live in `docs/`.
 
 GraphVault is for people who want Obsidian-style local Markdown notes but with
 **sync they fully own** and a **graph view that earns its place** in daily
-thinking — not a decorative hairball.
+thinking - not a decorative hairball.
 
 ## Design principles
 
@@ -28,7 +28,7 @@ thinking — not a decorative hairball.
    scale.
 6. **Open-core.** The client and engine are open and auditable. Optional
    hosted sync is the commercial layer. For a local-first app, data access
-   comes from local Markdown + export — closed source would only reduce trust.
+   comes from local Markdown + export - closed source would only reduce trust.
 
 ## Experience pillars
 
@@ -62,7 +62,7 @@ thinking — not a decorative hairball.
 
 ### Data portability
 
-- Export the vault as a Markdown `.zip` (STORE method — unzip to plain `.md`
+- Export the vault as a Markdown `.zip` (STORE method - unzip to plain `.md`
   files) or a versioned JSON backup.
 - Import from `.zip`, `.json`, `.md`, `.markdown`, or `.txt`.
 - Import is lossless and collision-safe: never overwrites, creates conflict

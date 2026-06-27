@@ -1,10 +1,10 @@
 /**
  * Vault portability: export the whole vault to a downloadable archive and
- * import it back — losslessly and safely. "Your data, any storage."
+ * import it back - losslessly and safely. "Your data, any storage."
  *
  * Two interchange formats, both plain and auditable:
  *  - **Markdown ZIP**: a `.zip` of the raw `.md` files with folder structure
- *    preserved. This is the no-lock-in format — unzip it anywhere, the notes
+ *    preserved. This is the no-lock-in format - unzip it anywhere, the notes
  *    are just Markdown on disk. Written with the STORE method (no compression)
  *    so it needs zero dependencies and round-trips byte-for-byte.
  *  - **JSON**: a single versioned envelope with content + timestamps, handy for
@@ -12,7 +12,7 @@
  *
  * Everything here is framework-free and dependency-free so it can be unit
  * tested and reused by the desktop app. Importing untrusted archives is treated
- * as a security boundary — see {@link safeImportPath} and the size caps.
+ * as a security boundary - see {@link safeImportPath} and the size caps.
  */
 
 import { normalizePath } from './vault';
@@ -64,7 +64,7 @@ const textDecoder = new TextDecoder('utf-8', { fatal: false });
  */
 export function safeImportPath(raw: string): string | null {
   if (typeof raw !== 'string' || raw.length === 0) return null;
-  // Reject absolute paths, Windows drive letters, and UNC outright — we only
+  // Reject absolute paths, Windows drive letters, and UNC outright - we only
   // ever write vault-relative paths, never anything anchored outside the vault.
   if (raw.startsWith('/') || raw.startsWith('\\')) return null;
   if (/^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\\\')) return null;
@@ -134,7 +134,7 @@ export function parseJsonExport(text: string): ImportEntry[] {
 }
 
 // ---------------------------------------------------------------------------
-// ZIP (STORE method) — minimal, dependency-free writer + reader
+// ZIP (STORE method) - minimal, dependency-free writer + reader
 // ---------------------------------------------------------------------------
 
 /** Precomputed CRC-32 table (IEEE polynomial), built once. */
@@ -305,7 +305,7 @@ export async function readVaultZip(bytes: Uint8Array): Promise<ImportEntry[]> {
       break;
     }
   }
-  // A non-empty input that has no valid EOCD is garbage/hostile — never quietly
+  // A non-empty input that has no valid EOCD is garbage/hostile - never quietly
   // return zero notes for it.
   if (eocd < 0) throw new Error('Not a valid ZIP archive.');
 
@@ -335,7 +335,7 @@ export async function readVaultZip(bytes: Uint8Array): Promise<ImportEntry[]> {
     // Resolve the data offset via the local header (its extra field length can
     // differ from the central record's). The offset comes straight from the
     // central directory and is fully attacker-controlled, so bounds-check it
-    // before indexing — an out-of-range value must produce the clean import
+    // before indexing - an out-of-range value must produce the clean import
     // error, not a raw RangeError out of DataView/subarray.
     if (localOffset + 30 > bytes.length) throw new Error('Not a valid ZIP archive.');
     if (view.getUint32(localOffset, true) !== 0x04034b50) continue;

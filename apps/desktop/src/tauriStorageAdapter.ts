@@ -2,7 +2,7 @@
  * Tauri native filesystem {@link StorageAdapter}.
  *
  * This adapter satisfies exactly the same `StorageAdapter` interface defined in
- * `apps/web/lib/vault/storage/index.ts` — no UI changes are required to use
+ * `apps/web/lib/vault/storage/index.ts` - no UI changes are required to use
  * it in the desktop build.
  *
  * ## How it works
@@ -12,11 +12,11 @@
  *    absolute path.
  *
  * 2. Subsequent `load()` / `save()` / `clear()` calls use `@tauri-apps/plugin-fs`
- *    to read and write real `.md` files at that path via Tauri's IPC bridge —
+ *    to read and write real `.md` files at that path via Tauri's IPC bridge -
  *    bypassing the File System Access browser API entirely (which requires a
  *    user gesture each session in a browser, but not in Tauri).
  *
- * ## Security (M16 scaffold — NOT yet wired)
+ * ## Security (M16 scaffold - NOT yet wired)
  *
  * IMPORTANT: native disk storage is an M16 scaffold. The shipping desktop app
  * currently runs purely as the web shell; this adapter is NOT registered and
@@ -26,7 +26,7 @@
  *   an EMPTY `allow` list, and `pick_vault_folder` (Rust) returns the chosen
  *   path WITHOUT granting fs scope to it. As a result, fs-plugin calls made by
  *   this adapter would be DENIED at runtime today. Dynamic scope granting from
- *   the chosen folder is deferred work — do not treat "scoped to the chosen
+ *   the chosen folder is deferred work - do not treat "scoped to the chosen
  *   vault" as an implemented guarantee yet.
  * - The adapter never executes arbitrary shell commands; all disk operations go
  *   through the typed `@tauri-apps/plugin-fs` surface.
@@ -44,7 +44,7 @@
  * }
  * ```
  *
- * The desktop build is the only consumer — this file is NOT imported from the
+ * The desktop build is the only consumer - this file is NOT imported from the
  * web app's source tree.
  *
  * ## Status (Milestone 16)
@@ -143,7 +143,7 @@ export class TauriStorageAdapter implements StorageAdapter {
    * Walk the vault directory recursively and read every `.md` file.
    *
    * Files that cannot be read are surfaced as notes with an error-marker
-   * content string — matching the data-safety contract of `FileSystemAdapter`.
+   * content string - matching the data-safety contract of `FileSystemAdapter`.
    */
   async load(): Promise<Note[]> {
     const root = this._requirePath();

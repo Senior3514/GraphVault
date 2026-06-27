@@ -1,12 +1,12 @@
 /**
- * GraphVault Web Clipper — core extraction and conversion logic.
+ * GraphVault Web Clipper - core extraction and conversion logic.
  *
  * Runs in the content-script context (has access to the live DOM).
- * No external dependencies — everything is vanilla JS.
+ * No external dependencies - everything is vanilla JS.
  *
  * Exports (via globalThis assignment for MV3 content-script use):
- *   clipSelection()  — convert the current window selection to Markdown
- *   clipPage()       — extract main content and convert to Markdown
+ *   clipSelection()  - convert the current window selection to Markdown
+ *   clipPage()       - extract main content and convert to Markdown
  */
 
 // ---------------------------------------------------------------------------
@@ -15,11 +15,11 @@
 
 /**
  * Convert a DOM node (and its subtree) to a Markdown string.
- * Supports: h1–h6, p, ul/ol/li, blockquote, pre/code, a, strong/b, em/i,
+ * Supports: h1-h6, p, ul/ol/li, blockquote, pre/code, a, strong/b, em/i,
  * img (rendered as a link), br, hr, table (simplified).
  *
  * @param {Node} node
- * @param {object} ctx  – context state threaded through recursion
+ * @param {object} ctx  - context state threaded through recursion
  * @returns {string}
  */
 function nodeToMd(node, ctx) {
@@ -240,7 +240,7 @@ function resolveUrl(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Readability heuristic — extract "main content" from a page
+// Readability heuristic - extract "main content" from a page
 // ---------------------------------------------------------------------------
 
 /**
@@ -250,7 +250,7 @@ function resolveUrl(url) {
  * Strategy:
  * 1. Prefer explicit semantic landmarks: <article>, <main>, [role=main].
  * 2. Otherwise, score all block-level container elements by:
- *    - Link density (low is good — nav/footer have high link density)
+ *    - Link density (low is good - nav/footer have high link density)
  *    - Text length (more prose text = higher score)
  *    - Paragraph density (many <p> children = good)
  *    - Penalise known non-content classes/ids (nav, footer, sidebar, ad…)

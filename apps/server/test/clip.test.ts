@@ -28,7 +28,7 @@ import {
 } from '../src/services/ssrf.js';
 
 // ---------------------------------------------------------------------------
-// isPrivateOrLoopbackIp unit tests — run synchronously before app boots
+// isPrivateOrLoopbackIp unit tests - run synchronously before app boots
 // ---------------------------------------------------------------------------
 
 test('isPrivateOrLoopbackIp: blocks loopback 127.0.0.1', () => {
@@ -44,7 +44,7 @@ test('isPrivateOrLoopbackIp: blocks RFC-1918 10.x.x.x', () => {
   assert.equal(isPrivateOrLoopbackIp('10.255.255.255'), true);
 });
 
-test('isPrivateOrLoopbackIp: blocks RFC-1918 172.16.x.x – 172.31.x.x', () => {
+test('isPrivateOrLoopbackIp: blocks RFC-1918 172.16.x.x - 172.31.x.x', () => {
   assert.equal(isPrivateOrLoopbackIp('172.16.0.1'), true);
   assert.equal(isPrivateOrLoopbackIp('172.31.255.255'), true);
   // 172.15.x.x is NOT private
@@ -67,7 +67,7 @@ test('isPrivateOrLoopbackIp: blocks all of 169.254.0.0/16 link-local', () => {
   assert.equal(isPrivateOrLoopbackIp('169.254.100.200'), true);
 });
 
-test('isPrivateOrLoopbackIp: blocks CGNAT 100.64.x.x – 100.127.x.x', () => {
+test('isPrivateOrLoopbackIp: blocks CGNAT 100.64.x.x - 100.127.x.x', () => {
   assert.equal(isPrivateOrLoopbackIp('100.64.0.1'), true);
   assert.equal(isPrivateOrLoopbackIp('100.127.255.255'), true);
   // 100.63.x.x is public
@@ -218,7 +218,7 @@ const fakeResolver: ResolveAllFn = async () => ['93.184.216.34'];
 // the route rejects requests whose hostnames resolve to private addresses.
 // For the integration tests, we use the fake fetch AND stub the DNS module
 // by injecting a mock into the service's internal lookup call via the
-// GRAPHVAULT_CLIP_DNS_OVERRIDE env flag (not needed — we can just test with
+// GRAPHVAULT_CLIP_DNS_OVERRIDE env flag (not needed - we can just test with
 // the real DNS where example.com is safe, and test SSRF blocking via the
 // known-private-IP unit test above).
 //
@@ -326,7 +326,7 @@ test('POST /v1/clip: rejects invalid URL string', async () => {
 
 // ---------------------------------------------------------------------------
 // SSRF guard via hostname check (tests the guard at the service level via the
-// isPrivateOrLoopbackIp function — the DNS resolution in integration is
+// isPrivateOrLoopbackIp function - the DNS resolution in integration is
 // bypassed by our fake fetch which still calls the real DNS check in
 // assertSafeUrl). For localhost / known-blocked hostnames that do NOT require
 // DNS, the guard fires immediately.
@@ -421,7 +421,7 @@ test('POST /v1/clip: returns 200 with title and markdown for a mocked page', asy
       assert.ok(body.markdown.includes('**test**'), body.markdown);
     }
   } else {
-    // DNS resolution failed in this environment — acceptable.
+    // DNS resolution failed in this environment - acceptable.
     assert.ok(
       res.statusCode === 400 || res.statusCode === 500,
       `unexpected status: ${res.statusCode} ${res.body}`,

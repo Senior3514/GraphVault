@@ -15,7 +15,7 @@ export interface SnapshotRecord {
 }
 
 /**
- * Snapshot id format: URL-safe base64url, 16–32 chars. Validated on every read
+ * Snapshot id format: URL-safe base64url, 16-32 chars. Validated on every read
  * so an id can never be used for path traversal or to escape the store dir.
  */
 export const SNAPSHOT_ID_PATTERN = /^[A-Za-z0-9_-]{16,32}$/;

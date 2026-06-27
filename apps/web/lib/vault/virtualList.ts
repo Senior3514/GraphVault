@@ -6,7 +6,7 @@
  * rendered plus top/bottom padding heights that keep the scrollbar accurate.
  *
  * This is the minimum "windowed rendering" needed to keep the note sidebar
- * smooth with thousands of items — no layout observers, ResizeObservers, or
+ * smooth with thousands of items - no layout observers, ResizeObservers, or
  * dynamic heights required (all rows are a single fixed height).
  *
  * UI-independent: no React imports, fully pure, testable in Node.

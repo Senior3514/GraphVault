@@ -64,7 +64,7 @@ export function GraphLegend({
 
   return (
     <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-neutral-800 bg-neutral-950/85 px-3 py-2 text-xs backdrop-blur">
-      {/* Groups overlay section — shown first when groups are active */}
+      {/* Groups overlay section - shown first when groups are active */}
       {groupItems.length > 0 && (
         <>
           <p className="mb-1 font-semibold uppercase tracking-wide text-neutral-500">Groups</p>

@@ -28,7 +28,7 @@ type IndexMap = Map<FilePath, LocalFileEntry>;
 
 /**
  * NFC-normalize a path so two Unicode encodings of the same path are a single
- * identity in the index (spec §2.1). Content bytes are never normalized — only
+ * identity in the index (spec §2.1). Content bytes are never normalized - only
  * paths used as keys/identities.
  */
 function nfcPath(path: FilePath): FilePath {
@@ -44,7 +44,7 @@ function toIndexMap(entries: LocalFileEntry[]): IndexMap {
   return map;
 }
 
-/** Highest baseRevision in the index — the revision we are caught up to. */
+/** Highest baseRevision in the index - the revision we are caught up to. */
 function localHead(index: IndexMap): number {
   let head = 0;
   for (const e of index.values()) {
@@ -96,7 +96,7 @@ async function scan(local: LocalVault, index: IndexMap): Promise<void> {
     });
   }
 
-  // Files present in the index but missing locally are deletions — but only if
+  // Files present in the index but missing locally are deletions - but only if
   // the server knew about them (baseRevision > 0). A never-synced new file that
   // vanished is simply dropped.
   for (const [path, prev] of index) {
@@ -163,7 +163,7 @@ async function applyRemoteState(
   const prev = index.get(path);
 
   // A locally-dirty file is reconciled through PUSH (and conflict handling),
-  // not by being overwritten here — that would lose the local edit.
+  // not by being overwritten here - that would lose the local edit.
   if (prev?.dirty) {
     return false;
   }
@@ -302,7 +302,7 @@ async function settle(
 
   for (const conflict of conflicts) {
     if (conflict.kind === 'MISSING_BLOB') {
-      // The blob upload was skipped or lost; leave dirty and retry — the next
+      // The blob upload was skipped or lost; leave dirty and retry - the next
       // PUSH re-checks hasBlob and uploads it.
       needsRetry = true;
       continue;
@@ -333,8 +333,8 @@ async function settle(
     // SERVER holds the tombstone: per §6.3 preserving content beats honoring a
     // delete, so the edited version stays canonical. Keep the local edit, re-base
     // it to the server's tombstone revision so it re-pushes and wins, and record
-    // the deletion intent as the conflict side. (The symmetric case — server
-    // holds the surviving edit, client deleted — is handled by the adopt branch
+    // the deletion intent as the conflict side. (The symmetric case - server
+    // holds the surviving edit, client deleted - is handled by the adopt branch
     // below, which writes the server edit at the canonical path.)
     const localPrev = index.get(conflict.path);
     if (

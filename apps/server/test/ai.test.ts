@@ -2,14 +2,14 @@
  * AI proxy route tests.
  *
  * Tests:
- *  1. POST /v1/ai/config — save AI config (key encrypted at rest)
- *  2. GET  /v1/ai/config — retrieve non-secret info (never returns the key)
- *  3. DELETE /v1/ai/config — remove AI config
- *  4. POST /v1/ai/chat — proxy a chat completion (mocked upstream)
- *  5. POST /v1/ai/chat — 404 when no config saved
- *  6. POST /v1/ai/chat — 429 when daily cap exceeded
- *  7. POST /v1/ai/chat — 401 without auth token
- *  8. POST /v1/ai/config — 400 with custom gateway but no baseUrl
+ *  1. POST /v1/ai/config - save AI config (key encrypted at rest)
+ *  2. GET  /v1/ai/config - retrieve non-secret info (never returns the key)
+ *  3. DELETE /v1/ai/config - remove AI config
+ *  4. POST /v1/ai/chat - proxy a chat completion (mocked upstream)
+ *  5. POST /v1/ai/chat - 404 when no config saved
+ *  6. POST /v1/ai/chat - 429 when daily cap exceeded
+ *  7. POST /v1/ai/chat - 401 without auth token
+ *  8. POST /v1/ai/config - 400 with custom gateway but no baseUrl
  *
  * We mock outbound fetch calls (to the AI provider) via a monkey-patch so no
  * real provider call is made.
@@ -172,7 +172,7 @@ const AUTH = () => ({ Authorization: `Bearer ${token}` });
 // Tests
 // ---------------------------------------------------------------------------
 
-test('POST /v1/ai/config — saves config; key is never returned', async () => {
+test('POST /v1/ai/config - saves config; key is never returned', async () => {
   const res = await app.inject({
     method: 'POST',
     url: '/v1/ai/config',
@@ -190,7 +190,7 @@ test('POST /v1/ai/config — saves config; key is never returned', async () => {
   assert.ok(!res.body.includes('test-api-key-openrouter'), 'key must not be in save response');
 });
 
-test('GET /v1/ai/config — returns non-secret info only', async () => {
+test('GET /v1/ai/config - returns non-secret info only', async () => {
   const res = await app.inject({
     method: 'GET',
     url: '/v1/ai/config',
@@ -211,7 +211,7 @@ test('GET /v1/ai/config — returns non-secret info only', async () => {
   assert.ok(!('apiKey' in body), 'apiKey field must not be present in response');
 });
 
-test('POST /v1/ai/chat — proxies to upstream and returns content', async () => {
+test('POST /v1/ai/chat - proxies to upstream and returns content', async () => {
   const res = await app.inject({
     method: 'POST',
     url: '/v1/ai/chat',
@@ -228,7 +228,7 @@ test('POST /v1/ai/chat — proxies to upstream and returns content', async () =>
   assert.ok(!res.body.includes('test-api-key-openrouter'), 'key must not leak in chat response');
 });
 
-test('POST /v1/ai/chat — 401 without auth token', async () => {
+test('POST /v1/ai/chat - 401 without auth token', async () => {
   const res = await app.inject({
     method: 'POST',
     url: '/v1/ai/chat',
@@ -238,7 +238,7 @@ test('POST /v1/ai/chat — 401 without auth token', async () => {
   assert.equal(res.statusCode, 401, `expected 401: ${res.body}`);
 });
 
-test('POST /v1/ai/chat — 404 when no config saved (second user)', async () => {
+test('POST /v1/ai/chat - 404 when no config saved (second user)', async () => {
   // Register a second user who has no AI config.
   const regRes = await app.inject({
     method: 'POST',
@@ -257,7 +257,7 @@ test('POST /v1/ai/chat — 404 when no config saved (second user)', async () => 
   assert.equal(res.statusCode, 404, `expected 404 when no config: ${res.body}`);
 });
 
-test('POST /v1/ai/config — 400 when gateway=custom but no baseUrl', async () => {
+test('POST /v1/ai/config - 400 when gateway=custom but no baseUrl', async () => {
   const res = await app.inject({
     method: 'POST',
     url: '/v1/ai/config',
@@ -271,7 +271,7 @@ test('POST /v1/ai/config — 400 when gateway=custom but no baseUrl', async () =
   assert.equal(res.statusCode, 400, `expected 400: ${res.body}`);
 });
 
-test('POST /v1/ai/chat — 400 with invalid message format', async () => {
+test('POST /v1/ai/chat - 400 with invalid message format', async () => {
   const res = await app.inject({
     method: 'POST',
     url: '/v1/ai/chat',
@@ -283,7 +283,7 @@ test('POST /v1/ai/chat — 400 with invalid message format', async () => {
   assert.equal(res.statusCode, 400, `expected 400 for bad role: ${res.body}`);
 });
 
-test('POST /v1/ai/chat — 429 when daily cap exceeded', async () => {
+test('POST /v1/ai/chat - 429 when daily cap exceeded', async () => {
   // Daily cap is set to 3 for this test instance.
   // We already made 1 successful chat request. Make 2 more to hit cap.
   for (let i = 0; i < 2; i++) {
@@ -310,7 +310,7 @@ test('POST /v1/ai/chat — 429 when daily cap exceeded', async () => {
   );
 });
 
-test('DELETE /v1/ai/config — removes config', async () => {
+test('DELETE /v1/ai/config - removes config', async () => {
   // Register a fresh user so deletion does not affect other tests.
   const regRes = await app.inject({
     method: 'POST',
@@ -371,7 +371,7 @@ async function saveConfig(authHeader: string, payload: Record<string, unknown>):
   assert.equal(res.statusCode, 201, `save config: ${res.body}`);
 }
 
-test('POST /v1/ai/chat stream — emits well-formed, provider-agnostic SSE frames', async () => {
+test('POST /v1/ai/chat stream - emits well-formed, provider-agnostic SSE frames', async () => {
   const tok = await freshUser();
   await saveConfig(`Bearer ${tok}`, {
     apiKey: 'stream-secret-key',
@@ -431,12 +431,12 @@ test('POST /v1/ai/chat stream — emits well-formed, provider-agnostic SSE frame
   }
 });
 
-test('POST /v1/ai/chat stream — mid-stream upstream error is redacted (key never leaks)', async () => {
+test('POST /v1/ai/chat stream - mid-stream upstream error is redacted (key never leaks)', async () => {
   const tok = await freshUser();
   const KEY = 'super-secret-redaction-key';
   await saveConfig(`Bearer ${tok}`, { apiKey: KEY, gateway: 'openrouter', dailyRequestCap: 1000 });
 
-  // Upstream error frame embeds the key — the relay must strip it.
+  // Upstream error frame embeds the key - the relay must strip it.
   const restore = __setTransportForTests(makeFakeAiStream({ errorContaining: KEY }));
   try {
     const res = await app.inject({
@@ -458,7 +458,7 @@ test('POST /v1/ai/chat stream — mid-stream upstream error is redacted (key nev
   }
 });
 
-test('spend cap — refuses the NEXT call after the monetary cap is crossed', async () => {
+test('spend cap - refuses the NEXT call after the monetary cap is crossed', async () => {
   const tok = await freshUser();
   // One call costing 0.50 crosses a 0.40 cap (soft cap: this call goes through).
   await saveConfig(`Bearer ${tok}`, {
@@ -522,7 +522,7 @@ test('spend cap — refuses the NEXT call after the monetary cap is crossed', as
   }
 });
 
-test('spend cap with no provider cost — falls back to request-count capping (costUsd 0)', async () => {
+test('spend cap with no provider cost - falls back to request-count capping (costUsd 0)', async () => {
   const tok = await freshUser();
   await saveConfig(`Bearer ${tok}`, {
     apiKey: 'no-cost-key',
@@ -530,7 +530,7 @@ test('spend cap with no provider cost — falls back to request-count capping (c
     dailyRequestCap: 2, // request cap is the backstop when no $ cost is reported
   });
 
-  // Upstream returns NO cost field — we must never estimate; commit costUsd 0.
+  // Upstream returns NO cost field - we must never estimate; commit costUsd 0.
   const restore = __setTransportForTests(
     (async () =>
       new Response(
@@ -567,7 +567,7 @@ test('spend cap with no provider cost — falls back to request-count capping (c
       headers: { Authorization: `Bearer ${tok}` },
     });
     const cfg = JSON.parse(info.body) as { spendCapState?: { windowSpentUsd: number } };
-    assert.equal(cfg.spendCapState?.windowSpentUsd, 0, 'cost must stay 0 — never estimated');
+    assert.equal(cfg.spendCapState?.windowSpentUsd, 0, 'cost must stay 0 - never estimated');
   } finally {
     restore();
   }
@@ -672,7 +672,7 @@ test('client disconnect aborts the upstream fetch (stops burning budget)', async
             /* noop */
           }
         });
-        // Never close on our own — only the abort path ends it.
+        // Never close on our own - only the abort path ends it.
       },
     });
     return new Response(body, {
@@ -697,7 +697,7 @@ test('client disconnect aborts the upstream fetch (stops burning budget)', async
         },
         (res) => {
           res.once('data', () => {
-            // Got the first delta — disconnect abruptly mid-stream.
+            // Got the first delta - disconnect abruptly mid-stream.
             req.destroy();
             setTimeout(resolve, 250);
           });

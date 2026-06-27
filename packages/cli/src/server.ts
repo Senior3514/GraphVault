@@ -14,7 +14,7 @@
  *     untrusted network.
  *   - No CORS header is set by default (same-origin / local scripts).
  *
- * Built on `node:http` only — zero runtime dependencies beyond the engine.
+ * Built on `node:http` only - zero runtime dependencies beyond the engine.
  */
 
 import http from 'node:http';
@@ -32,7 +32,7 @@ export interface ServeOptions {
   port?: number;
 }
 
-/** Default loopback host — never expose the vault by default. */
+/** Default loopback host - never expose the vault by default. */
 export const DEFAULT_HOST = '127.0.0.1';
 /** Default port. */
 export const DEFAULT_PORT = 4111;
@@ -70,7 +70,7 @@ export function normalizeVaultPath(raw: string): string | null {
   const out: string[] = [];
   for (const seg of segments) {
     if (seg === '' || seg === '.') continue; // collapse empty / current-dir
-    if (seg === '..') return null; // traversal — reject outright
+    if (seg === '..') return null; // traversal - reject outright
     out.push(seg);
   }
   if (out.length === 0) return null;
@@ -253,7 +253,7 @@ export function serveCommand(vaultDir: string, options: ServeOptions = {}): http
     );
     if (host !== '127.0.0.1' && host !== 'localhost' && host !== '::1') {
       process.stdout.write(
-        `graphvault: WARNING — bound to non-loopback host "${host}"; ` +
+        `graphvault: WARNING - bound to non-loopback host "${host}"; ` +
           `the vault is now reachable over the network (no auth).\n`,
       );
     }

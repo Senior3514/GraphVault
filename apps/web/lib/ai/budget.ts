@@ -2,7 +2,7 @@
  * Pure helpers for rendering the AI server-proxy (BFF) budget / spend meter.
  *
  * The server returns `spendCapState` (and the configured `spendCapUsd`) on
- * GET /v1/ai/config — see `docs/ai-bff.md` §2.2 / §4 and `aiConfigInfoSchema`
+ * GET /v1/ai/config - see `docs/ai-bff.md` §2.2 / §4 and `aiConfigInfoSchema`
  * in `@graphvault/shared`. The Settings UI renders a budget bar from it, and
  * the assistant disables "send" when the window is exhausted.
  *
@@ -14,7 +14,7 @@ import type { AiSpendCapState } from '@graphvault/shared';
 
 /** Visual model for the budget meter, derived from the live spend window. */
 export interface BudgetMeter {
-  /** 0–100, clamped. The fill width of the bar. */
+  /** 0-100, clamped. The fill width of the bar. */
   percent: number;
   /** Server-reported severity: drives the bar colour. */
   state: AiSpendCapState['state'];

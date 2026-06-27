@@ -70,7 +70,7 @@ export async function buildApp(
     maxParamLength: config.maxParamLength,
     logger: {
       level: config.nodeEnv === 'production' ? 'info' : 'debug',
-      // No remote log shipping by default — logs stay local.
+      // No remote log shipping by default - logs stay local.
       // Never log Authorization headers or request bodies (may contain secrets).
       redact: ['req.headers.authorization', 'req.headers.cookie'],
     },
@@ -220,7 +220,7 @@ export async function buildApp(
     // `credentialsEncryptedAtRest` reports whether a persistent server key backs
     // the at-rest AES-GCM encryption (vs a process-lifetime key).
     // `credentialsPersisted` reports whether the stored (encrypted) credentials
-    // survive a restart — true on the durable `postgres` backend, false on the
+    // survive a restart - true on the durable `postgres` backend, false on the
     // ephemeral in-memory backend. NEVER exposes account names, keys, or any
     // secret material.
     storageProxies: {

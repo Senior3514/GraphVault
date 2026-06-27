@@ -12,7 +12,7 @@
 # source rebuild and extra build tooling, so we stay on glibc.
 
 # ---------------------------------------------------------------------------
-# Stage 1 — builder: install workspace deps and compile TypeScript.
+# Stage 1 - builder: install workspace deps and compile TypeScript.
 # ---------------------------------------------------------------------------
 FROM node:22-slim AS builder
 WORKDIR /app
@@ -47,7 +47,7 @@ RUN pnpm --filter @graphvault/shared build \
 
 # Generate the Prisma client so the optional postgres backend works at runtime.
 # The default in-memory backend never imports this, so a failure here would not
-# affect memory mode — but generation is offline and reliable, so we run it.
+# affect memory mode - but generation is offline and reliable, so we run it.
 #
 # prisma:generate writes to src/store/generated/prisma (per schema `output`).
 # At runtime the compiled store/prisma.js resolves `./generated/prisma/index.js`
@@ -64,7 +64,7 @@ RUN pnpm --filter @graphvault/server prisma:generate \
 # them would break postgres mode; the image stays simple and correct instead.
 
 # ---------------------------------------------------------------------------
-# Stage 2 — runtime: slim image, non-root, healthchecked.
+# Stage 2 - runtime: slim image, non-root, healthchecked.
 # ---------------------------------------------------------------------------
 FROM node:22-slim AS runtime
 WORKDIR /app

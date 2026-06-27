@@ -171,7 +171,7 @@ async function callServerProxy(
       const parsed = JSON.parse(body) as { error?: { message?: string } };
       if (parsed.error?.message) errorMsg = parsed.error.message;
     } catch {
-      /* not JSON — use status */
+      /* not JSON - use status */
     }
     throw new Error(`AI proxy: ${errorMsg}`);
   }
@@ -197,7 +197,7 @@ async function callServerProxy(
 /**
  * Options for the `server` provider mode. The caller (AssistantPanel) passes
  * the current GV session token and server URL so this module never reads them
- * from storage directly — keeping the coupling explicit.
+ * from storage directly - keeping the coupling explicit.
  */
 export interface ServerProviderOptions {
   serverUrl: string;
@@ -264,19 +264,19 @@ export async function chat(
 /**
  * Stream a chat completion from the GV server's AI proxy via Server-Sent Events.
  *
- * Only the `server` (BFF) mode supports streaming — the key never touches the
+ * Only the `server` (BFF) mode supports streaming - the key never touches the
  * browser; the server adds it and relays a clean, provider-agnostic SSE stream
  * (`delta`/`usage`/`done`/`error`). Each frame is validated against the shared
  * `aiStreamEventSchema` inside `readAiStream`. See `docs/ai-bff.md` §2.5.
  *
  * SAFETY INVARIANT: if `settings.kind !== 'server'` this throws immediately,
- * without any network activity — there is no streaming path for `off` or `local`.
+ * without any network activity - there is no streaming path for `off` or `local`.
  *
  * @param settings   Active AI settings (must be `kind: 'server'`).
  * @param messages   Chat messages to send.
  * @param serverOpts Server URL + bearer token (required for `server` mode).
  * @param handlers   Typed SSE event callbacks (delta/usage/done/error).
- * @param signal     Optional abort signal — aborting tears down the stream and
+ * @param signal     Optional abort signal - aborting tears down the stream and
  *   the underlying request so a closed view stops burning the user's budget.
  * @throws {Error} when not in `server` mode, when misconfigured, or when the
  *   HTTP request itself fails before the stream opens. Error messages never
@@ -345,7 +345,7 @@ export async function chatStream(
       if (parsed.error?.message) message = parsed.error.message;
       if (parsed.error?.code) code = parsed.error.code;
     } catch {
-      /* not JSON — use status */
+      /* not JSON - use status */
     }
     handlers.onError?.(code, message);
     return;

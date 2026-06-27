@@ -20,7 +20,7 @@ present), `docs/agent-company/playbook.md`, and `docs/agent-company/lessons.md`.
   validation via `@graphvault/shared` zod, and validated `:hash` path params
   before any filesystem access.
 - Optional **at-rest blob encryption** (AES-256-GCM, random nonce, authenticated)
-  keyed from env — with the invariant that the content hash is always the hash of
+  keyed from env - with the invariant that the content hash is always the hash of
   the **plaintext** so dedupe/protocol are unchanged. Support the direction of
   optional client-side **end-to-end** encryption.
 - **Secrets hygiene:** config via env only; no hardcoded secrets; never log

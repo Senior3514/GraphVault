@@ -1,6 +1,6 @@
 /**
  * Minimal, URL-safe graph snapshot: encode/decode a compact, privacy-safe
- * representation of a graph (titles + links only — NEVER note content) for
+ * representation of a graph (titles + links only - NEVER note content) for
  * shareable /embed?s=<snapshot> URLs.
  *
  * Design constraints:
@@ -9,7 +9,7 @@
  * - Size-bounded: rejects snapshots larger than MAX_SNAPSHOT_BYTES when encoding
  *   (pre-compression) and MAX_ENCODED_CHARS when decoding. Never silently truncates.
  * - Framework-free, browser + Node compatible (uses CompressionStream if available,
- *   else plain JSON as fallback — both paths are tested).
+ *   else plain JSON as fallback - both paths are tested).
  * - Deterministic: same input produces the same encoded form (within a single JS
  *   engine, since JSON.stringify is deterministic for plain objects with stable
  *   key order).
@@ -20,7 +20,7 @@
  * The payload can be either:
  *   - A JSON-stringified `EmbedSnapshot` (the simple, always-available path)
  *   - A base64url-encoded deflated JSON string (the compact path, used when
- *     CompressionStream is available — only in modern browsers and Node 18+)
+ *     CompressionStream is available - only in modern browsers and Node 18+)
  *
  * The two are distinguished by the first character:
  *   - '{' → raw JSON (no compression)
@@ -30,7 +30,7 @@
  *   The current vercel.json sets `frame-ancestors 'none'` which prevents any
  *   third-party site from embedding `/embed` in an <iframe>. To allow third-party
  *   embedding, a site operator must set `frame-ancestors *` (or specific origins)
- *   in their deployment headers. The snapshot URL itself is shareable as-is —
+ *   in their deployment headers. The snapshot URL itself is shareable as-is -
  *   anyone with the URL can open `/embed?s=…` directly or iframe it from a
  *   same-origin context. See apps/web/vercel.json and app/layout.tsx for CSP
  *   configuration.
@@ -40,11 +40,11 @@
 // Types
 // ---------------------------------------------------------------------------
 
-/** A single node in the embed snapshot — titles only, no content. */
+/** A single node in the embed snapshot - titles only, no content. */
 export interface SnapshotNode {
   /**
    * Unique OPAQUE id (e.g. "n0", "n1"), assigned by `buildSnapshot`. Never the
-   * vault path — paths would leak directory structure. Edges reference these
+   * vault path - paths would leak directory structure. Edges reference these
    * opaque ids; the embed page treats them as opaque labels.
    */
   i: string;
@@ -66,9 +66,9 @@ export interface SnapshotEdge {
  * The minimal graph snapshot that travels in a URL.
  *
  * Field names are intentionally terse to keep the URL short:
- *   v  — format version (always 1 for now)
- *   n  — nodes array (id + title)
- *   e  — edges array (source + target + kind)
+ *   v  - format version (always 1 for now)
+ *   n  - nodes array (id + title)
+ *   e  - edges array (source + target + kind)
  */
 export interface EmbedSnapshot {
   v: 1;
@@ -127,7 +127,7 @@ function fromBase64Url(input: string): string {
 }
 
 /**
- * Encode a binary string as a Uint8Array (each char → its char code, 0–255).
+ * Encode a binary string as a Uint8Array (each char → its char code, 0-255).
  */
 function binaryStringToUint8Array(s: string): Uint8Array {
   const bytes = new Uint8Array(s.length);
@@ -239,7 +239,7 @@ async function inflateToString(data: Uint8Array): Promise<string | null> {
  * Throws `SnapshotTooLargeError` if the uncompressed JSON exceeds
  * `MAX_SNAPSHOT_BYTES`.
  *
- * NEVER includes note content — only titles and edge topology.
+ * NEVER includes note content - only titles and edge topology.
  */
 export async function encodeSnapshot(snapshot: EmbedSnapshot): Promise<string> {
   const json = JSON.stringify(snapshot);
@@ -383,7 +383,7 @@ import type { GraphNode, GraphEdge } from '@graphvault/engine';
  * PRIVACY CONTRACT: only `id` and `title` are taken from nodes. No `content`,
  * no `path` (which could reveal directory structure), no tags, no timestamps.
  *
- * Only resolved edges are included — unresolved edges would expose internal
+ * Only resolved edges are included - unresolved edges would expose internal
  * link-target strings that may contain path/title information the user hasn't
  * curated for sharing.
  */

@@ -1,13 +1,13 @@
 /**
- * Connector framework — privacy-first, opt-in (Milestone 22).
+ * Connector framework - privacy-first, opt-in (Milestone 22).
  *
  * Every connector declares a PrivacyPosture so the UI can show a clear badge
  * before anything runs:
  *
- *   local  — all processing is on-device; no network involved at all.
- *   server — credential-bearing; the self-hosted GraphVault server proxies
+ *   local  - all processing is on-device; no network involved at all.
+ *   server - credential-bearing; the self-hosted GraphVault server proxies
  *            the external call so keys never touch the browser.
- *   byo    — bring-your-own-credential; the user supplies a token that is
+ *   byo    - bring-your-own-credential; the user supplies a token that is
  *            sent directly from the browser (phase 3, explicit consent).
  *
  * Phase 1 ships only `local` connectors (RSS/OPML import from user-provided
@@ -19,13 +19,13 @@
 export type PrivacyPosture = 'local' | 'server' | 'byo';
 
 /**
- * Human-readable description of each posture — shown verbatim in the UI so
+ * Human-readable description of each posture - shown verbatim in the UI so
  * users understand the implications before enabling a connector.
  */
 export const PRIVACY_POSTURE_LABELS: Record<PrivacyPosture, string> = {
-  local: 'On-device — no network, no credentials',
-  server: 'Via your server — credentials stay on your self-hosted server, never in the browser',
-  byo: 'Bring your own credential — your token is sent directly from your browser',
+  local: 'On-device - no network, no credentials',
+  server: 'Via your server - credentials stay on your self-hosted server, never in the browser',
+  byo: 'Bring your own credential - your token is sent directly from your browser',
 };
 
 /** Colour tokens for the privacy badge (Tailwind classes). */
@@ -67,7 +67,7 @@ export interface ConnectorNote {
 }
 
 /**
- * The Connector interface. Each connector is a pure, stateless object — it
+ * The Connector interface. Each connector is a pure, stateless object - it
  * does not call React, does not read the vault, and does not make network
  * requests in the `local` posture. The UI orchestrates everything.
  */
@@ -78,7 +78,7 @@ export interface Connector {
   readonly name: string;
   /** One-sentence description of what the connector does. */
   readonly description: string;
-  /** The privacy posture — shown as a badge before the connector runs. */
+  /** The privacy posture - shown as a badge before the connector runs. */
   readonly privacyPosture: PrivacyPosture;
   /**
    * Whether this connector is available in the current build / browser.

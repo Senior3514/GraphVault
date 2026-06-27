@@ -11,7 +11,7 @@
  * Tags are linkified *after* sanitization, by walking text nodes and skipping
  * `code`/`pre`/`a` ancestors. Doing it on the DOM (not a pre-render string
  * replace) means a literal `#fff` or `#include` inside code is left untouched,
- * and the anchors are built with DOM APIs — never raw HTML — so the tag pass
+ * and the anchors are built with DOM APIs - never raw HTML - so the tag pass
  * introduces no new XSS surface.
  */
 
@@ -110,7 +110,7 @@ export function renderMarkdown(markdown: string, resolve: ResolveTarget): string
   const withLinks = transformWikiLinks(markdown, resolve);
   const rawHtml = marked.parse(withLinks, { async: false });
   // DOMPurify needs a DOM. During SSR (no `window`) its `sanitize` is a stub, so
-  // we must not emit unsanitized HTML — return empty and let the client render
+  // we must not emit unsanitized HTML - return empty and let the client render
   // pass produce the sanitized output once hydrated.
   if (typeof window === 'undefined' || typeof DOMPurify.sanitize !== 'function') {
     return '';

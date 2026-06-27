@@ -42,7 +42,7 @@ function errorResult(err: unknown): CallToolResult {
 }
 
 /**
- * Register the read-only tools, and — when writes are enabled — the
+ * Register the read-only tools, and - when writes are enabled - the
  * conflict-safe write tools, on `server`.
  *
  * @param server the MCP server instance.
@@ -222,7 +222,7 @@ export function registerTools(
         'Replace the content of an EXISTING note. FAILS if the note does not exist. ' +
         'Optionally pass `expectedHash` (the current `sha256:<hex>` content hash) for ' +
         'optimistic concurrency: the write is rejected if the server hash differs. ' +
-        'Conflict-safe — a concurrent edit is reported, never overwritten.',
+        'Conflict-safe - a concurrent edit is reported, never overwritten.',
       inputSchema: {
         path: writeNotePathSchema,
         content: z.string().describe('New full Markdown content for the note.'),
@@ -246,7 +246,7 @@ export function registerTools(
       title: 'Append to a note',
       description:
         'Append text to an EXISTING note (read-modify-write, newline-separated). FAILS if the ' +
-        'note does not exist. Conflict-safe — a concurrent edit between read and write is ' +
+        'note does not exist. Conflict-safe - a concurrent edit between read and write is ' +
         'reported as a conflict, never overwritten.',
       inputSchema: {
         path: writeNotePathSchema,
@@ -287,7 +287,7 @@ export function registerTools(
  * callback returns the note's markdown as `text/markdown`. Both are read-only.
  *
  * A read failure (unknown/traversal URI) is surfaced by throwing, which the SDK
- * turns into a JSON-RPC error for the host — the transport stays up.
+ * turns into a JSON-RPC error for the host - the transport stays up.
  */
 export function registerResources(server: McpServer, resources: BoundResources): void {
   const template = new ResourceTemplate(`${NOTE_URI_PREFIX}{+path}`, {

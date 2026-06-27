@@ -2,14 +2,14 @@
 
 A reference for the mnemonic methods the skill draws on. Read the section that
 matches the material. Each method exists because human memory is strong on space,
-story, and image and weak on abstraction — every technique is a way of smuggling
+story, and image and weak on abstraction - every technique is a way of smuggling
 abstract material into one of those strong channels.
 
 ## Contents
 1. Method of loci (memory palace)
 2. Linking / story method
 3. The Major System (numbers → words)
-4. PAO (Person–Action–Object) for long numbers and cards
+4. PAO (Person-Action-Object) for long numbers and cards
 5. The Peg System (fixed numbered hooks)
 6. Names and faces
 7. Vocabulary and foreign words
@@ -23,7 +23,7 @@ walking the route. Best for **ordered** material and for anything longer than a
 handful of items.
 
 Rules that make or break it:
-- The route must be **over-learned** — a place the person can walk in their mind
+- The route must be **over-learned** - a place the person can walk in their mind
   without effort. Childhood homes, commutes, and game maps are gold.
 - Fix the **direction** once (always clockwise, always front-to-back) so you never
   double-count or skip a station.
@@ -32,7 +32,7 @@ Rules that make or break it:
 - **One item per station.** Need more capacity? Extend the route into the next room
   or down the street, or build a second palace.
 - Place the image so it **interacts** with the station (spilling out of the fridge,
-  tangled in the curtains) — interaction binds item to place.
+  tangled in the curtains) - interaction binds item to place.
 
 Capacity scales with how many places you know. Competitive mnemonists keep dozens
 of palaces of 50+ stations each.
@@ -43,7 +43,7 @@ of palaces of 50+ stations each.
 
 Chain items into a single absurd narrative where each image collides into the next.
 Item 1 does something violent or ridiculous to item 2, which transforms into item 3,
-and so on. Best for **short, unordered** lists (≈5–20 items) where you don't want
+and so on. Best for **short, unordered** lists (≈5-20 items) where you don't want
 the overhead of a full route.
 
 Weakness: a broken link breaks the chain after it. Loci is more robust because each
@@ -80,22 +80,22 @@ you've stored the number.
 
 ---
 
-## 4. PAO (Person–Action–Object)
+## 4. PAO (Person-Action-Object)
 
 A high-density system mainly for long numbers and playing cards. Assign every
-two-digit number (00–99) a fixed **Person doing an Action to an Object.** Then any
+two-digit number (00-99) a fixed **Person doing an Action to an Object.** Then any
 six digits become one scene: person from the first pair, action from the second,
 object from the third. 19-digit strings collapse into a few vivid scenes.
 
 PAO takes real upfront effort (you must memorize 100 P/A/O triples). Only introduce
-it for someone genuinely chasing serious number or card memory — for everyday use,
+it for someone genuinely chasing serious number or card memory - for everyday use,
 the Major System is plenty.
 
 ---
 
 ## 5. The Peg System (fixed numbered hooks)
 
-Pre-memorize a permanent image for each number — often via the Major System
+Pre-memorize a permanent image for each number - often via the Major System
 (1=tie, 2=Noah, 3=ma, …) or a rhyme (1=bun, 2=shoe, 3=tree, 4=door, 5=hive…).
 These "pegs" are reusable hooks: to store an ordered list, link item N to peg N.
 Unlike a palace, pegs give instant **random access** ("what was #7?") without walking
@@ -107,14 +107,14 @@ the whole route. Trade-off: capacity is fixed by how many pegs you've built.
 
 The hardest everyday memory task, because a name is arbitrary noise attached to a
 face. Three steps:
-1. **Face** — pick one distinctive feature (eyebrows, jaw, a mole). Look long enough
+1. **Face** - pick one distinctive feature (eyebrows, jaw, a mole). Look long enough
    to actually register it.
-2. **Name → meaning** — turn the sound into something picturable. "Briana" → "brie
+2. **Name → meaning** - turn the sound into something picturable. "Briana" → "brie
    on a" ... a wheel of brie. "Mr. Kowalski" → "cow-all-ski," a cow on skis.
-3. **Hook** — stick the meaning onto the feature, interacting: brie melting off
+3. **Hook** - stick the meaning onto the feature, interacting: brie melting off
    those big eyebrows; a skiing cow launching off that strong jaw.
 
-Repeat the name once out loud when you meet them — encoding plus a retrieval rep.
+Repeat the name once out loud when you meet them - encoding plus a retrieval rep.
 
 ---
 

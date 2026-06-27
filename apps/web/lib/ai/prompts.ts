@@ -2,7 +2,7 @@
  * Pure prompt-builders for the AI assistant.
  *
  * Each builder returns a `ChatMessage[]` array ready to send to any provider.
- * No network calls, no side effects — purely functional so they are trivially
+ * No network calls, no side effects - purely functional so they are trivially
  * testable. The system message establishes the privacy-respecting framing:
  * the model is told it is operating on the user's private notes and that it
  * must not fabricate external links.
@@ -36,7 +36,7 @@ export function buildPrompt(
       const user: ChatMessage = {
         role: 'user',
         content:
-          'Please summarize the following note in 2–4 sentences, highlighting the key ideas:\n\n' +
+          'Please summarize the following note in 2-4 sentences, highlighting the key ideas:\n\n' +
           '```\n' +
           noteContent +
           '\n```',
@@ -86,7 +86,7 @@ export function buildPrompt(
       const user: ChatMessage = {
         role: 'user',
         content:
-          'Review the following note and suggest 3–6 relevant `#tags` that would help categorise it. ' +
+          'Review the following note and suggest 3-6 relevant `#tags` that would help categorise it. ' +
           'Use lowercase, hyphen-separated words (e.g. `#machine-learning`, `#project-ideas`). ' +
           'Format as a Markdown list with a one-sentence explanation per tag.\n\n' +
           '```\n' +

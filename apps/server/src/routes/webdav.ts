@@ -6,17 +6,17 @@
  * and NEVER returned to the client.
  *
  * Config endpoints:
- *   POST   /v1/storage/webdav/config      — set/update WebDAV config
- *   GET    /v1/storage/webdav/config      — read non-secret info
- *   DELETE /v1/storage/webdav/config      — remove WebDAV config
+ *   POST   /v1/storage/webdav/config      - set/update WebDAV config
+ *   GET    /v1/storage/webdav/config      - read non-secret info
+ *   DELETE /v1/storage/webdav/config      - remove WebDAV config
  *
  * Proxy endpoints (vault-relative paths via *-param):
- *   GET    /v1/storage/webdav/proxy/:path — download from WebDAV
- *   PUT    /v1/storage/webdav/proxy/:path — upload to WebDAV
- *   DELETE /v1/storage/webdav/proxy/:path — delete from WebDAV
+ *   GET    /v1/storage/webdav/proxy/:path - download from WebDAV
+ *   PUT    /v1/storage/webdav/proxy/:path - upload to WebDAV
+ *   DELETE /v1/storage/webdav/proxy/:path - delete from WebDAV
  *
  * Rate limiting: inherits the global cap. Config writes share the global cap
- * (they are not credential endpoints — no need for the auth-tier cap).
+ * (they are not credential endpoints - no need for the auth-tier cap).
  */
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -98,7 +98,7 @@ export function registerWebDavRoutes(
       } else if (typeof rawBody === 'string') {
         body = Buffer.from(rawBody, 'utf8');
       } else if (rawBody !== null && rawBody !== undefined) {
-        // Parsed JSON object — re-serialise.
+        // Parsed JSON object - re-serialise.
         body = Buffer.from(JSON.stringify(rawBody), 'utf8');
       } else {
         body = Buffer.alloc(0);

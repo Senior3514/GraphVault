@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-// Import only the pure exports — the component itself is React/DOM-only.
+// Import only the pure exports - the component itself is React/DOM-only.
 import { TOUR_STEPS, TOUR_DISMISSED_KEY, TOUR_OPEN_EVENT } from '../../components/onboarding/Tour';
 
 test('TOUR_DISMISSED_KEY is the expected stable string', () => {
@@ -25,7 +25,7 @@ test('TOUR_OPEN_EVENT is the expected stable string', () => {
 test('tour has between 4 and 10 steps', () => {
   assert.ok(
     TOUR_STEPS.length >= 4 && TOUR_STEPS.length <= 10,
-    `Expected 4–10 steps, got ${TOUR_STEPS.length}`,
+    `Expected 4-10 steps, got ${TOUR_STEPS.length}`,
   );
 });
 

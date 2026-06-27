@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * WorkspaceLayout — the outermost shell for the vault workspace.
+ * WorkspaceLayout - the outermost shell for the vault workspace.
  *
  * Handles:
  * - Three-column layout (note list | editor | details) with resizable dividers.
@@ -92,7 +92,7 @@ export function WorkspaceLayout({
   return (
     <WorkspaceContext.Provider value={actions}>
       {/* ================================================================ */}
-      {/* DESKTOP layout (md and up) — three resizable columns              */}
+      {/* DESKTOP layout (md and up) - three resizable columns              */}
       {/* ================================================================ */}
       <div className="hidden md:flex md:h-full md:min-h-0 md:flex-1 md:overflow-hidden">
         {/* ===== Note List Panel ===== */}
@@ -178,7 +178,7 @@ export function WorkspaceLayout({
       </div>
 
       {/* ================================================================ */}
-      {/* MOBILE layout (< md) — single visible pane + bottom switcher      */}
+      {/* MOBILE layout (< md) - single visible pane + bottom switcher      */}
       {/* ================================================================ */}
       <div className="flex h-full min-h-0 flex-col md:hidden">
         {/* Active pane fills all available height above the bottom bar.
@@ -197,7 +197,7 @@ export function WorkspaceLayout({
           )}
         </div>
 
-        {/* Bottom segmented control — switch between Notes / Editor / Details.
+        {/* Bottom segmented control - switch between Notes / Editor / Details.
             Hidden in focus mode for distraction-free editing. */}
         {!focusMode && (
           <nav

@@ -1,4 +1,4 @@
-# Desktop Release — builds native installers for macOS / Linux / Windows.
+# Desktop Release - builds native installers for macOS / Linux / Windows.
 #
 # Triggers:
 #   • Push of a semver tag  v*  (e.g. v0.2.0)  → creates a GitHub Release draft
@@ -9,7 +9,7 @@
 #   Linux    →  .AppImage  +  .deb
 #   Windows  →  .msi  +  NSIS installer  (.exe)
 #
-# Required secrets (optional — builds succeed without them but installers are unsigned):
+# Required secrets (optional - builds succeed without them but installers are unsigned):
 #   macOS code-signing (if you want a notarised .dmg):
 #     APPLE_CERTIFICATE          Base64-encoded .p12 developer certificate
 #     APPLE_CERTIFICATE_PASSWORD Passphrase for the .p12
@@ -25,7 +25,7 @@
 #     TAURI_SIGNING_PRIVATE_KEY_PASSWORD Passphrase for the updater key
 #
 # If none of these are set the tauri-action still builds and uploads unsigned
-# installers — fine for a draft release reviewed before publication.
+# installers - fine for a draft release reviewed before publication.
 
 name: Desktop Release
 
@@ -101,7 +101,7 @@ jobs:
           # universal-apple-darwin requires both Apple targets
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
-      # Cache Cargo registry + build artefacts — dramatically speeds up reruns.
+      # Cache Cargo registry + build artefacts - dramatically speeds up reruns.
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -128,7 +128,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS notarisation (optional — comment out if secrets not configured)
+          # macOS notarisation (optional - comment out if secrets not configured)
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -138,7 +138,7 @@ jobs:
           # Windows signing (optional)
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-          # Tauri updater (optional — only if tauri-plugin-updater is enabled)
+          # Tauri updater (optional - only if tauri-plugin-updater is enabled)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:

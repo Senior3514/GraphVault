@@ -22,7 +22,7 @@ const FRONTMATTER_RE = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 const FENCED_CODE_RE = /(^|\n)[ \t]*(```|~~~)[^\n]*\n[\s\S]*?\n[ \t]*\2[ \t]*(?=\n|$)/g;
 const INLINE_CODE_RE = /`[^`\n]*`/g;
 
-/** `[[target#heading|alias]]` — heading and alias optional. */
+/** `[[target#heading|alias]]` - heading and alias optional. */
 const WIKILINK_RE = /\[\[([^\]\n]+?)\]\]/g;
 
 /** `[text](url)` standard markdown link. */
@@ -68,7 +68,7 @@ function coerceScalar(raw: string): unknown {
 
 /**
  * True for a YAML flow sequence `[a, b, c]`, but NOT for a bare `[[wikilink]]`
- * scalar — so `refutes: [[Claim B]]` is kept as a string, not split apart.
+ * scalar - so `refutes: [[Claim B]]` is kept as a string, not split apart.
  */
 function isFlowList(raw: string): boolean {
   const s = raw.trim();
@@ -146,7 +146,7 @@ function parseYaml(yaml: string): Record<string, unknown> {
       continue;
     }
 
-    // `key:` with nothing after — look at following indented lines.
+    // `key:` with nothing after - look at following indented lines.
     const childStart = i + 1;
     if (childStart < lines.length && lines[childStart]!.indent > baseIndent) {
       const childIndent = lines[childStart]!.indent;

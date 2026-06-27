@@ -8,7 +8,7 @@
  *
  * Registry rule: adapters are probed in registration order; the first one
  * that passes `isAvailable()` is returned. The `localStorage` adapter is the
- * universal fallback — it is always registered last with a guaranteed
+ * universal fallback - it is always registered last with a guaranteed
  * `isAvailable() === true` (when `window.localStorage` exists in the host).
  *
  * Callers obtain the active adapter once (module-level or in a hook) and pass
@@ -27,7 +27,7 @@ import type { Note } from '../types';
  * The persistence boundary every concrete backend must satisfy.
  *
  * Implementations MUST:
- *  - Never silently discard data — prefer throwing over quiet data loss.
+ *  - Never silently discard data - prefer throwing over quiet data loss.
  *  - Be idempotent: `save(notes)` followed immediately by `load()` must return
  *    an equivalent array.
  *  - Degrade gracefully: if the environment does not support the adapter,
@@ -57,7 +57,7 @@ export interface StorageAdapter {
 
   /**
    * Persist the authoritative list of notes. Replaces everything previously
-   * stored — callers are responsible for passing the full set.
+   * stored - callers are responsible for passing the full set.
    */
   save(notes: Note[]): Promise<void>;
 
@@ -78,7 +78,7 @@ const registry: StorageAdapter[] = [];
 /**
  * Register a new adapter. Adapters are probed in order; earlier registrations
  * take priority when both are available. Call this at module initialisation
- * time — before {@link getActiveAdapter} is first invoked.
+ * time - before {@link getActiveAdapter} is first invoked.
  */
 export function registerAdapter(adapter: StorageAdapter): void {
   registry.push(adapter);
@@ -119,7 +119,7 @@ export function listAdapters(): readonly StorageAdapter[] {
 }
 
 /**
- * Remove all registered adapters. Intended for use in tests only — never call
+ * Remove all registered adapters. Intended for use in tests only - never call
  * this in production code.
  */
 export function _resetRegistry(): void {

@@ -1,7 +1,7 @@
 /**
  * Tiny, dependency-free debounce helper.
  *
- * Pure function — no React, no side effects at module scope. Safe to import
+ * Pure function - no React, no side effects at module scope. Safe to import
  * in both client components and Node.js tests.
  *
  * For a React hook wrapper see {@link useDebounce} in

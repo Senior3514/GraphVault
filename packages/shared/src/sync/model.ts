@@ -26,7 +26,7 @@ export const filePathSchema = z
   // NFD `café` vs NFC `café`) become a single canonical identity before any
   // hashing or comparison (spec §2.1). This only re-encodes Unicode; it never
   // changes ASCII, so it cannot reject a previously-valid path. Content bytes
-  // are NOT normalized — only paths.
+  // are NOT normalized - only paths.
   .transform((p) => p.normalize('NFC'))
   .refine((p) => !p.startsWith('/'), 'path must be vault-relative (no leading slash)')
   .refine((p) => !p.includes('\\'), 'path must use forward slashes')

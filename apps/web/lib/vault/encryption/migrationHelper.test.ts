@@ -130,7 +130,7 @@ test('migrateAdapter: source is NOT cleared after successful migration', async (
 });
 
 // ---------------------------------------------------------------------------
-// Verification failure — destination cleared, source unaffected
+// Verification failure - destination cleared, source unaffected
 // ---------------------------------------------------------------------------
 
 test('migrateAdapter: throws on verification failure and clears destination', async () => {

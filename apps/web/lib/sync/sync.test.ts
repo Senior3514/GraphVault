@@ -6,7 +6,7 @@
  * We cannot import `FakeServer` / `FakeLocalVault` from sync-core because they
  * are internal test utilities not exported by the package. Instead this file
  * provides a minimal self-contained `InMemServer` and drives `runSync` through
- * the `createLocalVault` adapter — exactly as the browser does, but without
+ * the `createLocalVault` adapter - exactly as the browser does, but without
  * `localStorage` (we patch the index to use a plain array).
  */
 
@@ -167,7 +167,7 @@ function makeVaultMutator(initial: Omit<InMemNote, 'ctime'>[] = []): VaultMutato
 /**
  * Build a LocalVault backed by the given mutator with an in-memory sync index
  * (no localStorage). The index persists across calls to `runSync` as long as
- * the same object is reused — matching how the browser works.
+ * the same object is reused - matching how the browser works.
  */
 function makeTestLocalVault(mutator: ReturnType<typeof makeVaultMutator>) {
   const lv = createLocalVault(mutator);
@@ -219,7 +219,7 @@ test('web adapter: remote note is pulled into the local vault', async () => {
   assert.equal(pulled.content, 'from A');
 });
 
-test('web adapter: content conflict creates a conflict copy — no data lost', async () => {
+test('web adapter: content conflict creates a conflict copy - no data lost', async () => {
   const server = new InMemServer();
   const remote = server.makeRemote();
 
@@ -234,7 +234,7 @@ test('web adapter: content conflict creates a conflict copy — no data lost', a
   await runSync(localB, remote, VAULT, { deviceId: 'web-b' });
   assert.equal(mutatorB.get('notes/idea.md')?.content, 'base');
 
-  // A edits and syncs first — A's index knows baseRevision=1.
+  // A edits and syncs first - A's index knows baseRevision=1.
   mutatorA.upsert('notes/idea.md' as FilePath, 'edit from A', 2000);
   await runSync(localA, remote, VAULT, { deviceId: 'web-a' });
   assert.equal(server.head, 2);
@@ -254,7 +254,7 @@ test('web adapter: content conflict creates a conflict copy — no data lost', a
   assert.equal(mutatorB.get('notes/idea.md')?.content, 'edit from A');
   const copyPath = 'notes/idea (conflict 2026-06-15 from web-b).md';
   const copy = mutatorB.get(copyPath);
-  assert.ok(copy, 'conflict copy must exist — data must never be silently lost');
+  assert.ok(copy, 'conflict copy must exist - data must never be silently lost');
   assert.equal(copy.content, 'edit from B');
 });
 
@@ -276,7 +276,7 @@ test('web adapter: delete propagates from A to B', async () => {
   mutatorA.remove('notes/gone.md' as FilePath);
   await runSync(localA, remote, VAULT, { deviceId: 'web-a' });
 
-  // B syncs — note should be removed locally.
+  // B syncs - note should be removed locally.
   await runSync(localB, remote, VAULT, { deviceId: 'web-b' });
   assert.ok(!mutatorB.get('notes/gone.md'), 'B should no longer have the deleted note');
 });

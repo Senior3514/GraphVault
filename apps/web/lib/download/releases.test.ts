@@ -138,7 +138,7 @@ test('pickAssets returns empty for mobile and unknown OSes', () => {
 test('pickAssets tolerates null / undefined / non-array assets', () => {
   assert.deepEqual(pickAssets(null, 'windows'), { primary: null, alternates: [] });
   assert.deepEqual(pickAssets(undefined, 'macos'), { primary: null, alternates: [] });
-  // @ts-expect-error — intentionally passing a wrong type to prove robustness.
+  // @ts-expect-error - intentionally passing a wrong type to prove robustness.
   assert.deepEqual(pickAssets({}, 'linux'), { primary: null, alternates: [] });
 });
 

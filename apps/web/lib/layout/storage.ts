@@ -43,7 +43,7 @@ function merge(base: WorkspaceLayout, override: Partial<WorkspaceLayout>): Works
     tabs: override.tabs ?? base.tabs,
     // Older persisted blobs predate focus mode. A missing key would simply be
     // absent from the spread (keeping the default), but an explicit `undefined`
-    // WOULD shadow the default — so coalesce defensively to the base value.
+    // WOULD shadow the default - so coalesce defensively to the base value.
     // (See lessons: "Spreading Partial<T> with undefined values overwrites
     // defaults".)
     focusMode: override.focusMode ?? base.focusMode,

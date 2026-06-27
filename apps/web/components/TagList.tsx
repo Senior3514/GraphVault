@@ -2,7 +2,7 @@
 
 /**
  * Clickable tag list for the vault sidebar. Selecting a tag filters the note
- * list; selecting it again clears the filter. Purely presentational — the
+ * list; selecting it again clears the filter. Purely presentational - the
  * active tag and the toggle handler are owned by the vault page.
  */
 

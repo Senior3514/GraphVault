@@ -1,8 +1,8 @@
 /**
- * Connector registry — the single list of all available connectors.
+ * Connector registry - the single list of all available connectors.
  *
  * Import from here to get the full connector catalogue. The registry is
- * framework-free (no React, no vault access) — it is consumed by the UI
+ * framework-free (no React, no vault access) - it is consumed by the UI
  * settings section and by tests.
  *
  * Adding a new connector: create the module, implement the interface, and add
@@ -23,7 +23,7 @@ import type { Connector, LocalImportConnector } from './types';
 export const ALL_CONNECTORS: readonly Connector[] = [rssOpmlConnector, emailConnector] as const;
 
 /**
- * Local-import connectors only — the subset that accept user-provided content
+ * Local-import connectors only - the subset that accept user-provided content
  * and run entirely on-device. These are safe to show without any server
  * configuration check.
  */

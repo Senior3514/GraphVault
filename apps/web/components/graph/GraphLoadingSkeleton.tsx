@@ -21,7 +21,7 @@
  *   readers announce that the graph is loading without trapping focus.
  *
  * It imports nothing heavy (no force-graph, no engine) so it stays in the page
- * entry chunk and paints instantly — the whole point is to be visible before
+ * entry chunk and paints instantly - the whole point is to be visible before
  * the renderer's chunk arrives.
  */
 

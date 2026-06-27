@@ -80,7 +80,7 @@ function withStore<T>(
 
 /**
  * Persist the directory handle. Returns true on success, false when IndexedDB
- * is unavailable or the write failed (best-effort — never throws).
+ * is unavailable or the write failed (best-effort - never throws).
  */
 export async function saveDirectoryHandle(handle: unknown): Promise<boolean> {
   const result = await withStore<IDBValidKey>('readwrite', (store) =>

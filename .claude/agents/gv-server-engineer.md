@@ -1,7 +1,7 @@
 ---
 name: gv-server-engineer
 description: >-
-  GraphVault backend engineer. Use for the Fastify sync server in apps/server —
+  GraphVault backend engineer. Use for the Fastify sync server in apps/server -
   auth, vaults, push/pull sync endpoints, blob storage, storage adapters
   (in-memory + Prisma/Postgres), and server tests. Owns apps/server/.
 tools: Read, Grep, Glob, Edit, Write, Bash

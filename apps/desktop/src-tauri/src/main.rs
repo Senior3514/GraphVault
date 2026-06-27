@@ -41,7 +41,7 @@ fn app_version(app: tauri::AppHandle) -> String {
 fn main() {
     tauri::Builder::default()
         // File-system plugin: exposes read/write/watch commands to the webview.
-        // The scope is intentionally empty here — the web layer uses
+        // The scope is intentionally empty here - the web layer uses
         // `pick_vault_folder` to get the path, then fs operations are scoped to
         // that directory by the configuration in `tauri.conf.json`.
         .plugin(tauri_plugin_fs::init())

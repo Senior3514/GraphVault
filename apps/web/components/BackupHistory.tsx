@@ -179,7 +179,7 @@ export function BackupHistory() {
           // Refresh the list so the new pre-restore snapshot appears.
           await loadSnapshots();
         } else {
-          setFeedback('Snapshot not found — it may have been pruned.');
+          setFeedback('Snapshot not found - it may have been pruned.');
         }
       } catch (err) {
         setFeedback(`Restore failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -258,7 +258,7 @@ export function BackupHistory() {
           </button>
         </div>
 
-        {/* Feedback banner — aria-live so screen readers announce the result. */}
+        {/* Feedback banner - aria-live so screen readers announce the result. */}
         <div
           role="status"
           aria-live="polite"

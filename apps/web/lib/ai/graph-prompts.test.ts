@@ -2,14 +2,14 @@
  * Tests for the AI graph-intelligence prompt builders and parsers.
  *
  * Covers:
- *  1. `buildClusterNamePrompt` — shape, privacy (no bodies), edge cases.
- *  2. `parseClusterNames`      — numbered list, bulleted list, partial output.
- *  3. `buildRelatedNotesPrompt` — shape, title truncation, empty vault.
- *  4. `parseRelatedNotes`       — bold format, plain format, ID resolution,
+ *  1. `buildClusterNamePrompt` - shape, privacy (no bodies), edge cases.
+ *  2. `parseClusterNames`      - numbered list, bulleted list, partial output.
+ *  3. `buildRelatedNotesPrompt` - shape, title truncation, empty vault.
+ *  4. `parseRelatedNotes`       - bold format, plain format, ID resolution,
  *                                 hallucinated titles, max-6 cap.
- *  5. `buildGapFindingPrompt`   — shape, empty neighbourhood.
- *  6. `parseGapSuggestions`     — numbered, bulleted, quote-stripped, max-6 cap.
- *  7. `buildGraphSendContext`   — all three action types.
+ *  5. `buildGapFindingPrompt`   - shape, empty neighbourhood.
+ *  6. `parseGapSuggestions`     - numbered, bulleted, quote-stripped, max-6 cap.
+ *  7. `buildGraphSendContext`   - all three action types.
  *  8. Privacy invariant: when AI is off, no network call occurs.
  *     (Re-uses the existing chat() off-guard, confirmed here for completeness.)
  */
@@ -84,7 +84,7 @@ describe('buildClusterNamePrompt()', () => {
     assert.ok(msgs[1].content.includes('No clusters'));
   });
 
-  it('NEVER mentions note bodies — only the word "TITLES" appears in the privacy section', () => {
+  it('NEVER mentions note bodies - only the word "TITLES" appears in the privacy section', () => {
     const clusters: ClusterInput[] = [{ index: 0, titles: ['My private note', 'Another note'] }];
     const msgs = buildClusterNamePrompt(clusters);
     // The system prompt must reference titles only.
@@ -205,7 +205,7 @@ describe('buildRelatedNotesPrompt()', () => {
     const totalCount = MAX_VAULT_TITLES_IN_PROMPT + 50;
     const hugeVault = Array.from({ length: totalCount }, (_, i) => `Note ${i}`);
     const msgs = buildRelatedNotesPrompt(SELECTED, [], hugeVault);
-    // The prompt says "X total, showing Y" — verify total count and showing count.
+    // The prompt says "X total, showing Y" - verify total count and showing count.
     assert.ok(
       msgs[1].content.includes(`${totalCount} total`),
       `Expected total count ${totalCount} in prompt`,

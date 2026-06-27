@@ -38,7 +38,7 @@ export function notesToInputs(notes: readonly VaultNoteLike[]): NoteInput[] {
 
 /**
  * A restrained, dark-first categorical palette. Used to encode a node's tag
- * (in "colour by tag" mode) or an edge's link type — meaning, not decoration
+ * (in "colour by tag" mode) or an edge's link type - meaning, not decoration
  * (see DESIGN.md).
  */
 export const GRAPH_PALETTE = [
@@ -76,15 +76,15 @@ export function distinctSorted(values: Iterable<string>): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Node categories — the primary, default colour encoding.
+// Node categories - the primary, default colour encoding.
 // ---------------------------------------------------------------------------
 
 /**
  * The kind of a rendered node, derived from the engine index:
- * - `note`        — a real `.md` note in the vault.
- * - `attachment`  — a non-`.md` file (image, pdf, …) referenced by a note but
+ * - `note`        - a real `.md` note in the vault.
+ * - `attachment`  - a non-`.md` file (image, pdf, …) referenced by a note but
  *   not itself a note in the index.
- * - `unresolved`  — a link whose target does not resolve to any known note
+ * - `unresolved`  - a link whose target does not resolve to any known note
  *   (a "missing note" placeholder).
  */
 export type NodeCategory = 'note' | 'attachment' | 'unresolved';
@@ -192,7 +192,7 @@ const CATEGORY_ORDER: NodeCategory[] = ['note', 'attachment', 'unresolved'];
  * the canvas can draw "missing note" affordances. Degree counts every incident
  * edge so hubs read clearly.
  *
- * Pure and deterministic — unit tested in `model.test.ts`.
+ * Pure and deterministic - unit tested in `model.test.ts`.
  */
 export function buildRenderModel(
   nodes: readonly GraphNode[],

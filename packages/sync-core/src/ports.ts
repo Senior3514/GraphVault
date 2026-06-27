@@ -60,18 +60,18 @@ export interface LocalVault {
  * schemas. The host adapts these to HTTP (auth headers, base URL, retries).
  */
 export interface RemoteApi {
-  /** GET /v1/vaults/:id/changes — pull file states with `revision > since`. */
+  /** GET /v1/vaults/:id/changes - pull file states with `revision > since`. */
   getChanges(vaultId: string, since: number, limit?: number): Promise<ChangesResponse>;
 
-  /** POST /v1/vaults/:id/push — push local ops, get applied/conflicts back. */
+  /** POST /v1/vaults/:id/push - push local ops, get applied/conflicts back. */
   push(vaultId: string, body: PushRequest): Promise<PushResponse>;
 
-  /** HEAD /v1/blobs/:hash — true if the server already has this blob. */
+  /** HEAD /v1/blobs/:hash - true if the server already has this blob. */
   hasBlob(hash: string): Promise<boolean>;
 
-  /** PUT /v1/blobs/:hash — upload content bytes for `hash`. */
+  /** PUT /v1/blobs/:hash - upload content bytes for `hash`. */
   putBlob(hash: string, content: string): Promise<void>;
 
-  /** GET /v1/blobs/:hash — download content bytes for `hash`. */
+  /** GET /v1/blobs/:hash - download content bytes for `hash`. */
   getBlob(hash: string): Promise<string>;
 }

@@ -1,4 +1,4 @@
-# CI — runs on every push and pull request.
+# CI - runs on every push and pull request.
 # Full quality gauntlet: install → typecheck → lint → format:check → test → build:web
 # A single failure fails the job; no partial green.
 

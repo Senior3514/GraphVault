@@ -1,5 +1,5 @@
 /**
- * Shared helpers for server-proxy {@link StorageAdapter}s — M18.
+ * Shared helpers for server-proxy {@link StorageAdapter}s - M18.
  *
  * The WebDAV, S3, Azure Blob, and GCS adapters all share the exact same
  * mechanics: read the GraphVault bearer token + server URL from sessionStorage,
@@ -115,7 +115,7 @@ export function deserialise(json: string): Note[] {
  * @param objectPath     Absolute proxy path, e.g.
  *                       `/v1/storage/azure/object/graphvault-vault.json`.
  *
- * A 404 means the vault object does not exist yet — treated as an empty vault.
+ * A 404 means the vault object does not exist yet - treated as an empty vault.
  */
 export async function proxyLoad(providerLabel: string, objectPath: string): Promise<Note[]> {
   const token = getToken();
@@ -134,11 +134,11 @@ export async function proxyLoad(providerLabel: string, objectPath: string): Prom
     });
   } catch (err) {
     throw new Error(
-      `${providerLabel} adapter: network error loading vault — ${err instanceof Error ? err.message : String(err)}`,
+      `${providerLabel} adapter: network error loading vault - ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
-  // 404 means the vault object does not exist yet — treat as empty.
+  // 404 means the vault object does not exist yet - treat as empty.
   if (res.status === 404) {
     return [];
   }
@@ -153,7 +153,7 @@ export async function proxyLoad(providerLabel: string, objectPath: string): Prom
     return deserialise(text);
   } catch (err) {
     throw new Error(
-      `${providerLabel} adapter: vault document is corrupt — ${err instanceof Error ? err.message : String(err)}`,
+      `${providerLabel} adapter: vault document is corrupt - ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }
@@ -183,7 +183,7 @@ export async function proxySave(
     });
   } catch (err) {
     throw new Error(
-      `${providerLabel} adapter: network error saving vault — ${err instanceof Error ? err.message : String(err)}`,
+      `${providerLabel} adapter: network error saving vault - ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
@@ -209,7 +209,7 @@ export async function proxyClear(objectPath: string): Promise<void> {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
-    // Ignore the response — DELETE is best-effort in clear().
+    // Ignore the response - DELETE is best-effort in clear().
   } catch {
     // Network errors in clear() are silently ignored.
   }

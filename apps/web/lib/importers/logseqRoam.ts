@@ -1,5 +1,5 @@
 /**
- * Logseq / Roam Research importer (M20) — best-effort.
+ * Logseq / Roam Research importer (M20) - best-effort.
  *
  * ## Logseq
  *
@@ -7,7 +7,7 @@
  *
  *   pages/          (top-level pages)
  *   journals/       (daily notes, `YYYY_MM_DD.md`)
- *   assets/         (attachments — skipped by safeImportPath)
+ *   assets/         (attachments - skipped by safeImportPath)
  *
  * Logseq uses "outliner" Markdown: every paragraph is a bullet (`- content`).
  * Sub-bullets are indented:
@@ -249,7 +249,7 @@ export function parseRoamJson(text: string): ImportEntry[] {
 }
 
 // ---------------------------------------------------------------------------
-// ZIP handling — detect Logseq vs Roam
+// ZIP handling - detect Logseq vs Roam
 // ---------------------------------------------------------------------------
 
 async function convertLogseqZip(bytes: Uint8Array): Promise<ImportEntry[]> {
@@ -262,7 +262,7 @@ async function convertLogseqZip(bytes: Uint8Array): Promise<ImportEntry[]> {
     try {
       return parseRoamJson(jsonEntry.content);
     } catch {
-      // Not Roam JSON — fall through to treat as Logseq Markdown.
+      // Not Roam JSON - fall through to treat as Logseq Markdown.
     }
   }
 

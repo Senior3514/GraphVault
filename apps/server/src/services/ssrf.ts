@@ -4,12 +4,12 @@
  * Why this exists
  * ───────────────
  * Several services fetch a URL/endpoint that an *authenticated user* supplied:
- *   - the web clipper (clip.ts)        — arbitrary public page URL
- *   - WebDAV proxy (webdav.ts)         — user-supplied WebDAV base URL
- *   - S3 proxy (s3.ts)                 — custom S3-compatible `endpoint`
- *   - Azure proxy (azure.ts)           — custom `endpoint` (Azurite override)
- *   - GCS proxy (gcs.ts)               — fixed host, routed through here too
- *   - AI proxy (ai.ts)                 — custom OpenAI-compatible `baseUrl`
+ *   - the web clipper (clip.ts)        - arbitrary public page URL
+ *   - WebDAV proxy (webdav.ts)         - user-supplied WebDAV base URL
+ *   - S3 proxy (s3.ts)                 - custom S3-compatible `endpoint`
+ *   - Azure proxy (azure.ts)           - custom `endpoint` (Azurite override)
+ *   - GCS proxy (gcs.ts)               - fixed host, routed through here too
+ *   - AI proxy (ai.ts)                 - custom OpenAI-compatible `baseUrl`
  *
  * Without a guard an attacker can point any of these at `http://169.254.169.254`
  * (cloud-metadata), `http://127.0.0.1:…`, or an internal service and have the
@@ -36,7 +36,7 @@
  * Self-hosters who run a storage backend on localhost (e.g. MinIO/Azurite on
  * 127.0.0.1) can set `GRAPHVAULT_ALLOW_PRIVATE_PROXY_TARGETS=true` to relax the
  * private-address rejection. It defaults to **false** (safe). The flag never
- * applies to the clip service — clipping arbitrary user URLs is always guarded.
+ * applies to the clip service - clipping arbitrary user URLs is always guarded.
  *
  * Zero new npm dependencies: node:dns + node:http(s) only.
  */
@@ -56,14 +56,14 @@ import { badRequest } from '../errors.js';
  * Returns true if the given IPv4 or IPv6 address is in a range we must block:
  *   - IPv4 loopback:           127.0.0.0/8
  *   - IPv4 private (RFC 1918): 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
- *   - IPv4 link-local:         169.254.0.0/16  (includes 169.254.169.254 — cloud metadata)
+ *   - IPv4 link-local:         169.254.0.0/16  (includes 169.254.169.254 - cloud metadata)
  *   - IPv4 CGNAT:              100.64.0.0/10
  *   - IPv4 unspecified:        0.0.0.0/8
  *   - IPv6 loopback:           ::1
  *   - IPv6 link-local:         fe80::/10
  *   - IPv6 unique-local:       fc00::/7 (fc:: and fd::)
  *   - IPv6 unspecified:        ::
- *   - IPv4-mapped IPv6:        ::ffff:a.b.c.d — unwrapped and re-checked as IPv4
+ *   - IPv4-mapped IPv6:        ::ffff:a.b.c.d - unwrapped and re-checked as IPv4
  */
 export function isPrivateOrLoopbackIp(address: string): boolean {
   // Normalise lowercase.
@@ -89,22 +89,22 @@ export function isPrivateOrLoopbackIp(address: string): boolean {
   // --- IPv4 ---
   const parts = addr.split('.').map(Number);
   if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
-    // Unparseable address — block it to be safe.
+    // Unparseable address - block it to be safe.
     return true;
   }
   const [a, b, c] = parts as [number, number, number, number];
 
-  if (a === 127) return true; // 127.0.0.0/8 — loopback
-  if (a === 0) return true; // 0.0.0.0/8 — unspecified
-  if (a === 10) return true; // 10.0.0.0/8 — RFC 1918
-  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 — RFC 1918
-  if (a === 192 && b === 168) return true; // 192.168.0.0/16 — RFC 1918
-  if (a === 169 && b === 254) return true; // 169.254.0.0/16 — link-local + metadata
-  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 — CGNAT
-  if (a === 192 && b === 0 && c === 2) return true; // 192.0.2.0/24 — TEST-NET-1
-  if (a === 198 && b === 51 && c === 100) return true; // 198.51.100.0/24 — TEST-NET-2
-  if (a === 203 && b === 0 && c === 113) return true; // 203.0.113.0/24 — TEST-NET-3
-  if (a === 240) return true; // 240.0.0.0/4 — reserved
+  if (a === 127) return true; // 127.0.0.0/8 - loopback
+  if (a === 0) return true; // 0.0.0.0/8 - unspecified
+  if (a === 10) return true; // 10.0.0.0/8 - RFC 1918
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 - RFC 1918
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16 - RFC 1918
+  if (a === 169 && b === 254) return true; // 169.254.0.0/16 - link-local + metadata
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 - CGNAT
+  if (a === 192 && b === 0 && c === 2) return true; // 192.0.2.0/24 - TEST-NET-1
+  if (a === 198 && b === 51 && c === 100) return true; // 198.51.100.0/24 - TEST-NET-2
+  if (a === 203 && b === 0 && c === 113) return true; // 203.0.113.0/24 - TEST-NET-3
+  if (a === 240) return true; // 240.0.0.0/4 - reserved
   if (a === 255 && b === 255 && c === 255 && parts[3] === 255) return true; // broadcast
 
   return false;
@@ -227,7 +227,7 @@ export async function assertSafeUrl(
   if (!allowPrivate) {
     for (const addr of addresses) {
       if (isPrivateOrLoopbackIp(addr)) {
-        // Generic message — do not leak which address/range matched.
+        // Generic message - do not leak which address/range matched.
         throw badRequest('URL resolves to a blocked private address (SSRF protection)');
       }
     }
@@ -247,7 +247,7 @@ function isIpLiteral(host: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Pinned transport (node:http / node:https) — overridable for tests
+// Pinned transport (node:http / node:https) - overridable for tests
 // ---------------------------------------------------------------------------
 
 export interface GuardedFetchInit {
@@ -260,7 +260,7 @@ export interface GuardedFetchInit {
    * Stream the response body instead of buffering it. When set, a 2xx response
    * resolves as soon as headers arrive and its `body` is the live response
    * stream (so the caller can relay chunks without holding the whole payload in
-   * memory). The DNS-pin / SSRF revalidation is unchanged — only the body tail
+   * memory). The DNS-pin / SSRF revalidation is unchanged - only the body tail
    * differs. Redirects are still followed via the buffered small-response path
    * (3xx bodies are tiny); only the final 2xx is streamed. See `docs/ai-bff.md`
    * §5.
@@ -268,7 +268,7 @@ export interface GuardedFetchInit {
   stream?: boolean;
   /**
    * Optional AbortSignal. When it fires the in-flight request is destroyed,
-   * which propagates to the underlying socket — used to stop a streamed upstream
+   * which propagates to the underlying socket - used to stop a streamed upstream
    * generation the moment the downstream client disconnects.
    */
   signal?: AbortSignal;
@@ -353,7 +353,7 @@ const defaultTransport: GuardedTransport = (url, init, pinnedAddresses) => {
         }
 
         // Streaming mode: resolve as soon as headers arrive and hand back a
-        // Response whose body is the live socket stream — but ONLY for a final
+        // Response whose body is the live socket stream - but ONLY for a final
         // 2xx. 3xx redirects keep the buffered tail so guardedFetch can read the
         // (tiny) body and chase the Location, re-running the full SSRF check on
         // the next hop. Everything above this point (DNS pin, revalidation) is
@@ -469,7 +469,7 @@ export async function guardedFetch(
   // Body/method are only resent on the first hop; redirects become GET with no
   // body (matching browser/fetch semantics for 301/302/303 on non-GET is more
   // nuanced, but our proxies issue a single request and rarely chase redirects
-  // with a body — keeping the body only on hop 0 is the safe, simple choice).
+  // with a body - keeping the body only on hop 0 is the safe, simple choice).
   let hopInit: GuardedFetchInit = init;
 
   while (hops <= maxRedirects) {

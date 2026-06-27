@@ -11,8 +11,8 @@
  * Persistence is now delegated to the active {@link StorageAdapter}. The
  * registry is pre-populated with adapters in preferred order:
  *
- *   1. {@link fileSystemAdapter} — File System Access API (Chromium, opt-in).
- *   2. {@link localStorageAdapter} — universal browser fallback.
+ *   1. {@link fileSystemAdapter} - File System Access API (Chromium, opt-in).
+ *   2. {@link localStorageAdapter} - universal browser fallback.
  *
  * Because the File System adapter requires an explicit user gesture to pick a
  * folder, `isAvailable()` returns `false` until `FileSystemAdapter.create()`
@@ -32,17 +32,17 @@ import { gcsAdapter } from './storage/gcsAdapter';
 import { getActiveAdapter, registerAdapter, type StorageAdapter } from './storage/index';
 
 // ---------------------------------------------------------------------------
-// One-time adapter registration (safe to call multiple times — registry is
+// One-time adapter registration (safe to call multiple times - registry is
 // never reset in production). Adapters are probed in registration order; the
 // first available one wins.
 //
 // Priority order:
-//   1. webdavAdapter  — WebDAV server proxy (available when signed in + configured)
-//   2. s3Adapter      — S3-compatible server proxy (available when signed in + configured)
-//   3. azureAdapter   — Azure Blob server proxy (available when signed in + configured)
-//   4. gcsAdapter     — Google Cloud Storage server proxy (available when signed in + configured)
-//   5. fileSystemAdapter — File System Access API (Chromium, opt-in)
-//   6. localStorageAdapter — universal browser fallback (always last)
+//   1. webdavAdapter  - WebDAV server proxy (available when signed in + configured)
+//   2. s3Adapter      - S3-compatible server proxy (available when signed in + configured)
+//   3. azureAdapter   - Azure Blob server proxy (available when signed in + configured)
+//   4. gcsAdapter     - Google Cloud Storage server proxy (available when signed in + configured)
+//   5. fileSystemAdapter - File System Access API (Chromium, opt-in)
+//   6. localStorageAdapter - universal browser fallback (always last)
 //
 // All server-proxy adapters are listed before the local adapters so that
 // once configured, saving goes directly to the user's own storage without
@@ -73,7 +73,7 @@ export { azureAdapter, AzureStorageAdapter } from './storage/azureAdapter';
 export { gcsAdapter, GcsStorageAdapter } from './storage/gcsAdapter';
 
 // ---------------------------------------------------------------------------
-// LocalStorageVaultStore — backward-compatible concrete class
+// LocalStorageVaultStore - backward-compatible concrete class
 //
 // Kept so existing imports of `LocalStorageVaultStore` keep compiling and
 // behaving identically to before. Internally it now delegates to
@@ -105,7 +105,7 @@ export class LocalStorageVaultStore implements VaultStore {
 }
 
 // ---------------------------------------------------------------------------
-// AdapterVaultStore — the preferred VaultStore implementation going forward
+// AdapterVaultStore - the preferred VaultStore implementation going forward
 //
 // Delegates to whatever adapter is currently active (or to a specific adapter
 // passed in the constructor). Use this for new code.

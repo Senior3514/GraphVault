@@ -88,7 +88,7 @@ function buildResolutionMaps(nodes: Map<string, GraphNode>): ResolutionMaps {
 /** Resolve a single parsed link to a target note id, or `null` if unresolved. */
 function resolveTarget(link: ParsedLink, sourcePath: string, maps: ResolutionMaps): string | null {
   // NFC-normalize the target and source so an NFD link (`[[café]]`) resolves to
-  // an NFC note (`café.md`) — paths are a single canonical identity (spec §2.1).
+  // an NFC note (`café.md`) - paths are a single canonical identity (spec §2.1).
   const rawTarget = nfc(link.target.trim());
   sourcePath = nfc(sourcePath);
   if (rawTarget === '') return null;

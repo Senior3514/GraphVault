@@ -3,7 +3,7 @@
 > Local-first notes. Self-hosted sync. A graph you can think in.
 
 Write in plain Markdown, own your data forever, and navigate ideas through a
-force-directed graph that actually earns its place in daily thinking — not a
+force-directed graph that actually earns its place in daily thinking - not a
 decorative hairball. No account required to start; self-hosted sync is optional.
 
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
@@ -16,9 +16,9 @@ Most note apps either lock your data behind a proprietary format or make you
 choose a folder and grant file-system permissions before you can write a single
 word. GraphVault does neither:
 
-- Open the app — your vault is already there.
-- Write in plain `.md` files — open them in any editor, export them any time.
-- Self-host the sync server on a VPS you control — no subscription, no
+- Open the app - your vault is already there.
+- Write in plain `.md` files - open them in any editor, export them any time.
+- Self-host the sync server on a VPS you control - no subscription, no
   third-party cloud.
 - Navigate your ideas through a live graph of notes and links.
 
@@ -28,7 +28,7 @@ word. GraphVault does neither:
 
 ### Markdown vault
 
-- Split / edit / preview toggle (`Cmd/Ctrl+E`) with a `<textarea>` editor —
+- Split / edit / preview toggle (`Cmd/Ctrl+E`) with a `<textarea>` editor -
   Markdown is always first-class.
 - `[[wikilink]]` autocomplete as you type; navigating a link to a missing note
   creates it automatically.
@@ -66,14 +66,14 @@ Press `Cmd/Ctrl+K` from anywhere in the app:
 - Collapse, expand, or maximize any pane; layout is persisted across sessions.
 - Editor tabs: open/close/reorder, dirty indicator, "+"; split view
   (editor + preview or two notes side-by-side).
-- Per-tab autosave flushes before switch/close/unmount — no lost edits.
+- Per-tab autosave flushes before switch/close/unmount - no lost edits.
 
-### Data portability — no lock-in
+### Data portability - no lock-in
 
-- **Export to Markdown `.zip`** — a STORE-method archive of raw `.md` files
+- **Export to Markdown `.zip`** - a STORE-method archive of raw `.md` files
   with the original folder structure. Unzip it anywhere; the result is plain
   text readable in any editor.
-- **Export to JSON** — a versioned single-file backup
+- **Export to JSON** - a versioned single-file backup
   (`format: "graphvault-vault"`, `version: 1`).
 - **Import** from `.zip`, `.json`, `.md`, `.markdown`, or `.txt`.
 - Import never overwrites: if a note already exists with different content, the
@@ -92,20 +92,20 @@ See [`docs/data-portability.md`](docs/data-portability.md) for the full spec.
 - Sync Status page: server health, last sync time, pending change count,
   conflict list.
 - Settings → Sync server: enter your server URL, **sign in / register**, and
-  **register a vault** — all wired in the web client UI.
+  **register a vault** - all wired in the web client UI.
 
 See [`docs/sync-protocol.md`](docs/sync-protocol.md) for the canonical protocol.
 
 ### Server-proxied cloud storage
 
 Keep your vault in a cloud bucket **without the browser ever holding the
-provider credentials** — the server stores them encrypted at rest and proxies a
+provider credentials** - the server stores them encrypted at rest and proxies a
 single object. Configure any of these in **Settings** after signing in:
 **S3-compatible**, **WebDAV**, **Azure Blob Storage**, or **Google Cloud
 Storage**. (Drive/OneDrive OAuth are not shipped.) See
 [`apps/server/README.md`](apps/server/README.md#server-proxied-cloud-storage-bff).
 
-### Sharing — public graph snapshots
+### Sharing - public graph snapshots
 
 Share a **read-only** snapshot of your graph via a short link (`/embed?id=…`)
 instead of a giant URL. This is an **opt-in server feature**, off by default;
@@ -120,13 +120,13 @@ Settings; the server stores it encrypted at rest and adds it server-side, with a
 per-user/day request cap (`GRAPHVAULT_AI_DAILY_CAP`). The assistant shows you
 exactly what context it will send before each request.
 
-### MCP server — vault access for agents
+### MCP server - vault access for agents
 
 [`@graphvault/mcp`](packages/mcp/README.md) is a standalone stdio
 [Model Context Protocol](https://modelcontextprotocol.io) server that exposes a
 vault to agents (e.g. Claude Desktop): notes as **resources**, read tools
 (list/read/search/backlinks/neighbors), one-click **prompts**, and **opt-in,
-conflict-safe write tools** (enabled only when a device id is configured — a
+conflict-safe write tools** (enabled only when a device id is configured - a
 concurrent edit is reported as a conflict, never silently overwritten).
 
 ### Web clipper + URL clipping
@@ -137,7 +137,7 @@ concurrent edit is reported as a conflict, never silently overwritten).
 - **Server-side URL clip** (`POST /v1/clip`): fetch a URL and convert it to
   Markdown server-side, behind an SSRF guard.
 
-### Inbound webhook — "connect anything"
+### Inbound webhook - "connect anything"
 
 Mint a per-connector token and let an external service (Zapier, an email
 forwarder, a `curl` in cron, …) POST Markdown that lands as a **new note**, with
@@ -161,16 +161,16 @@ sessions.
 ### Focus mode
 
 A distraction-free editing mode that hides the surrounding app chrome so only
-the editor remains — toggleable from the command palette.
+the editor remains - toggleable from the command palette.
 
 ### Security by default
 
-- No telemetry — the app contacts only the server URL you configure.
+- No telemetry - the app contacts only the server URL you configure.
 - TLS via a reverse proxy (Caddy/nginx); Argon2id password hashing; opaque
   device-bound bearer tokens.
 - Optional AES-256-GCM at-rest blob encryption on the server (key is
   base64-encoded, decoding to exactly 32 bytes).
-- **Browser-side vault encryption** — enable it in **Settings → Vault
+- **Browser-side vault encryption** - enable it in **Settings → Vault
   encryption**: the local vault store is encrypted at rest with AES-256-GCM, the
   key derived from your passphrase via PBKDF2-SHA-256 (310 000 iterations).
 - Cloud-storage and AI credentials are stored **encrypted on the server** and
@@ -200,14 +200,14 @@ the web app, a future desktop shell, and other tooling can share them.
 apps/
   server/      Fastify + TypeScript sync & API server (auth, vaults, pull/push,
                blobs, cloud-storage proxies, AI proxy, URL clip, snapshots, inbox)
-  web/         Next.js (App Router) web client — editor, search, graph UI,
+  web/         Next.js (App Router) web client - editor, search, graph UI,
                export/import, AI assistant, sharing; persists to browser
                localStorage today (native .md on disk arrives with the Tauri shell)
   desktop/     Tauri 2 shell wrapping the web client (M16 scaffold; native
                .md-on-disk storage adapter is built but not yet wired end-to-end)
   extension/   Manifest V3 web-clipper (page/selection → Markdown → vault)
 packages/
-  shared/      Wire types, zod schemas, hashing — single source of truth
+  shared/      Wire types, zod schemas, hashing - single source of truth
   engine/      Graph engine: Markdown parsing, link/tag index, graph queries
   sync-core/   UI-independent sync protocol logic (scan/pull/push/settle)
   cli/         Command-line vault tooling (list/search/stats/graph/serve)
@@ -227,13 +227,13 @@ vercel.json             Static-export build config for Vercel
 ```
 
 The server stores **bytes and revisions** and stays ignorant of note semantics.
-Intelligence — links, graph, search — lives client-side in
+Intelligence - links, graph, search - lives client-side in
 `@graphvault/engine`. The graph view is the hero surface of the client.
 
 The web client persists notes to **browser localStorage** (or an encrypted store
 when vault encryption is on). A **Tauri 2 desktop shell** wraps the same web
 client; its native `.md`-on-disk storage adapter is built against the existing
-`StorageAdapter` seam but not yet wired end-to-end — see
+`StorageAdapter` seam but not yet wired end-to-end - see
 [`apps/desktop/README.md`](apps/desktop/README.md).
 
 ---
@@ -246,22 +246,22 @@ client; its native `.md`-on-disk storage adapter is built against the existing
 
 ---
 
-## Install — one command per surface
+## Install - one command per surface
 
 GraphVault runs everywhere, with a single command for each surface:
 
 | Surface                           | Command                                   | Notes                                                                                                                                                       |
 | --------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Use the web app**               | _(none — just open the URL)_              | Static export; runs in any modern browser on any OS.                                                                                                        |
+| **Use the web app**               | _(none - just open the URL)_              | Static export; runs in any modern browser on any OS.                                                                                                        |
 | **Self-host the sync server**     | `docker compose up -d --build`            | Brings up the server + PostgreSQL. Linux/macOS/Windows with Docker.                                                                                         |
 | **Desktop app** (Win/macOS/Linux) | `pnpm --filter @graphvault/desktop build` | Builds the Tauri shell into native installers (requires the Rust toolchain). The shell runs today; native `.md`-on-disk storage is still being wired (M16). |
 
-The web client is **local-first** — it works fully offline with no account; the
+The web client is **local-first** - it works fully offline with no account; the
 sync server is optional and only needed for multi-device sync.
 
 ---
 
-## Quickstart — local development
+## Quickstart - local development
 
 ```bash
 # Install all workspace dependencies
@@ -308,7 +308,7 @@ reference and PostgreSQL backend setup.
 
 ---
 
-## Quickstart — self-hosted (Docker)
+## Quickstart - self-hosted (Docker)
 
 ```bash
 cp docker/env.example .env      # set POSTGRES_PASSWORD, CORS origin, etc.
@@ -325,14 +325,14 @@ curl -X POST http://127.0.0.1:4000/v1/auth/register \
 ```
 
 Put a TLS-terminating reverse proxy (Caddy or nginx) in front before exposing
-the server publicly. Full instructions — env reference, TLS, backups, restore,
-upgrades — are in [`docs/deployment.md`](docs/deployment.md).
+the server publicly. Full instructions - env reference, TLS, backups, restore,
+upgrades - are in [`docs/deployment.md`](docs/deployment.md).
 
 ---
 
 ## Deploy the web app to Vercel
 
-The web client is a **fully static Next.js export** — no server runtime
+The web client is a **fully static Next.js export** - no server runtime
 required. It opens straight into a vault backed by browser localStorage. Point
 it at a self-hosted server to add multi-device sync.
 
@@ -386,22 +386,22 @@ See [`docs/deployment.md`](docs/deployment.md) for details.
 | 8   | Security and settings                              | done                                                                         |
 | 9   | Docker and packaging                               | done                                                                         |
 | 10  | Docs                                               | done                                                                         |
-| 11  | Portability (export/import)                        | partial — zip/json/md done; drag-and-drop and File System Access API planned |
+| 11  | Portability (export/import)                        | partial - zip/json/md done; drag-and-drop and File System Access API planned |
 | 12  | Workspace panes and window controls                | done                                                                         |
 | 13  | Command palette and power editing                  | done                                                                         |
 | 14  | Upgraded graph (physics, highlight, legend)        | done                                                                         |
-| 15  | Browser-side vault encryption                      | done — Settings → Vault encryption (PBKDF2 + AES-256-GCM)                    |
-| 16  | True local desktop (Tauri)                         | partial — Tauri shell runs; native `.md`-on-disk adapter not yet wired       |
+| 15  | Browser-side vault encryption                      | done - Settings → Vault encryption (PBKDF2 + AES-256-GCM)                    |
+| 16  | True local desktop (Tauri)                         | partial - Tauri shell runs; native `.md`-on-disk adapter not yet wired       |
 | 18  | Server-proxied cloud storage (S3/WebDAV/Azure/GCS) | done                                                                         |
 | 22  | AI proxy + URL/web clipper + MCP server            | done                                                                         |
-| —   | Public graph snapshots / embed                     | done (opt-in, off by default)                                                |
-| —   | Inbound webhook / inbox + audit log                | done (on by default; inert until a token is minted)                          |
-| —   | Light/dark theming, focus mode                     | done                                                                         |
+| -   | Public graph snapshots / embed                     | done (opt-in, off by default)                                                |
+| -   | Inbound webhook / inbox + audit log                | done (on by default; inert until a token is minted)                          |
+| -   | Light/dark theming, focus mode                     | done                                                                         |
 | 17  | Polish, onboarding, and launch                     | in progress                                                                  |
 
 > **What's genuinely still in progress:** the **Tauri desktop shell** runs and
 > wraps the web client, but its native `.md`-on-disk storage adapter is built
-> against the storage seam and **not yet wired end-to-end** — the web client
+> against the storage seam and **not yet wired end-to-end** - the web client
 > still persists to browser localStorage. **Drive/OneDrive OAuth** cloud
 > backends are **not** shipped (S3, WebDAV, Azure Blob, and GCS are).
 
@@ -429,4 +429,4 @@ find it and signals demand for continued development. Thank you.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).

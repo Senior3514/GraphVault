@@ -5,7 +5,7 @@
  *
  * Registers /sw.js on mount. The SW is served from the same origin as the
  * app, so this stays within the `default-src 'self'` / `script-src 'self'`
- * CSP. Renders no DOM — purely a side-effect component.
+ * CSP. Renders no DOM - purely a side-effect component.
  *
  * Registration is skipped silently when:
  *  - The browser does not support service workers (e.g. non-HTTPS, old browsers).
@@ -20,7 +20,7 @@ export function ServiceWorkerRegistrar() {
 
     // Only register over secure contexts (HTTPS or localhost).
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
-      // Non-fatal — app works without the SW, just no offline support.
+      // Non-fatal - app works without the SW, just no offline support.
       console.warn('[GraphVault] SW registration failed:', err);
     });
   }, []);
