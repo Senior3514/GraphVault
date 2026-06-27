@@ -991,6 +991,57 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 ### Slice-A doc may ship unformatted — don't "fix" files outside your ownership
 
 - **Symptom:** `pnpm format:check` (repo-wide) flagged `docs/ai-bff.md`, which the server slice doesn't own and didn't touch. It was already non-prettier-compliant on the base `ai-bff` branch (Slice A). **Rule:** verify a format/lint failure pre-exists on the base branch and is outside your path set before touching it; format only your own files. Prisma's `schema.prisma` has no prettier parser (expected `No parser could be inferred`) — exclude it from per-file format checks.
+
+## SecAudit — session https://claude.ai/code/session_01Qw5rxHnoo4J3PuVwfEo79v
+
+### VULN-1 (REAL, FIXED): WebDAV proxy path-traversal via URL-encoded dots
+
+- **File / line:** `packages/shared/src/webdav.ts` `webdavProxyPathSchema` refine;
+  `apps/server/src/services/webdav.ts` `joinWebDavUrl`.
+- **Root cause:** the proxy path schema only checked `p.includes('..')`. Fastify
+  decodes wildcard path params exactly once, so a double-encoded input
+  `%252e%252e` arrives in the handler as `%2e%2e` — no literal `..`, so the check
+  passed. The resulting path was appended to the WebDAV base URL and sent upstream;
+  the remote WebDAV server decoded `%2e%2e` to `..` and resolved files outside the
+  configured directory.
+- **Exploit path:** `GET /v1/storage/webdav/proxy/%252e%252e%2fetc%2fpasswd` →
+  old schema allows it → `joinWebDavUrl` appends `%2e%2e/etc/passwd` →
+  upstream WebDAV server sees `../etc/passwd` and reads outside the base.
+- **Fix:** added `containsPathTraversal(p)` in both files (shared schema + service
+  layer). The function: (1) fast-path literal `..` check, (2) reject any `%2e` or
+  `%252e` in the raw string, (3) iteratively `decodeURIComponent` until stable
+  and re-check for `..`. Malformed percent sequences also rejected.
+- **Rule:** `String.includes('..')` is NEVER sufficient for path traversal guards on
+  values that may be URL-encoded. Always fully decode (iteratively) before checking,
+  AND also reject percent-encoded dot forms (`%2e`, `%252e`) in the raw string as a
+  fast path. Apply both checks at the schema boundary AND at the service layer
+  (belt-and-suspenders), since schema validation can be bypassed by direct service
+  calls or future refactors.
+- **Tests:** `apps/server/test/sec-audit.test.ts` — VULN-1 tests were written
+  FAILING first (proved exploitable), then the fix was applied and all pass.
+
+### CONFIRMED SOLID — areas audited and found secure (no new bugs)
+
+- **SSRF (all proxies):** WebDAV/S3/Azure/GCS/AI custom endpoint/clip all route
+  through `guardedFetch` in `services/ssrf.ts`. DNS-pinned transport prevents
+  TOCTOU rebinding. Per-redirect-hop re-validation. IPv4-mapped IPv6 unwrapping.
+  Private-target opt-in behind `GRAPHVAULT_ALLOW_PRIVATE_PROXY_TARGETS` (clip
+  never relaxed). SSRF error messages do not leak the blocked IP or hostname.
+- **Credential handling:** AI apiKey, WebDAV/S3/Azure/GCS passwords all AES-256-GCM
+  encrypted at rest (per-user HKDF-derived key). GET config endpoints return only
+  non-secret info fields; `encryptedPassword`/`apiKey` never appear in responses.
+- **Authorization:** every vault/blob/config route enforces `requireOwned` via
+  `requireAuth` hook + `assertVaultOwner`; cross-user access returns 403 FORBIDDEN.
+  Device-binding checked on sync push.
+- **Snapshot store:** off by default (`GRAPHVAULT_SNAPSHOTS_ENABLED`); payload
+  treated as opaque string (never parsed/executed server-side); `deleteToken`
+  returned only on POST and never on GET; server stores only the SHA-256 hash with
+  `timingSafeEqual` comparison; size cap (413) + count cap with oldest-first
+  eviction + TTL sweep; strict `^[A-Za-z0-9_-]{16,32}$` id validation guards
+  any filesystem path.
+- **Input validation:** hash path params validated against `sha256:[0-9a-f]{64}`
+  before filesystem access; all external inputs validated via zod schemas from
+  `@graphvault/shared`.
 - **Bug:** `buildIndex` did last-write-wins on nodes but built edges from ALL parsed entries, so a discarded duplicate's links survived as phantom edges. **Fix:** dedup parsed entries by path (last-wins) before building edges so nodes and edges stays consistent.
 
 ## DataSafe audit — beforeunload / React async-effect gap
