@@ -150,16 +150,40 @@ key when unset) and **never returns it to the client**. The browser sends only
 the chat prompt; the key is attached server-side. All routes require a bearer
 token.
 
-| Method   | Path            | Body                           | Returns                                |
-| -------- | --------------- | ------------------------------ | -------------------------------------- |
-| `POST`   | `/v1/ai/config` | `{ apiKey, gateway?, model? }` | `204` (key stored encrypted at rest)   |
-| `GET`    | `/v1/ai/config` | —                              | `{ keySet, gateway, model }` (no key)  |
-| `DELETE` | `/v1/ai/config` | —                              | `204` (removes the config)             |
-| `POST`   | `/v1/ai/chat`   | chat-completion request        | forwarded completion from the upstream |
+| Method   | Path            | Body                                                           | Returns                                                            |
+| -------- | --------------- | -------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `POST`   | `/v1/ai/config` | `{ apiKey, gateway?, model?, spendCapUsd?, dailyRequestCap? }` | `201` (key stored encrypted at rest)                               |
+| `GET`    | `/v1/ai/config` | —                                                              | `{ keySet, gateway, model, spendCapUsd?, spendCapState }` (no key) |
+| `DELETE` | `/v1/ai/config` | —                                                              | `204` (removes the config)                                         |
+| `POST`   | `/v1/ai/chat`   | `{ messages, model?, stream? }`                                | forwarded completion (`{ content, model?, usage? }`)               |
 
-`POST /v1/ai/chat` is bounded by `GRAPHVAULT_AI_DAILY_CAP` (per-user/day request
-cap; default `200`, `0` = unlimited — discouraged in production without
-key-level billing controls).
+### Streaming (`stream: true`)
+
+`POST /v1/ai/chat` with `stream: true` responds with **Server-Sent Events**
+(`text/event-stream`, `X-Accel-Buffering: no` to defeat nginx/Caddy buffering).
+The server is a **translating relay**: it parses the upstream OpenAI-compatible
+stream and re-emits a stable, provider-agnostic frame set — never the raw
+upstream JSON. Named events: `delta` (text chunk), `usage` (token/cost
+accounting), `done` (resolved model), `error` (sanitised, key redacted). A
+`:keepalive` heartbeat is sent every ~15s; a client disconnect aborts the
+upstream fetch so a closed tab stops burning the user's budget.
+
+### Spend caps (durable, per-user/day; resets at UTC midnight)
+
+Two independent caps share one UTC-day window, **persisted in the storage layer**
+(`AiSpendWindowRecord`) so they survive a restart:
+
+- **request count** — per-user `dailyRequestCap` (config) or the
+  `GRAPHVAULT_AI_DAILY_CAP` env default (`200`); `0` = unlimited.
+- **monetary spend** — per-user `spendCapUsd` (config); unset/`0` = no `$` cap.
+
+Caps are **soft**: the cost is unknown until generation completes, so one
+in-flight call may cross the cap and the **next** call is refused with `429
+RATE_LIMITED`. The committed cost is the provider-reported dollar amount; when the
+gateway reports none the server records `costUsd: 0` and relies on the request
+cap — it never estimates. `GET /v1/ai/config` surfaces `spendCapState`
+(`ok`/`warning`/`exceeded` + accrued spend/requests + reset time) so the client
+can render a budget meter and gate the send button. The key is never returned.
 
 ## URL web-clipper (M22)
 

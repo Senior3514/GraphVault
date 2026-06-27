@@ -145,6 +145,36 @@ export interface AiConfigRecord {
   baseUrl?: string;
   /** Default model string (e.g. "openai/gpt-4o-mini" for OpenRouter). */
   model?: string;
+  /**
+   * Per-user/day monetary cap in USD. Undefined / 0 = no monetary cap. Stored
+   * (non-secret) so the cap survives restart and the config GET can surface it.
+   */
+  spendCapUsd?: number;
+  /**
+   * Per-user/day request cap. Undefined falls back to the server's
+   * GRAPHVAULT_AI_DAILY_CAP. 0 = unlimited.
+   */
+  dailyRequestCap?: number;
+  updatedAt: string; // ISO-8601
+}
+
+/**
+ * Durable per-user/day AI spend window. Replaces the old in-process daily
+ * request counter so caps survive a restart. One row per user; the active
+ * window is identified by `windowDate` (UTC "YYYY-MM-DD"). When a commit lands
+ * on a new day the counters reset to a fresh window. Both the monetary cap
+ * (`spentUsd` vs the config's `spendCapUsd`) and the request cap (`requests` vs
+ * `dailyRequestCap` / `GRAPHVAULT_AI_DAILY_CAP`) are enforced against this row.
+ * See `docs/ai-bff.md` §4.
+ */
+export interface AiSpendWindowRecord {
+  userId: string;
+  /** "YYYY-MM-DD" UTC — the active window. */
+  windowDate: string;
+  /** Requests committed in this window. */
+  requests: number;
+  /** Provider-reported USD cost accrued in this window (0 when none reported). */
+  spentUsd: number;
   updatedAt: string; // ISO-8601
 }
 
@@ -257,6 +287,25 @@ export interface Storage {
   getAiConfig(userId: string): Promise<AiConfigRecord | null>;
   upsertAiConfig(record: AiConfigRecord): Promise<void>;
   deleteAiConfig(userId: string): Promise<void>;
+
+  // --- AI durable spend/request window ---
+  /**
+   * The user's current spend window, or null if none has been committed yet.
+   * Callers must treat a window whose `windowDate !== today` as empty (lazy
+   * reset) — the stored row is only rolled over on the next {@link commitAiSpend}.
+   */
+  getAiSpendWindow(userId: string): Promise<AiSpendWindowRecord | null>;
+  /**
+   * Atomically add `addUsd` and `addRequests` to the user's window for `today`
+   * (UTC "YYYY-MM-DD"). When the stored window predates `today` it is reset to a
+   * fresh window before adding. Returns the post-commit record.
+   */
+  commitAiSpend(
+    userId: string,
+    addUsd: number,
+    addRequests: number,
+    today: string,
+  ): Promise<AiSpendWindowRecord>;
 
   // --- inbox ("connect anything") tokens ---
   createInboxToken(record: InboxTokenRecord): Promise<void>;

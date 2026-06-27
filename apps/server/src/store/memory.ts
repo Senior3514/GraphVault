@@ -1,6 +1,7 @@
 import type { FileState } from '@graphvault/shared';
 import type {
   AiConfigRecord,
+  AiSpendWindowRecord,
   AzureConfigRecord,
   BlobRecord,
   ChangesPage,
@@ -38,6 +39,8 @@ export class InMemoryStorage implements Storage {
   private readonly azureConfigs = new Map<string, AzureConfigRecord>();
   private readonly gcsConfigs = new Map<string, GcsConfigRecord>();
   private readonly aiConfigs = new Map<string, AiConfigRecord>();
+  /** userId -> durable AI spend/request window. */
+  private readonly aiSpendWindows = new Map<string, AiSpendWindowRecord>();
   /** tokenHash -> record (the inbound lookup key). */
   private readonly inboxTokens = new Map<string, InboxTokenRecord>();
   /** userId -> capped, newest-last list of audit entries. */
@@ -227,6 +230,34 @@ export class InMemoryStorage implements Storage {
 
   async deleteAiConfig(userId: string): Promise<void> {
     this.aiConfigs.delete(userId);
+  }
+
+  async getAiSpendWindow(userId: string): Promise<AiSpendWindowRecord | null> {
+    const record = this.aiSpendWindows.get(userId);
+    return record ? { ...record } : null;
+  }
+
+  async commitAiSpend(
+    userId: string,
+    addUsd: number,
+    addRequests: number,
+    today: string,
+  ): Promise<AiSpendWindowRecord> {
+    const existing = this.aiSpendWindows.get(userId);
+    // Lazy reset: a window from a previous day starts fresh.
+    const base =
+      existing && existing.windowDate === today
+        ? existing
+        : { userId, windowDate: today, requests: 0, spentUsd: 0, updatedAt: '' };
+    const next: AiSpendWindowRecord = {
+      userId,
+      windowDate: today,
+      requests: base.requests + addRequests,
+      spentUsd: base.spentUsd + addUsd,
+      updatedAt: InMemoryStorage.now(),
+    };
+    this.aiSpendWindows.set(userId, next);
+    return { ...next };
   }
 
   async createInboxToken(record: InboxTokenRecord): Promise<void> {

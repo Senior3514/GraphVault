@@ -1,6 +1,7 @@
 import type { FileState } from '@graphvault/shared';
 import type {
   AiConfigRecord,
+  AiSpendWindowRecord,
   AzureConfigRecord,
   BlobRecord,
   ChangesPage,
@@ -46,6 +47,7 @@ interface PrismaLike {
   azureConfig: any;
   gcsConfig: any;
   aiConfig: any;
+  aiSpendWindow: any;
   inboxToken: any;
   inboxAuditEntry: any;
   $transaction<T>(fn: (tx: PrismaLike) => Promise<T>): Promise<T>;
@@ -360,6 +362,8 @@ export class PrismaStorage implements Storage {
       gateway: row.gateway as AiConfigRecord['gateway'],
       baseUrl: row.baseUrl ?? undefined,
       model: row.model ?? undefined,
+      spendCapUsd: row.spendCapUsd ?? undefined,
+      dailyRequestCap: row.dailyRequestCap ?? undefined,
       updatedAt: toIso(row.updatedAt),
     };
   }
@@ -370,6 +374,8 @@ export class PrismaStorage implements Storage {
       gateway: record.gateway,
       baseUrl: record.baseUrl ?? null,
       model: record.model ?? null,
+      spendCapUsd: record.spendCapUsd ?? null,
+      dailyRequestCap: record.dailyRequestCap ?? null,
     };
     await this.db.aiConfig.upsert({
       where: { userId: record.userId },
@@ -380,6 +386,40 @@ export class PrismaStorage implements Storage {
 
   async deleteAiConfig(userId: string): Promise<void> {
     await this.db.aiConfig.deleteMany({ where: { userId } });
+  }
+
+  // ---- AI durable spend/request window ----
+
+  async getAiSpendWindow(userId: string): Promise<AiSpendWindowRecord | null> {
+    const row = await this.db.aiSpendWindow.findUnique({ where: { userId } });
+    return row ? mapAiSpendWindow(row) : null;
+  }
+
+  async commitAiSpend(
+    userId: string,
+    addUsd: number,
+    addRequests: number,
+    today: string,
+  ): Promise<AiSpendWindowRecord> {
+    return this.db.$transaction(async (tx) => {
+      const existing = await tx.aiSpendWindow.findUnique({ where: { userId } });
+      // Lazy reset: a window from a previous day starts fresh.
+      const base =
+        existing && existing.windowDate === today
+          ? { requests: existing.requests as number, spentUsd: existing.spentUsd as number }
+          : { requests: 0, spentUsd: 0 };
+      const data = {
+        windowDate: today,
+        requests: base.requests + addRequests,
+        spentUsd: base.spentUsd + addUsd,
+      };
+      const row = await tx.aiSpendWindow.upsert({
+        where: { userId },
+        create: { userId, ...data },
+        update: data,
+      });
+      return mapAiSpendWindow(row);
+    });
   }
 
   // ---- inbox tokens ----
@@ -479,6 +519,22 @@ function mapFileState(path: string, v: VersionRow): FileState {
     mtime: Number(v.mtime),
     deleted: v.deleted,
     revision: v.revision,
+  };
+}
+
+function mapAiSpendWindow(row: {
+  userId: string;
+  windowDate: string;
+  requests: number;
+  spentUsd: number;
+  updatedAt: Date | string;
+}): AiSpendWindowRecord {
+  return {
+    userId: row.userId,
+    windowDate: row.windowDate,
+    requests: row.requests,
+    spentUsd: row.spentUsd,
+    updatedAt: toIso(row.updatedAt),
   };
 }
 

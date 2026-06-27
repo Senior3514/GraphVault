@@ -20,6 +20,7 @@
  */
 
 import type { AISettings, ChatMessage } from './types';
+import { readAiStream, type AiStreamHandlers } from './stream';
 
 /** Maximum characters we'll send in a single prompt to avoid huge payloads. */
 const MAX_CONTEXT_CHARS = 32_000;
@@ -254,4 +255,105 @@ export async function chat(
     messages,
     settings.serverModel.trim() || undefined,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Streaming server proxy chat (used by 'server' mode when streaming is enabled)
+// ---------------------------------------------------------------------------
+
+/**
+ * Stream a chat completion from the GV server's AI proxy via Server-Sent Events.
+ *
+ * Only the `server` (BFF) mode supports streaming — the key never touches the
+ * browser; the server adds it and relays a clean, provider-agnostic SSE stream
+ * (`delta`/`usage`/`done`/`error`). Each frame is validated against the shared
+ * `aiStreamEventSchema` inside `readAiStream`. See `docs/ai-bff.md` §2.5.
+ *
+ * SAFETY INVARIANT: if `settings.kind !== 'server'` this throws immediately,
+ * without any network activity — there is no streaming path for `off` or `local`.
+ *
+ * @param settings   Active AI settings (must be `kind: 'server'`).
+ * @param messages   Chat messages to send.
+ * @param serverOpts Server URL + bearer token (required for `server` mode).
+ * @param handlers   Typed SSE event callbacks (delta/usage/done/error).
+ * @param signal     Optional abort signal — aborting tears down the stream and
+ *   the underlying request so a closed view stops burning the user's budget.
+ * @throws {Error} when not in `server` mode, when misconfigured, or when the
+ *   HTTP request itself fails before the stream opens. Error messages never
+ *   contain raw API keys (the key is never present in the browser).
+ */
+export async function chatStream(
+  settings: AISettings,
+  messages: ChatMessage[],
+  serverOpts: ServerProviderOptions,
+  handlers: AiStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (settings.kind === 'off') {
+    throw new Error(
+      'AI assistant is disabled. Enable a provider in Settings → AI assistant to use this feature.',
+    );
+  }
+  if (settings.kind !== 'server') {
+    throw new Error('Streaming is only available for the server proxy provider.');
+  }
+  if (!serverOpts?.bearerToken) {
+    throw new Error(
+      'Sign in to your GraphVault server to use the AI proxy (server mode). ' +
+        'Go to Settings → Account.',
+    );
+  }
+  if (!serverOpts.serverUrl) {
+    throw new Error('GraphVault server URL is not configured. Check Settings → Sync server.');
+  }
+
+  const model = settings.serverModel.trim() || undefined;
+  const url = serverOpts.serverUrl.replace(/\/+$/, '') + '/v1/ai/chat';
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serverOpts.bearerToken}`,
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({ messages, stream: true, ...(model ? { model } : {}) }),
+      signal,
+    });
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'AbortError') return;
+    const msg = cause instanceof Error ? cause.message : 'Network error';
+    throw new Error(`GraphVault server unreachable (${serverOpts.serverUrl}): ${msg}`);
+  }
+
+  if (!res.ok) {
+    // The pre-check (e.g. spend/request cap) can refuse before any SSE headers
+    // are written, so an error here is a real HTTP status with the standard
+    // error envelope. Surface it through onError so the UI handles it uniformly.
+    let body = '';
+    try {
+      body = await res.text();
+    } catch {
+      /* ignore */
+    }
+    let code = 'HTTP_ERROR';
+    let message = `Server returned ${res.status}`;
+    try {
+      const parsed = JSON.parse(body) as { error?: { code?: string; message?: string } };
+      if (parsed.error?.message) message = parsed.error.message;
+      if (parsed.error?.code) code = parsed.error.code;
+    } catch {
+      /* not JSON — use status */
+    }
+    handlers.onError?.(code, message);
+    return;
+  }
+
+  if (!res.body) {
+    throw new Error('AI proxy returned an empty streaming response.');
+  }
+
+  await readAiStream(res.body, handlers, signal);
 }

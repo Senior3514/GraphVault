@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { describe, it, beforeEach, afterEach } from 'node:test';
 
 import { buildPrompt, buildSendContext } from './prompts.js';
-import { chat, truncateContext } from './providers.js';
+import { chat, chatStream, truncateContext } from './providers.js';
 import { loadAISettings, saveAISettings, clearAISettings } from './settings.js';
 import { redactKey, DEFAULT_AI_SETTINGS, type AISettings } from './types.js';
 
@@ -270,6 +270,132 @@ describe('chat() with kind=server and valid bearer token', () => {
         return true;
       },
     );
+
+    if (originalFetch === undefined) {
+      delete (globalThis as Record<string, unknown>)['fetch'];
+    } else {
+      (globalThis as Record<string, unknown>)['fetch'] = originalFetch;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3b. Streaming provider (chatStream)
+// ---------------------------------------------------------------------------
+
+describe('chatStream()', () => {
+  it('throws immediately for kind=off without any network call', async () => {
+    const originalFetch = (globalThis as Record<string, unknown>)['fetch'];
+    let fetchCalled = false;
+    (globalThis as Record<string, unknown>)['fetch'] = () => {
+      fetchCalled = true;
+      return Promise.resolve(new Response('{}'));
+    };
+
+    const settings: AISettings = { ...DEFAULT_AI_SETTINGS, kind: 'off' };
+    await assert.rejects(
+      () =>
+        chatStream(
+          settings,
+          [{ role: 'user', content: 'hi' }],
+          { serverUrl: 'http://localhost:4000', bearerToken: 'tok' },
+          {},
+        ),
+      (err: unknown) => err instanceof Error && err.message.includes('disabled'),
+    );
+    assert.equal(fetchCalled, false, 'fetch must not be called when kind=off');
+
+    if (originalFetch === undefined) {
+      delete (globalThis as Record<string, unknown>)['fetch'];
+    } else {
+      (globalThis as Record<string, unknown>)['fetch'] = originalFetch;
+    }
+  });
+
+  it('streams deltas and surfaces usage for kind=server', async () => {
+    const originalFetch = (globalThis as Record<string, unknown>)['fetch'];
+    let sentBody: unknown = null;
+
+    (globalThis as Record<string, unknown>)['fetch'] = async (
+      _input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      sentBody = init?.body ? JSON.parse(init.body as string) : null;
+      const enc = new TextEncoder();
+      const frames = [
+        'event: delta\ndata: {"type":"delta","content":"Hel"}\n\n',
+        'event: delta\ndata: {"type":"delta","content":"lo"}\n\n',
+        'event: usage\ndata: {"type":"usage","usage":{"costUsd":0.002}}\n\n',
+        'event: done\ndata: {"type":"done","model":"m"}\n\n',
+      ];
+      const stream = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          const f = frames.shift();
+          if (f) controller.enqueue(enc.encode(f));
+          else controller.close();
+        },
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      });
+    };
+
+    const settings: AISettings = { ...DEFAULT_AI_SETTINGS, kind: 'server' };
+    const deltas: string[] = [];
+    let cost = -1;
+    let done = false;
+    await chatStream(
+      settings,
+      [{ role: 'user', content: 'hi' }],
+      { serverUrl: 'http://localhost:4000', bearerToken: 'tok' },
+      {
+        onDelta: (c) => deltas.push(c),
+        onUsage: (u) => {
+          cost = u.costUsd ?? -1;
+        },
+        onDone: () => {
+          done = true;
+        },
+      },
+    );
+
+    assert.deepEqual(deltas, ['Hel', 'lo']);
+    assert.equal(cost, 0.002);
+    assert.equal(done, true);
+    // The request must opt into streaming.
+    assert.equal((sentBody as { stream?: boolean }).stream, true);
+
+    if (originalFetch === undefined) {
+      delete (globalThis as Record<string, unknown>)['fetch'];
+    } else {
+      (globalThis as Record<string, unknown>)['fetch'] = originalFetch;
+    }
+  });
+
+  it('surfaces a non-ok HTTP response (e.g. 429) via onError', async () => {
+    const originalFetch = (globalThis as Record<string, unknown>)['fetch'];
+    (globalThis as Record<string, unknown>)['fetch'] = async () =>
+      new Response(JSON.stringify({ error: { code: 'RATE_LIMITED', message: 'cap reached' } }), {
+        status: 429,
+      });
+
+    const settings: AISettings = { ...DEFAULT_AI_SETTINGS, kind: 'server' };
+    let code = '';
+    let message = '';
+    await chatStream(
+      settings,
+      [{ role: 'user', content: 'hi' }],
+      { serverUrl: 'http://localhost:4000', bearerToken: 'tok' },
+      {
+        onError: (c, m) => {
+          code = c;
+          message = m;
+        },
+      },
+    );
+    assert.equal(code, 'RATE_LIMITED');
+    assert.equal(message, 'cap reached');
 
     if (originalFetch === undefined) {
       delete (globalThis as Record<string, unknown>)['fetch'];
