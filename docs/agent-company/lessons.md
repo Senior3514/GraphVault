@@ -982,3 +982,11 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 - **Input validation:** hash path params validated against `sha256:[0-9a-f]{64}`
   before filesystem access; all external inputs validated via zod schemas from
   `@graphvault/shared`.
+- **Bug:** `buildIndex` did last-write-wins on nodes but built edges from ALL parsed entries, so a discarded duplicate's links survived as phantom edges. **Fix:** dedup parsed entries by path (last-wins) before building edges so nodes and edges stays consistent.
+
+## DataSafe audit — beforeunload / React async-effect gap
+
+### `flushAll` via `setRawNotes` loses the last keystrokes on hard close
+
+- **Bug (`apps/web/app/vault/page.tsx` `flushAll`):** The `beforeunload` and `visibilitychange=hidden` flush called `vault.updateContent(path, draft)`, which dispatches a React state update (`setRawNotes`). Persistence happens in a `useEffect` that runs AFTER the browser paints — React's effect pipeline is asynchronous. Under `beforeunload`, the browser can unload the page before React runs the effect and `localStorage.setItem` is called, silently dropping the last unsaved keystrokes. This is the classic React-state-in-beforeunload trap.
+- **Fix / rule:** Add `vault.directFlush(updates)` to `useVault` — it applies the pending draft patches to `latestNotesRef.current` and calls the adapter's `save()` DIRECTLY (bypassing `setRawNotes → useEffect`), then ALSO dispatches `setRawNotes` for the case where the tab is not actually closing (mobile background/resume). Wire `registerFlushOnExit` to `flushAllDirect` (which calls `directFlush`) instead of `flushAll` (which calls `updateContent`). The in-session flush on tab switch / unmount still uses `updateContent` since React's async pipeline is running there. Rule: **never rely on `setRawNotes → useEffect` for `beforeunload` writes; write directly to the adapter**.
