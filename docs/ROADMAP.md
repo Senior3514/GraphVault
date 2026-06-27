@@ -17,6 +17,27 @@
 
 ---
 
+## Competitive edge (market-driven priorities)
+
+Derived from a market + UX review against Obsidian, Notion, Logseq, Roam, and
+Anytype. GraphVault is the only tool that is simultaneously open-source,
+local-first / zero-telemetry, multi-storage, privacy-first AI, and one codebase
+across web + mobile + desktop. The loop prioritizes the bets below in order:
+
+1. **One-click native installers, hosted** - end users download a Windows
+   `.exe` / macOS `.dmg` / Linux `.AppImage` from `/download`. Pipeline is built;
+   it lights up the moment the owner enables GitHub Actions (or builds locally).
+2. **Connect to everything (privacy-graded)** - URL / web-clip via the server
+   proxy, then live email (IMAP / Gmail / Outlook OAuth, creds server-side).
+3. **Cloud drives** - Google Drive + OneDrive (OAuth app-folder, tokens
+   server-side) so a vault of `.md` lives anywhere the user already keeps files.
+4. **Effortless capture & navigation** - keep sharpening the `+` / quick-capture,
+   command palette, and graph so it beats Obsidian on "usable for thinking".
+5. **Trust signals** - keep zero-telemetry, encryption, and the security posture
+   visible and audited every maintenance sweep.
+
+---
+
 ## v0 foundation (shipped)
 
 - ✅ Monorepo, shared wire types, sync protocol draft
