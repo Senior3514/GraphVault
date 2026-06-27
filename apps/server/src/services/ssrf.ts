@@ -256,6 +256,22 @@ export interface GuardedFetchInit {
   body?: Buffer | string;
   /** Total timeout for the request (ms). */
   timeoutMs?: number;
+  /**
+   * Stream the response body instead of buffering it. When set, a 2xx response
+   * resolves as soon as headers arrive and its `body` is the live response
+   * stream (so the caller can relay chunks without holding the whole payload in
+   * memory). The DNS-pin / SSRF revalidation is unchanged — only the body tail
+   * differs. Redirects are still followed via the buffered small-response path
+   * (3xx bodies are tiny); only the final 2xx is streamed. See `docs/ai-bff.md`
+   * §5.
+   */
+  stream?: boolean;
+  /**
+   * Optional AbortSignal. When it fires the in-flight request is destroyed,
+   * which propagates to the underlying socket — used to stop a streamed upstream
+   * generation the moment the downstream client disconnects.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -329,18 +345,55 @@ const defaultTransport: GuardedTransport = (url, init, pinnedAddresses) => {
         lookup: pinnedLookup,
       },
       (res) => {
+        const status = res.statusCode ?? 502;
+        const headers = new Headers();
+        for (const [k, v] of Object.entries(res.headers)) {
+          if (v === undefined) continue;
+          headers.set(k, Array.isArray(v) ? v.join(', ') : String(v));
+        }
+
+        // Streaming mode: resolve as soon as headers arrive and hand back a
+        // Response whose body is the live socket stream — but ONLY for a final
+        // 2xx. 3xx redirects keep the buffered tail so guardedFetch can read the
+        // (tiny) body and chase the Location, re-running the full SSRF check on
+        // the next hop. Everything above this point (DNS pin, revalidation) is
+        // identical to the buffered path.
+        if (init.stream && status >= 200 && status < 300) {
+          // Web ReadableStream backed by the Node IncomingMessage; destroying
+          // the request (on abort/disconnect) tears the socket down.
+          const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+              res.on('data', (c: Buffer) => controller.enqueue(new Uint8Array(c)));
+              res.on('end', () => {
+                try {
+                  controller.close();
+                } catch {
+                  /* already closed (e.g. cancelled) */
+                }
+              });
+              res.on('error', (err) => {
+                try {
+                  controller.error(err);
+                } catch {
+                  /* already errored */
+                }
+              });
+            },
+            cancel() {
+              req.destroy();
+            },
+          });
+          resolve(new Response(body, { status, headers }));
+          return;
+        }
+
         const chunks: Buffer[] = [];
         res.on('data', (c: Buffer) => chunks.push(c));
         res.on('end', () => {
           const body = Buffer.concat(chunks);
-          const headers = new Headers();
-          for (const [k, v] of Object.entries(res.headers)) {
-            if (v === undefined) continue;
-            headers.set(k, Array.isArray(v) ? v.join(', ') : String(v));
-          }
           resolve(
             new Response(body, {
-              status: res.statusCode ?? 502,
+              status,
               headers,
             }),
           );
@@ -348,6 +401,18 @@ const defaultTransport: GuardedTransport = (url, init, pinnedAddresses) => {
         res.on('error', reject);
       },
     );
+
+    // Abort propagation: when the caller's signal fires, destroy the request so
+    // a streamed upstream generation stops the instant the client disconnects.
+    if (init.signal) {
+      if (init.signal.aborted) {
+        req.destroy(new Error('Request aborted'));
+      } else {
+        init.signal.addEventListener('abort', () => req.destroy(new Error('Request aborted')), {
+          once: true,
+        });
+      }
+    }
 
     if (init.timeoutMs && init.timeoutMs > 0) {
       req.setTimeout(init.timeoutMs, () => {
@@ -425,11 +490,14 @@ export async function guardedFetch(
       }
       currentUrl = next;
       hops++;
-      // Subsequent hops are bodyless GETs.
+      // Subsequent hops are bodyless GETs. Carry the stream flag + abort signal
+      // so the final 2xx is still streamed and a disconnect still aborts mid-chase.
       hopInit = {
         method: 'GET',
         headers: stripBodyHeaders(init.headers),
         timeoutMs: init.timeoutMs,
+        stream: init.stream,
+        signal: init.signal,
       };
       continue;
     }

@@ -931,3 +931,29 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 ### Duplicate paths: dedup BEFORE the edge pass
 
 - **Bug:** `buildIndex` did last-write-wins on nodes but built edges from ALL parsed entries, so a discarded duplicate's links survived as phantom edges. **Fix:** dedup parsed entries by path (last-wins) before building edges so nodes and edges stay consistent.
+
+## AI BFF Slice B (server) — SSE streaming + durable spend caps
+
+### SSE translating relay: capture `usage`/`done`, never re-emit them inline
+
+- **Symptom/risk:** when relaying an OpenAI-compatible upstream stream, yielding every parsed event inline (including `usage` and `[DONE]`) double-emits the terminal frames once you also append your own canonical `usage`+`done` at the end. **Fix:** in the relay generator, `continue` on parsed `usage` (capture into `finalUsage`) and `done` (capture model); only relay `delta`/`error` inline. Emit exactly one canonical `usage` then one `done` after the read loop. The browser depends on a stable, provider-agnostic frame set — assert in a test that the body never contains `"choices"` or `"delta":{` (the raw upstream shape), and that every frame validates against `aiStreamEventSchema`.
+
+### SSE pre-check must run BEFORE `reply.hijack()` / `writeHead(200)`
+
+- **Rule:** a real HTTP `429`/`404` is only possible before any SSE byte is written (the status is committed to `200` the moment headers flush). Run the spend/cap pre-check + key-decrypt in a `prepareStream()` that throws an `AppError` first; only then `reply.hijack()` and `writeHead`. A cap tripped _after_ headers can only be an `event: error` frame. Keep the route thin: route owns the SSE wire format + heartbeat (`:keepalive\n\n` every ~15s) + disconnect wiring; the service owns decrypt/egress/parse/redact/commit.
+
+### Client disconnect → abort upstream via a forwarded `AbortSignal`
+
+- **Rule:** wire `reply.raw.on('close', () => abort.abort())` and thread `abort.signal` into `guardedFetch({ stream:true, signal })`. In the SSRF transport, `signal.addEventListener('abort', () => req.destroy(...))` tears the pinned socket down so a closed tab stops burning budget. Test it with a real listening app + a raw `http.request` you `req.destroy()` after the first chunk (light-my-request `inject` can't model a mid-stream TCP close); assert the mock transport observed the abort. Commit the request (cost 0 if no usage seen) in a `finally` so a disconnect still counts.
+
+### `guardedFetch` streaming: change ONLY the body tail; keep the DNS pin byte-for-byte
+
+- **Rule:** add `stream?: boolean` that resolves the `Response` with a `ReadableStream` backed by the `IncomingMessage` for a final 2xx only — leave the validate→pin→revalidate path and the buffered redirect (3xx) path untouched. Redirect hops must still carry `stream`+`signal` forward so the final 2xx is streamed and a disconnect aborts mid-chase. `ReadableStreamReadResult` is not a TS lib global — type the reader result as `Awaited<ReturnType<typeof reader.read>>`.
+
+### Durable spend cap: persist the window in Storage; never estimate cost
+
+- **Rule:** the old in-process `Map<userId,{date,count}>` is wiped on restart — replace it with an `AiSpendWindowRecord` (in-memory + Prisma) and a `commitAiSpend(userId, addUsd, addRequests, today)` read-modify-write that lazily resets when `windowDate !== today`. Enforce BOTH caps (monetary `spendCapUsd` + request `dailyRequestCap`/env) against the _previously accrued_ window (soft cap: one call may cross, next is refused → `429 RATE_LIMITED`, never `400`). Commit the **provider-reported** `costUsd`; when the gateway reports none, record `costUsd: 0` and rely on the request cap — guessing risks over/under-charging the user's own budget. Surface `spendCapState` on the config GET (non-secret) for the budget meter; the key stays redacted everywhere. Test the cap by re-building the app over the SAME storage instance to prove the window survives a simulated restart.
+
+### Slice-A doc may ship unformatted — don't "fix" files outside your ownership
+
+- **Symptom:** `pnpm format:check` (repo-wide) flagged `docs/ai-bff.md`, which the server slice doesn't own and didn't touch. It was already non-prettier-compliant on the base `ai-bff` branch (Slice A). **Rule:** verify a format/lint failure pre-exists on the base branch and is outside your path set before touching it; format only your own files. Prisma's `schema.prisma` has no prettier parser (expected `No parser could be inferred`) — exclude it from per-file format checks.

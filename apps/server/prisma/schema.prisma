@@ -190,9 +190,24 @@ model AiConfig {
   gateway         String
   baseUrl         String?  @map("base_url")
   model           String?
+  spendCapUsd     Float?   @map("spend_cap_usd")
+  dailyRequestCap Int?     @map("daily_request_cap")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("ai_configs")
+}
+
+// Durable per-user/day AI spend + request window (replaces the old in-process
+// daily counter so caps survive a restart). One row per user; the active window
+// is keyed by windowDate. See docs/ai-bff.md §4.
+model AiSpendWindow {
+  userId     String   @id @map("user_id")
+  windowDate String   @map("window_date") // "YYYY-MM-DD" UTC
+  requests   Int      @default(0)
+  spentUsd   Float    @default(0) @map("spent_usd")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_spend_windows")
 }
 
 // --- "Connect anything" inbound webhook (inbox) ----------------------------
