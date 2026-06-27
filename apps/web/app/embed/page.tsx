@@ -45,6 +45,7 @@ import { useSearchParams } from 'next/navigation';
 import { buildIndex, filterGraph, type GraphNode, type GraphEdge } from '@graphvault/engine';
 
 import type { ForceGraphHandle } from '../../components/graph/ForceGraphCanvas';
+import { GraphLoadingSkeleton } from '../../components/graph/GraphLoadingSkeleton';
 import { buildRenderModel } from '../../lib/graph/model';
 import type { RenderModel } from '../../lib/graph/model';
 import { DEFAULT_PHYSICS } from '../../lib/graph/physics';
@@ -58,14 +59,12 @@ import { fetchSnapshot, ShareLinkError } from '../../lib/embed/shareLink';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import { notesToInputs } from '../../lib/graph/model';
 
-// Canvas/DOM-only renderer: never server-rendered.
+// Canvas/DOM-only renderer: never server-rendered. The heavy
+// `react-force-graph-2d` library loads in its own chunk only when the embed
+// graph mounts; until then we show the shared themed, motion-safe skeleton.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-xs text-neutral-600">
-      Loading graph...
-    </div>
-  ),
+  loading: () => <GraphLoadingSkeleton />,
 });
 
 // ---------------------------------------------------------------------------

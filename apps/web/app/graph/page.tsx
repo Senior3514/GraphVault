@@ -55,6 +55,7 @@ import { GraphControls, type LabelDensity } from '../../components/graph/GraphCo
 import { GraphLegend } from '../../components/graph/GraphLegend';
 import { GraphSearch } from '../../components/graph/GraphSearch';
 import { GraphZoomControls } from '../../components/graph/GraphZoomControls';
+import { GraphLoadingSkeleton } from '../../components/graph/GraphLoadingSkeleton';
 import { NodePanel } from '../../components/graph/NodePanel';
 import type { ForceGraphHandle } from '../../components/graph/ForceGraphCanvas';
 import { EMPTY_FILTERS, filtersReducer, toCriteria } from '../../lib/graph/filters';
@@ -96,14 +97,14 @@ import { AUTH_TOKEN_STORAGE_KEY, SERVER_URL_STORAGE_KEY } from '../../lib/api/st
 import { useAuth } from '../../lib/api/useAuth';
 import { useServerSettings } from '../../lib/api/useServerSettings';
 
-// Canvas/DOM-only renderer: never server-rendered.
+// Canvas/DOM-only renderer: never server-rendered. Loaded via `next/dynamic`
+// with `ssr: false` so the heavy `react-force-graph-2d` library lands in its own
+// chunk (fetched only when the graph view mounts) instead of the initial/shared
+// JS. While that chunk downloads we paint an accessible, themed, motion-safe
+// skeleton that occupies the exact same box — no layout shift, no dead screen.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-sm text-neutral-600">
-      Loading graph...
-    </div>
-  ),
+  loading: () => <GraphLoadingSkeleton />,
 });
 
 export default function GraphPage() {

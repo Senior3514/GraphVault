@@ -1120,3 +1120,33 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 - **Bug (`apps/web/app/vault/page.tsx` `flushAll`):** The `beforeunload` and `visibilitychange=hidden` flush called `vault.updateContent(path, draft)`, which dispatches a React state update (`setRawNotes`). Persistence happens in a `useEffect` that runs AFTER the browser paints — React's effect pipeline is asynchronous. Under `beforeunload`, the browser can unload the page before React runs the effect and `localStorage.setItem` is called, silently dropping the last unsaved keystrokes. This is the classic React-state-in-beforeunload trap.
 - **Fix / rule:** Add `vault.directFlush(updates)` to `useVault` — it applies the pending draft patches to `latestNotesRef.current` and calls the adapter's `save()` DIRECTLY (bypassing `setRawNotes → useEffect`), then ALSO dispatches `setRawNotes` for the case where the tab is not actually closing (mobile background/resume). Wire `registerFlushOnExit` to `flushAllDirect` (which calls `directFlush`) instead of `flushAll` (which calls `updateContent`). The in-session flush on tab switch / unmount still uses `updateContent` since React's async pipeline is running there. Rule: **never rely on `setRawNotes → useEffect` for `beforeunload` writes; write directly to the adapter**.
+
+## Graph perf — lazy-load placeholder
+
+### "Lazy-load graph" was already done — verify the bundle before claiming a win
+
+- **Symptom:** the ROADMAP listed "Lazy-load graph" as not started, but the heavy
+  `react-force-graph-2d` (~186 kB) was ALREADY code-split: `ForceGraphCanvas` is
+  imported via `next/dynamic` + `ssr: false` on both `/graph` and `/embed`, so the
+  lib chunk never enters the 102 kB shared First-Load baseline nor the page's
+  First-Load entry list.
+- **How to verify (not just trust the route table):** the `next build` route table
+  shows per-route First Load JS, but to PROVE the lib is split, inspect
+  `apps/web/.next/app-build-manifest.json`: find the chunk whose minified bytes
+  contain `forceEngine`/`ForceGraph`, then assert that chunk filename is NOT in
+  `pages['/graph/page']`. It loads on mount via the dynamic import instead.
+- **Rule:** before implementing a "make it lazy" task, build and inspect the
+  manifest first — the heavy module may already be split, in which case the real
+  remaining value is the loading UX, not the split. Report honestly rather than
+  fabricating a First-Load delta.
+
+### The dynamic `loading:` placeholder must live in the page chunk (it pays ~1 kB)
+
+- **Rule:** a `next/dynamic` `loading` component renders BEFORE the lazy chunk
+  arrives, so it ships in the page's initial chunk and must import nothing heavy
+  (no force-graph, no engine) — a pure SVG/CSS skeleton. It adds a small constant
+  (~1 kB here, 172→173 kB) to First Load by design; that's the cost of "click and
+  use" instead of a dead screen. Fill the exact `h-full w-full` box the canvas
+  will occupy (no layout shift), gate animation behind `motion-safe:` (respect
+  `prefers-reduced-motion`), drive colours from the CSS-var `neutral` ramp
+  (auto light/dark), and wrap it in an `aria-live="polite"` `role="status"` region.
