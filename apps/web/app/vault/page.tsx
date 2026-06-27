@@ -24,6 +24,7 @@ import { PaneHeader, WorkspaceLayout } from '../../components/workspace/Workspac
 import { useLayout } from '../../lib/layout/useLayout';
 import { registerFlushOnExit } from '../../lib/vault/flushOnExit';
 import { VaultError } from '../../lib/vault/vault';
+import { nextUntitledName } from '../../lib/vault/untitled';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import type { NotePath } from '../../lib/vault/types';
 
@@ -302,10 +303,20 @@ export default function VaultPage() {
   );
 
   const openNewTab = useCallback(() => {
-    // Open a blank note (or the first note we find as default).
-    const firstNote = vault.notes[0];
-    if (firstNote) openPath(firstNote.path);
-  }, [vault.notes, openPath]);
+    // The "+" must ALWAYS add a working tab. Create a fresh, collision-safe
+    // untitled note and open it - never a no-op, even when the vault is empty
+    // or the first note is already open. (Previously this opened the first
+    // existing note, which did nothing when that tab was already active or when
+    // there were no notes yet.)
+    try {
+      const path = nextUntitledName(vault.notes.map((n) => n.path));
+      const created = vault.createNote(path, '');
+      openPath(created.path as NotePath);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof VaultError ? err.message : 'Could not create note.');
+    }
+  }, [vault, openPath]);
 
   // ---- Wikilink navigation --------------------------------------------------
   const onNavigate = useCallback(
