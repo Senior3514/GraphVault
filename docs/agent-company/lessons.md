@@ -199,6 +199,43 @@ stop repeating mistakes. Newest at the top within each section.
   via `next/dynamic` with `ssr: false` and marked `'use client'`, or production
   `next build` fails during static generation.
 
+### Runtime release-asset resolution: pure matcher + tolerant suffix match
+
+- **Symptom/risk:** a download page that hardcodes installer filenames breaks on
+  every version bump — the desktop pipeline emits VERSION-specific names
+  (`GraphVault_0.2.0_x64-setup.exe`, `..._universal.dmg`, `..._amd64.AppImage`).
+- **Fix / rule:** fetch the latest GitHub release at runtime and resolve assets
+  with a PURE `pickAssets(assets, os)` that matches by lowercased extension
+  suffix (`.exe`/`.msi`→win, `.dmg`→mac, `.appimage`/`.deb`→linux) so it
+  survives arbitrary version/arch tokens in the middle of the name. Match `.exe`
+  ahead of `.msi` and `.AppImage` ahead of `.deb` via a priority field; the
+  top-priority match is `primary`, the rest are `alternates` ("other formats").
+  Reject companions (`.sig`, `.tar.gz`, `checksums.sha256`, `latest.json`) by
+  simply not matching their suffix. Keep it defensive (null/undefined/malformed
+  assets → empty) so a flaky API never throws in the render path, and unit-test
+  it with a realistic asset list incl. the noise files.
+
+### Standalone marketing routes: exclude from the AppShell, mind `trailingSlash`
+
+- **Rule:** a public full-bleed page (landing, `/download`) that brings its own
+  nav must be excluded from `AppFrame`'s sidebar shell exactly like `/`. With
+  `output: 'export'` + `trailingSlash: true`, `usePathname()` can return the
+  slashed form, so match BOTH `'/download'` and `'/download/'`. Verify the route
+  lands in the static export (`out/download/index.html`), not just `next build`'s
+  route table.
+
+### Download-page GitHub fetch is privacy-safe — read-only, `credentials: 'omit'`
+
+- **Rule:** the only allowed network call on the download page is
+  `fetch('https://api.github.com/.../releases/latest')`. It reads PUBLIC release
+  metadata and must send NO user data: pass `credentials: 'omit'` (belt-and-
+  braces against cookies on a cross-origin GET) and no auth header. GitHub
+  returns **404** when a repo has no published release → render a friendly
+  "installers on the way" state (distinct from a network error, which links to
+  the releases page). The existing CSP `connect-src 'self' https:` already
+  permits it; no CSP/vercel.json change needed. Abort the fetch on unmount and
+  swallow `AbortError`.
+
 ## Orchestration & integration
 
 ### A delegating agent must not end its turn before integrating

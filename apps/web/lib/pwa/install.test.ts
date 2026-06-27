@@ -4,9 +4,12 @@ import { test } from 'node:test';
 import {
   chooseInstallAffordance,
   detectIosFromNavigator,
+  detectOs,
   detectPlatform,
   isIosSafari,
+  isMobileOs,
   isStandalone,
+  osLabel,
 } from './install';
 
 // Real-world-ish user-agent strings.
@@ -24,6 +27,11 @@ const UA = {
   macSafari:
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
   edge: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36 Edg/120.0',
+  linuxFirefox: 'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+  linuxChrome:
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+  chromeOs:
+    'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
 } as const;
 
 test('detectPlatform classifies the major platforms', () => {
@@ -125,6 +133,45 @@ test('chooseInstallAffordance: other no-prompt browsers → manual-hint', () => 
     'manual-hint',
     'Chrome on iOS cannot prompt and is not Safari → manual hint',
   );
+});
+
+test('detectOs classifies desktop and mobile operating systems', () => {
+  assert.equal(detectOs(UA.desktopChrome), 'windows');
+  assert.equal(detectOs(UA.edge), 'windows');
+  assert.equal(detectOs(UA.macSafari), 'macos');
+  assert.equal(detectOs(UA.linuxFirefox), 'linux');
+  assert.equal(detectOs(UA.linuxChrome), 'linux');
+  assert.equal(detectOs(UA.chromeOs), 'linux', 'Chrome OS maps to the Linux native builds');
+  assert.equal(detectOs(UA.iphoneSafari), 'ios');
+  assert.equal(detectOs(UA.androidChrome), 'android');
+  assert.equal(detectOs('some random string'), 'unknown');
+});
+
+test('detectOs: Android UA contains "linux" but must classify as android', () => {
+  assert.equal(detectOs(UA.androidChrome), 'android');
+});
+
+test('detectOs: iOS UA contains "mac os x" but must classify as ios', () => {
+  assert.equal(detectOs(UA.iphoneSafari), 'ios');
+  assert.equal(detectOs(UA.iphoneChrome), 'ios');
+});
+
+test('osLabel renders friendly copy for the download button', () => {
+  assert.equal(osLabel('windows'), 'Windows');
+  assert.equal(osLabel('macos'), 'macOS');
+  assert.equal(osLabel('linux'), 'Linux');
+  assert.equal(osLabel('ios'), 'iOS');
+  assert.equal(osLabel('android'), 'Android');
+  assert.equal(osLabel('unknown'), 'your device');
+});
+
+test('isMobileOs flags only the mobile operating systems', () => {
+  assert.equal(isMobileOs('ios'), true);
+  assert.equal(isMobileOs('android'), true);
+  assert.equal(isMobileOs('windows'), false);
+  assert.equal(isMobileOs('macos'), false);
+  assert.equal(isMobileOs('linux'), false);
+  assert.equal(isMobileOs('unknown'), false);
 });
 
 test('isStandalone reads any of the standalone signals', () => {

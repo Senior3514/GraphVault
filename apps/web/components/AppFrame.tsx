@@ -41,8 +41,9 @@ const COLLAPSE_KEY = 'graphvault.sidebar.collapsed';
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // The marketing landing page stands alone.
-  if (pathname === '/') {
+  // The marketing landing page and the public download page stand alone — they
+  // bring their own full-bleed chrome and need no vault sidebar shell.
+  if (pathname === '/' || pathname === '/download' || pathname === '/download/') {
     return <>{children}</>;
   }
 
