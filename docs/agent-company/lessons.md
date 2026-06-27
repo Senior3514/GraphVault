@@ -126,6 +126,39 @@ stop repeating mistakes. Newest at the top within each section.
 
 ## Web / Next.js
 
+### `env(safe-area-inset-*)` is inert without `viewport-fit=cover`
+
+- **Symptom:** the mobile shell padded its top bar / bottom nav with
+  `env(safe-area-inset-*)`, but on notched devices the padding was always 0 — the
+  chrome still clipped under the notch / home indicator.
+- **Root cause:** there was no `viewport` export anywhere, so Next.js emitted no
+  `viewport-fit=cover`. The `env(safe-area-inset-*)` variables only resolve to
+  non-zero values when the viewport opts into the full display via
+  `viewport-fit=cover`; otherwise they are always `0`. (There was also no
+  `width=device-width`, so the page rendered at 980px on phones.)
+- **Fix / rule:** add an `export const viewport: Viewport` to the root
+  `app/layout.tsx` with `width: 'device-width'`, `initialScale: 1`, and
+  `viewportFit: 'cover'`. Put `themeColor` there too (Next.js merges it into a
+  `<meta name="theme-color">`) and DELETE any hand-written `theme-color` meta to
+  avoid duplicates. Don't pin `maximumScale`/`userScalable` — leave pinch-zoom on
+  for accessibility. Verify in the built `out/index.html`, not just source.
+
+### Keep PWA install decision logic pure (no DOM) and inject the live values
+
+- **Rule:** the "what install affordance to show" decision (Chromium prompt vs
+  iOS-Safari Add-to-Home-Screen hint vs already-installed → hide) is fiddly and
+  platform-specific. Put it in a pure `lib/pwa/install.ts` that takes
+  `{ userAgent, standalone, hasPromptEvent }` and returns a discriminated
+  affordance; unit-test it with real UA strings (iPhone Safari vs CriOS/FxiOS,
+  Android Chrome, desktop Chrome/Edge, mac Safari). The `'use client'` component
+  only wires `navigator.userAgent`, the `display-mode` media queries +
+  `navigator.standalone`, and the captured `beforeinstallprompt` event into it.
+  iPadOS 13+ reports a desktop-Safari UA, so detect it via `maxTouchPoints > 1`
+  in the component (touch isn't in the UA string) and normalise before calling
+  the pure helper. iOS Safari NEVER fires `beforeinstallprompt` — Add to Home
+  Screen is the only path, so target that hint at Safari specifically (CriOS /
+  FxiOS on iOS get the generic browser-menu hint, since they also can't install).
+
 ### Consume SSE with a pure parser layer split from the network layer
 
 - **Symptom:** SSE consumption code that reads `fetch().body` directly is

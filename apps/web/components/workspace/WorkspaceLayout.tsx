@@ -219,7 +219,7 @@ export function WorkspaceLayout({
                 aria-label={label}
                 aria-current={mobilePane === id ? 'true' : undefined}
                 className={[
-                  'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
+                  'flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
                   mobilePane === id ? 'text-sky-400' : 'text-neutral-500 hover:text-neutral-300',
                 ].join(' ')}
               >

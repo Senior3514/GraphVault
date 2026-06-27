@@ -19,7 +19,13 @@ const SHELL_URL = '/';
 // Assets to pre-cache on install (app shell + manifest + icons).
 // Next.js static export places HTML at the root; JS/CSS land in /_next/static/.
 // We don't enumerate those here — they are cached on first fetch.
-const PRECACHE_URLS = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const PRECACHE_URLS = [
+  '/',
+  '/manifest.webmanifest',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-512-maskable.png',
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Install — pre-cache the app shell

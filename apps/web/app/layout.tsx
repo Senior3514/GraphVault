@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AppFrame } from '../components/AppFrame';
 import { ServiceWorkerRegistrar } from '../components/ServiceWorkerRegistrar';
@@ -9,6 +9,29 @@ export const metadata: Metadata = {
   title: 'GraphVault — open and write. No folders, no file access.',
   description:
     'A dynamic, cloud-ready notes vault with a graph you can think in. Open the app and start writing — no folders to pick, no file permissions, no setup.',
+};
+
+/**
+ * Viewport configuration. CRITICAL for mobile:
+ *  - `width: 'device-width'` makes the layout responsive (without it the page
+ *    renders at a 980px desktop width and is unreadable on phones).
+ *  - `viewportFit: 'cover'` is what makes `env(safe-area-inset-*)` return
+ *    non-zero values on notched devices — the mobile chrome already pads with
+ *    those insets, but they are inert until the viewport opts into the full
+ *    display with `cover`.
+ *  - `themeColor` drives the browser/status-bar tint; matched to the dark and
+ *    light backgrounds so the chrome blends with whichever theme is active.
+ *  - Pinch-zoom is intentionally left enabled (no `maximumScale`) for
+ *    accessibility; only the initial scale is pinned.
+ */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+  ],
 };
 
 /**
@@ -97,9 +120,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
          * vercel.json and X-Frame-Options both enforce the no-frame policy.
          */}
         <meta httpEquiv="Content-Security-Policy" content={CSP} />
-        {/* PWA manifest + theme */}
+        {/* PWA manifest. theme-color + viewport-fit are emitted by the
+            `viewport` export above (Next.js merges them into <meta> tags). */}
         <link rel="manifest" href="/manifest.webmanifest" />
-        <meta name="theme-color" content="#0a0a0a" />
         {/* Apple PWA meta — iOS uses these when added to Home Screen */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
