@@ -22,7 +22,7 @@
  * - Cluster / community colouring: colour-by-connected-component via a pure
  *   `buildClusterColors` helper in `lib/graph/clusters.ts`.
  * - Context view: emphasise the selected neighbourhood (aggressive dimming of
- *   all other nodes) — toggle in the new "Graphics" control section.
+ *   all other nodes) - toggle in the new "Graphics" control section.
  * - Label density quick-preset (sparse / normal / dense) in Graphics section.
  * - Radial-gradient node fill, soft outer ring, halo labels for legibility.
  * - DPR-aware canvas (crisp on retina / HiDPI).
@@ -83,7 +83,7 @@ import {
   buildShortEmbedUrl,
   ShareLinkTooLargeError,
 } from '../../lib/embed/shareLink';
-// M21: AI graph intelligence — privacy-first, off by default.
+// M21: AI graph intelligence - privacy-first, off by default.
 import { loadAISettings } from '../../lib/ai/settings';
 import type { AISettings } from '../../lib/ai/types';
 import { chat } from '../../lib/ai/providers';
@@ -101,7 +101,7 @@ import { useServerSettings } from '../../lib/api/useServerSettings';
 // with `ssr: false` so the heavy `react-force-graph-2d` library lands in its own
 // chunk (fetched only when the graph view mounts) instead of the initial/shared
 // JS. While that chunk downloads we paint an accessible, themed, motion-safe
-// skeleton that occupies the exact same box — no layout shift, no dead screen.
+// skeleton that occupies the exact same box - no layout shift, no dead screen.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
   ssr: false,
   loading: () => <GraphLoadingSkeleton />,
@@ -126,10 +126,10 @@ export default function GraphPage() {
   const [contextView, setContextView] = useState(false);
   const [labelDensity, setLabelDensity] = useState<LabelDensity>('normal');
 
-  // v4: User-defined colour groups — initialised from localStorage on first render.
+  // v4: User-defined colour groups - initialised from localStorage on first render.
   const [groups, setGroups] = useState<NodeGroup[]>(() => loadGroups());
 
-  // M21: AI settings — loaded from sessionStorage (off by default; cleared on tab close).
+  // M21: AI settings - loaded from sessionStorage (off by default; cleared on tab close).
   // Re-read on mount; no live sync needed because settings change via the Settings page.
   const [aiSettings, setAiSettings] = useState<AISettings>(() => loadAISettings());
   const aiEnabled = aiSettings.kind !== 'off';
@@ -145,7 +145,7 @@ export default function GraphPage() {
     [aiSettings.kind, auth.token, serverUrl],
   );
 
-  // M21: AI cluster names — string[] indexed to match the visual cluster legend order.
+  // M21: AI cluster names - string[] indexed to match the visual cluster legend order.
   const [aiClusterNames, setAiClusterNames] = useState<string[]>([]);
   const [clusterNamingState, setClusterNamingState] = useState<
     'idle' | 'confirming' | 'loading' | 'error'
@@ -583,7 +583,7 @@ export default function GraphPage() {
                 {groups.length} {groups.length === 1 ? 'group' : 'groups'}
               </span>
             )}
-            {/* M21: AI cluster naming button — only visible when cluster mode is active + AI on */}
+            {/* M21: AI cluster naming button - only visible when cluster mode is active + AI on */}
             {aiEnabled && colorMode === 'cluster' && clusterInfo && (
               <AiClusterNamingButton
                 state={clusterNamingState}
@@ -670,7 +670,7 @@ export default function GraphPage() {
       </div>
 
       {/* ================================================================ */}
-      {/* Node panel — desktop: right side panel; mobile: bottom drawer     */}
+      {/* Node panel - desktop: right side panel; mobile: bottom drawer     */}
       {/* ================================================================ */}
       {selectedNode && (
         <>
@@ -687,7 +687,7 @@ export default function GraphPage() {
               serverOpts={serverOpts}
             />
           </div>
-          {/* Mobile node panel — slides up from bottom */}
+          {/* Mobile node panel - slides up from bottom */}
           <div
             ref={nodeDrawerRef}
             role="dialog"
@@ -832,7 +832,7 @@ function readServerUrl(): string | null {
  * A button + popover that generates a copyable `/embed?s=…` URL and an
  * `<iframe>` snippet from the current graph payload (filtered nodes + edges).
  *
- * Only nodes and edge topology travel in the URL — NO note content. The
+ * Only nodes and edge topology travel in the URL - NO note content. The
  * snapshot module enforces this invariant (see lib/embed/snapshot.ts).
  *
  * When the user is connected to a server whose opt-in snapshot store is enabled,
@@ -899,7 +899,7 @@ function ShareButton({
 
     // Probe whether a SHORT, server-backed link is available: the user must be
     // connected to a server (sessionStorage has both keys) whose opt-in snapshot
-    // store is enabled. Best-effort — any failure simply hides the affordance.
+    // store is enabled. Best-effort - any failure simply hides the affordance.
     try {
       const token = readToken();
       const serverUrl = readServerUrl();
@@ -1008,7 +1008,7 @@ function ShareButton({
           </div>
 
           <p className="mb-3 text-[11px] leading-relaxed text-neutral-600">
-            Shares <strong className="text-neutral-500">titles and links only</strong> — note
+            Shares <strong className="text-neutral-500">titles and links only</strong> - note
             content is never included. Recipients see a read-only, interactive graph.
           </p>
 
@@ -1069,7 +1069,7 @@ function ShareButton({
                 </div>
               </div>
 
-              {/* Short, server-backed link (Wave 18) — only when connected to a
+              {/* Short, server-backed link (Wave 18) - only when connected to a
                   server whose snapshot store is enabled. */}
               {shortAvailable && (
                 <div className="border-t border-neutral-900 pt-3">

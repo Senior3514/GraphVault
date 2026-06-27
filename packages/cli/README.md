@@ -49,7 +49,7 @@ Options:
 > `serve` exposes a **read-only (GET-only)** HTTP API over the vault and binds
 > to `127.0.0.1` (localhost) by default. It is intended for local tooling and
 > integrations; there is no authentication, so binding to a non-loopback
-> `--host` exposes your notes to anyone who can reach that address — only do so
+> `--host` exposes your notes to anyone who can reach that address - only do so
 > on a trusted network. It runs until interrupted (Ctrl-C).
 
 ### Examples
@@ -88,12 +88,12 @@ pnpm --filter @graphvault/cli clean      # remove dist/
 | File                   | Role                                                                 |
 | ---------------------- | -------------------------------------------------------------------- |
 | `src/commands.ts`      | Pure, IO-free command logic (testable with node:test)                |
-| `src/vault.ts`         | Filesystem reader — walks vault dir, returns NoteInput[]             |
+| `src/vault.ts`         | Filesystem reader - walks vault dir, returns NoteInput[]             |
 | `src/server.ts`        | `serve`: read-only (GET-only) HTTP API, loopback-bound by default    |
 | `src/format.ts`        | Human-readable output formatters (return strings, no IO)             |
 | `src/index.ts`         | Entry point: parses args, calls vault reader + commands + formatters |
 | `src/types.ts`         | Internal result types                                                |
 | `src/commands.test.ts` | Unit tests for the pure command layer                                |
 
-No third-party runtime dependencies — only `@graphvault/engine` (workspace) and
+No third-party runtime dependencies - only `@graphvault/engine` (workspace) and
 Node.js built-ins (`node:fs`, `node:path`, `node:util`).

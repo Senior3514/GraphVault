@@ -170,7 +170,7 @@ test('FIXED VULN-1: joinWebDavUrl rejects URL-encoded dot traversal (%2e%2e)', (
     () => joinWebDavUrl('https://dav.example.com/data/', 'sub/%2e.'),
     /path traversal/i,
   );
-  // Triple-encoded — still caught after a full decode
+  // Triple-encoded - still caught after a full decode
   assert.throws(
     () => joinWebDavUrl('https://dav.example.com/data/', '%252e%252e/x'),
     /path traversal/i,
@@ -181,7 +181,7 @@ test('FIXED VULN-1: webdav proxy route rejects double-encoded path traversal (40
   await configureWebDav();
   fetchedUrls.length = 0;
 
-  // The client sends %252e%252e — double-encoded dots.
+  // The client sends %252e%252e - double-encoded dots.
   // Fastify decodes once: the wildcard param becomes "%2e%2e/etc/passwd".
   // The old check: includes('..') = false → would pass.
   // The fix: the schema (or joinWebDavUrl) must also catch %2e (encoded dots).
@@ -195,7 +195,7 @@ test('FIXED VULN-1: webdav proxy route rejects double-encoded path traversal (40
     400,
     `expected 400 for double-encoded traversal, got ${res.statusCode}: ${res.body}`,
   );
-  // The fake transport must NOT have been invoked — the request is rejected
+  // The fake transport must NOT have been invoked - the request is rejected
   // before any outbound fetch is made.
   const traversalFetches = fetchedUrls.filter((u) => u.includes('etc/passwd'));
   assert.equal(
@@ -207,7 +207,7 @@ test('FIXED VULN-1: webdav proxy route rejects double-encoded path traversal (40
 
 test('FIXED VULN-1: webdav proxy route rejects single-encoded path traversal (400)', async () => {
   fetchedUrls.length = 0;
-  // %2e%2e is a single-encoded .. — Fastify leaves it as %2e%2e in the param.
+  // %2e%2e is a single-encoded .. - Fastify leaves it as %2e%2e in the param.
   const res = await app.inject({
     method: 'GET',
     url: '/v1/storage/webdav/proxy/%2e%2e%2fconfidential.json',
@@ -254,7 +254,7 @@ test('snapshot data is stored and returned opaquely (no server-side parsing)', a
 
   const get = await app.inject({ method: 'GET', url: `/v1/snapshots/${id}` });
   assert.equal(get.statusCode, 200);
-  // Returned as a JSON string field — never executed or parsed server-side.
+  // Returned as a JSON string field - never executed or parsed server-side.
   assert.equal(get.json().data, maliciousData);
   // The response Content-Type must be application/json, not text/html.
   assert.ok(
@@ -289,7 +289,7 @@ test('snapshot GET/DELETE have no auth requirement and no info leak', async () =
 });
 
 // ---------------------------------------------------------------------------
-// CONFIRMED SOLID: AI config — API key never returned
+// CONFIRMED SOLID: AI config - API key never returned
 // ---------------------------------------------------------------------------
 
 test('GET /v1/ai/config never returns the apiKey field', async () => {
@@ -336,7 +336,7 @@ test('GET /v1/ai/config never returns the apiKey field', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// CONFIRMED SOLID: authz — cross-user isolation
+// CONFIRMED SOLID: authz - cross-user isolation
 // ---------------------------------------------------------------------------
 
 test('user cannot access a vault owned by another user (403)', async () => {
@@ -368,7 +368,7 @@ test('user cannot access a vault owned by another user (403)', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// CONFIRMED SOLID: SSRF guard — validates error message doesn't leak address
+// CONFIRMED SOLID: SSRF guard - validates error message doesn't leak address
 // ---------------------------------------------------------------------------
 
 test('SSRF guard: error message never leaks the blocked IP address', async () => {

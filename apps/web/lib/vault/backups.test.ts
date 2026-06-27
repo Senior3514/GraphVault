@@ -1,7 +1,7 @@
 /**
  * Tests for BackupStore.
  *
- * Uses an in-memory fake IDBStore — no browser or IndexedDB APIs required.
+ * Uses an in-memory fake IDBStore - no browser or IndexedDB APIs required.
  * Runs in Node via `node --test`.
  *
  * Test matrix:
@@ -161,7 +161,7 @@ test('deleteSnapshot is a no-op for unknown id', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// pruneOld — retention policy
+// pruneOld - retention policy
 // ---------------------------------------------------------------------------
 
 test('pruneOld keeps RETENTION_RECENT newest regardless of age', async () => {

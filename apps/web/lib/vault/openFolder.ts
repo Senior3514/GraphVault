@@ -1,5 +1,5 @@
 /**
- * openFolder — map a local folder of Markdown into the vault.
+ * openFolder - map a local folder of Markdown into the vault.
  *
  * Uses `window.showDirectoryPicker()` (File System Access API) to let the user
  * pick a folder, recursively collects `.md` / `.markdown` / `.txt` files
@@ -9,8 +9,8 @@
  *
  * ## Browser-only surface
  * The ONLY line that touches the browser API is the `showDirectoryPicker()` call
- * in {@link openFolder}. Everything else — path filtering, file reading, cap
- * enforcement — is in pure helpers that are independently unit-testable.
+ * in {@link openFolder}. Everything else - path filtering, file reading, cap
+ * enforcement - is in pure helpers that are independently unit-testable.
  *
  * ## Availability
  * Feature-detected at runtime via {@link isFolderPickerSupported}. Call that
@@ -20,7 +20,7 @@
  * ## AbortError
  * When the user dismisses the picker `showDirectoryPicker()` rejects with a
  * `DOMException` whose `.name === "AbortError"`. Callers should catch it and
- * treat it as a silent cancel — do not surface it as an error.
+ * treat it as a silent cancel - do not surface it as an error.
  */
 
 import {
@@ -95,7 +95,7 @@ function getShowDirectoryPicker():
 }
 
 // ---------------------------------------------------------------------------
-// Pure helpers — independently unit-testable, no browser API access
+// Pure helpers - independently unit-testable, no browser API access
 // ---------------------------------------------------------------------------
 
 /**
@@ -113,7 +113,7 @@ export function isImportableFilename(name: string): boolean {
  * Recursively walk a directory handle and yield every importable file together
  * with its vault-relative path (forward slashes, no leading slash).
  *
- * This is a pure generator over the handle tree — it does not call
+ * This is a pure generator over the handle tree - it does not call
  * `showDirectoryPicker` or touch any global state.
  *
  * @param dir   The directory handle to walk.
@@ -139,7 +139,7 @@ export async function* walkDirectory(
  * Returns `null` when:
  * - The path fails {@link safeImportPath} (traversal, bad extension, etc.)
  * - The reported file size exceeds {@link MAX_IMPORT_FILE_BYTES} (guard against
- *   reading the bytes at all — avoids OOM on huge files)
+ *   reading the bytes at all - avoids OOM on huge files)
  *
  * Throws if the underlying `file.text()` call fails (the caller decides whether
  * to skip or abort).
@@ -175,7 +175,7 @@ export async function readFileEntry(
  * path-unsafe files are silently skipped (consistent with ZIP import behaviour);
  * if the total caps are hit an error is thrown.
  *
- * @param dir Root directory handle (already opened — no picker call here).
+ * @param dir Root directory handle (already opened - no picker call here).
  */
 export async function collectEntriesFromDirectory(dir: GVFolderHandle): Promise<ImportEntry[]> {
   const entries: ImportEntry[] = [];
@@ -193,10 +193,10 @@ export async function collectEntriesFromDirectory(dir: GVFolderHandle): Promise<
     try {
       entry = await readFileEntry(handle, relativePath);
     } catch {
-      // Skip unreadable files — surface count but never abort the whole batch.
+      // Skip unreadable files - surface count but never abort the whole batch.
       continue;
     }
-    if (!entry) continue; // oversized or unsafe path — skip
+    if (!entry) continue; // oversized or unsafe path - skip
 
     const byteCount = new TextEncoder().encode(entry.content).length;
     totalBytes += byteCount;

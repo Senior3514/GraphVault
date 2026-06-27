@@ -5,10 +5,10 @@
  * library that turns a set of markdown notes into a navigable graph.
  *
  * Pipeline:
- *   1. {@link parseNote} — raw markdown → title, frontmatter, tags, links.
- *   2. {@link buildIndex} — notes → in-memory index (nodes, edges, backlinks).
+ *   1. {@link parseNote} - raw markdown → title, frontmatter, tags, links.
+ *   2. {@link buildIndex} - notes → in-memory index (nodes, edges, backlinks).
  *   3. Graph API ({@link getGraph}, {@link getLocalGraph}, {@link filterGraph})
- *      — render-ready `{ nodes, edges, truncated }` payloads.
+ *      - render-ready `{ nodes, edges, truncated }` payloads.
  *
  * Nothing here imports React, the DOM, or `node:fs`; callers supply note
  * content as {@link NoteInput} values.

@@ -73,7 +73,7 @@ test('reload path (store.load) returns migrated notes WITHOUT clearing the backe
   );
 });
 
-test('reset path (store.clear) wipes the backend — showing why reload is required', async () => {
+test('reset path (store.clear) wipes the backend - showing why reload is required', async () => {
   const migrated = [makeNote('a.md'), makeNote('b.md')];
   const { adapter, calls, current } = makeSpyAdapter(migrated);
   const store = new AdapterVaultStore(adapter);

@@ -1,5 +1,5 @@
 /**
- * Google Cloud Storage {@link StorageAdapter} — M18 (web client for Wave 16 server).
+ * Google Cloud Storage {@link StorageAdapter} - M18 (web client for Wave 16 server).
  *
  * Privacy model: the browser NEVER talks directly to GCS.
  * All operations are proxied through the user's self-hosted GraphVault server
@@ -11,7 +11,7 @@
  *
  * Storage format: all notes are serialised as a single JSON document stored as
  * a single object at a well-known key (`graphvault-vault.json`). This keeps the
- * proxy surface minimal and auditable — one PUT per save, one GET per load.
+ * proxy surface minimal and auditable - one PUT per save, one GET per load.
  *
  * Migration: switching to this adapter uses the same copy-verify-switch
  * pattern as other adapter migrations (see `migrationHelper.ts`).
@@ -44,7 +44,7 @@ export class GcsStorageAdapter implements StorageAdapter {
    *   1. We are in a browser (not SSR/Node).
    *   2. A bearer token is present in sessionStorage (user is signed in).
    *
-   * The server-side GCS config is checked lazily — `isAvailable()` must be
+   * The server-side GCS config is checked lazily - `isAvailable()` must be
    * synchronous and cannot make a network request.
    */
   isAvailable(): boolean {

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * InstallButton — platform-aware "Get the app" affordance.
+ * InstallButton - platform-aware "Get the app" affordance.
  *
  * The decision of *what* to show is delegated to the pure, unit-tested
  * `lib/pwa/install.ts` helpers; this component only wires the live browser
@@ -12,7 +12,7 @@
  *  - Chromium desktop / Android / Edge: capture `beforeinstallprompt`, show an
  *    "Install app" button that triggers the native install dialog on click.
  *  - iOS Safari (no `beforeinstallprompt`): show a concise, dismissible
- *    "Add to Home Screen" hint (Share → Add to Home Screen) — the only path.
+ *    "Add to Home Screen" hint (Share → Add to Home Screen) - the only path.
  *  - Already installed / `display-mode: standalone`: render nothing.
  *  - Other browsers (Firefox, desktop Safari): point at the browser menu.
  *
@@ -138,7 +138,7 @@ export function InstallButton() {
     );
   }
 
-  // manual-hint — Firefox / desktop Safari / Chrome-on-iOS.
+  // manual-hint - Firefox / desktop Safari / Chrome-on-iOS.
   return (
     <p className="mt-2 text-xs text-neutral-600">
       Install from your browser menu &rarr; &ldquo;Add to Home Screen&rdquo; / &ldquo;Install&rdquo;
@@ -162,7 +162,7 @@ function DownloadIcon({ className }: { className?: string }) {
 }
 
 function ShareIcon({ className }: { className?: string }) {
-  // iOS Share glyph — an upward arrow out of a box.
+  // iOS Share glyph - an upward arrow out of a box.
   return (
     <svg
       viewBox="0 0 20 20"

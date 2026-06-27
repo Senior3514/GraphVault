@@ -7,9 +7,9 @@
  * route. It blends two result kinds, both ranked and filtered by the live
  * query:
  *
- *  - **Actions** — a small fixed set ("Create new note", "Go to Graph", …),
+ *  - **Actions** - a small fixed set ("Create new note", "Go to Graph", …),
  *    matched with the dependency-free {@link fuzzyMatch} subsequence scorer.
- *  - **Notes** — quick-open by title/body via the vault's MiniSearch index.
+ *  - **Notes** - quick-open by title/body via the vault's MiniSearch index.
  *
  * It is fully keyboard-driven (↑/↓ to move, Enter to run, Esc to close), traps
  * focus while open, restores focus to the previously active element on close,
@@ -137,7 +137,7 @@ export function CommandPalette() {
             const created = vault.createNote(name);
             openNote(created.path);
           } catch {
-            /* duplicate or invalid path — surfaced on the vault page instead */
+            /* duplicate or invalid path - surfaced on the vault page instead */
           }
         },
       },
@@ -227,7 +227,7 @@ export function CommandPalette() {
               window.alert(lines.join('\n') || 'No changes.');
             })
             .catch((err: unknown) => {
-              // AbortError = user cancelled the picker — silent.
+              // AbortError = user cancelled the picker - silent.
               if (err instanceof DOMException && err.name === 'AbortError') return;
               const message = err instanceof Error ? err.message : String(err);
               window.alert(`Could not import folder: ${message}`);

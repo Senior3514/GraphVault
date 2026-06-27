@@ -3,8 +3,8 @@
  *
  * The force simulation is driven by a handful of tunables (link distance,
  * charge/repel strength, centre gravity) plus a label-visibility zoom
- * threshold. Keeping the defaults and the clamping logic here — framework-free
- * and unit-tested — lets the canvas component stay a thin presentational shell
+ * threshold. Keeping the defaults and the clamping logic here - framework-free
+ * and unit-tested - lets the canvas component stay a thin presentational shell
  * that just applies these values to `d3Force(...)`.
  */
 

@@ -1,5 +1,5 @@
 /**
- * GraphVault Web Clipper — popup script.
+ * GraphVault Web Clipper - popup script.
  *
  * Orchestrates the clip → edit → save flow:
  *   1. User clicks "Clip selection" or "Clip page".
@@ -147,7 +147,7 @@ function buildNoteMarkdown() {
 
 async function downloadNote() {
   const content = buildNoteMarkdown();
-  if (!content) { setStatus('Nothing to save — clip a page first.', 'err'); return; }
+  if (!content) { setStatus('Nothing to save - clip a page first.', 'err'); return; }
 
   const title = fieldTitle.value.trim() || clipped?.title || 'note';
   setStatus('Saving…', '');
@@ -174,7 +174,7 @@ async function downloadNote() {
 
 async function sendToVault() {
   const content = buildNoteMarkdown();
-  if (!content) { setStatus('Nothing to send — clip a page first.', 'err'); return; }
+  if (!content) { setStatus('Nothing to send - clip a page first.', 'err'); return; }
 
   const vaultUrl = await getVaultUrl();
   const deepLink = `${vaultUrl.replace(/\/$/, '')}/vault?new=${encodeURIComponent(content)}`;
@@ -224,7 +224,7 @@ function closeSettings() {
 async function saveSettings() {
   const url = fieldVaultUrl.value.trim();
   if (url && !isValidUrl(url)) {
-    setStatus('Invalid URL — must start with http:// or https://', 'err');
+    setStatus('Invalid URL - must start with http:// or https://', 'err');
     return;
   }
   await new Promise((resolve) => {

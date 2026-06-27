@@ -20,7 +20,7 @@ Read `CLAUDE.md`, `apps/server/README.md`, `apps/server/.env.example`,
 - Server image: multi-stage, workspace-aware pnpm install with
   `--frozen-lockfile`, build `@graphvault/shared` then `@graphvault/server`, slim
   non-root runtime, `EXPOSE 4000`, `HEALTHCHECK` on `/v1/health`. Mind native
-  addons (`argon2`) — glibc base is safest.
+  addons (`argon2`) - glibc base is safest.
 - Compose: `server` + `postgres:16` with healthchecks, named volumes for the DB
   and the blob `dataDir`, env interpolation with safe defaults, and a comment
   pointing at a TLS-terminating reverse proxy.

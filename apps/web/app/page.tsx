@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { InstallButton } from '../components/InstallButton';
 
 /**
- * Marketing landing page — rendered full-bleed (no app chrome) via AppFrame.
+ * Marketing landing page - rendered full-bleed (no app chrome) via AppFrame.
  *
  * Design goals:
  *  - Four core GraphVault promises front-and-center (local-first, self-hosted
@@ -19,7 +19,7 @@ export default function LandingPage() {
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-neutral-950 text-neutral-100">
       {/* ------------------------------------------------------------------ */}
-      {/* Ambient backdrop — pure CSS, no images                              */}
+      {/* Ambient backdrop - pure CSS, no images                              */}
       {/* ------------------------------------------------------------------ */}
 
       {/* Top aurora glow */}
@@ -27,7 +27,7 @@ export default function LandingPage() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(70rem_50rem_at_50%_-15%,theme(colors.sky.500/18),transparent)]"
       />
-      {/* Secondary accent — lower right */}
+      {/* Secondary accent - lower right */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute bottom-0 right-0 h-[50rem] w-[50rem] translate-x-1/3 translate-y-1/3 bg-[radial-gradient(circle,theme(colors.violet.600/8),transparent_70%)]"
@@ -95,7 +95,7 @@ export default function LandingPage() {
         {/* HERO                                                              */}
         {/* ================================================================ */}
         <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-10 pt-14 sm:px-6 sm:pt-24 lg:grid-cols-[1fr_480px] lg:items-center lg:gap-16">
-          {/* Left — copy */}
+          {/* Left - copy */}
           <div className="motion-safe:animate-slide-up">
             {/* Badge */}
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-3.5 py-1.5 text-xs text-neutral-400 shadow-sm">
@@ -122,7 +122,7 @@ export default function LandingPage() {
 
             <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-neutral-400">
               GraphVault is a local-first Markdown app with self-hosted sync and a graph you can
-              actually think in. Open straight into your vault — no folder picker, no &quot;allow
+              actually think in. Open straight into your vault - no folder picker, no &quot;allow
               access to your files&quot; dialog. Start writing in seconds.
             </p>
 
@@ -146,7 +146,7 @@ export default function LandingPage() {
               </span>
             </p>
 
-            {/* CTAs — the primary action is unmistakable; min-h-[44px] keeps
+            {/* CTAs - the primary action is unmistakable; min-h-[44px] keeps
                 every touch target above the accessibility floor. */}
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
@@ -156,7 +156,7 @@ export default function LandingPage() {
                 Open GraphVault
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
-              {/* Download the native app — routes to the OS-aware download page. */}
+              {/* Download the native app - routes to the OS-aware download page. */}
               <Link
                 href="/download"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-5 py-2.5 font-medium text-sky-300 transition-all hover:border-sky-500/60 hover:bg-sky-500/15 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
@@ -164,7 +164,7 @@ export default function LandingPage() {
                 <DownloadIcon className="h-4 w-4" />
                 Download the app
               </Link>
-              {/* PWA install affordance — platform-aware; renders nothing when
+              {/* PWA install affordance - platform-aware; renders nothing when
                   already installed or when install isn't possible. */}
               <InstallButton />
               <a
@@ -178,13 +178,13 @@ export default function LandingPage() {
               </a>
             </div>
 
-            {/* One-line trust statement — the whole pitch in a breath. */}
+            {/* One-line trust statement - the whole pitch in a breath. */}
             <p className="mt-4 text-sm text-neutral-500">
               Works offline · No account · Your files stay yours.
             </p>
           </div>
 
-          {/* Right — product preview */}
+          {/* Right - product preview */}
           <div className="motion-safe:animate-slide-up-delay">
             <ProductPreview />
           </div>
@@ -204,7 +204,7 @@ export default function LandingPage() {
               <span aria-hidden="true" className="hidden text-neutral-800 sm:block">
                 ·
               </span>
-              <StatBadge icon="📁" label="Plain Markdown on disk — no lock-in" />
+              <StatBadge icon="📁" label="Plain Markdown on disk - no lock-in" />
               <span aria-hidden="true" className="hidden text-neutral-800 sm:block">
                 ·
               </span>
@@ -231,19 +231,19 @@ export default function LandingPage() {
               icon={<FileIcon />}
               accent="sky"
               title="Local-first, no lock-in"
-              description="Your vault is plain Markdown. Unzip the export and you have readable .md files — no proprietary database, no import step."
+              description="Your vault is plain Markdown. Unzip the export and you have readable .md files - no proprietary database, no import step."
             />
             <PromiseCard
               icon={<SyncIcon />}
               accent="violet"
               title="Self-hosted sync"
-              description="One small open-source server on your own VPS. Per-device tokens, conflict-aware, content-addressed — it never silently loses a note."
+              description="One small open-source server on your own VPS. Per-device tokens, conflict-aware, content-addressed - it never silently loses a note."
             />
             <PromiseCard
               icon={<GraphIcon />}
               accent="emerald"
               title="A graph to think in"
-              description="Every note and link becomes a navigable graph with live physics, typed relations, hover highlights, and filters — a first-class tool."
+              description="Every note and link becomes a navigable graph with live physics, typed relations, hover highlights, and filters - a first-class tool."
             />
             <PromiseCard
               icon={<ShieldIcon />}
@@ -255,13 +255,13 @@ export default function LandingPage() {
         </section>
 
         {/* ================================================================ */}
-        {/* FEATURE SHOWCASE — annotated screenshot mockup                    */}
+        {/* FEATURE SHOWCASE - annotated screenshot mockup                    */}
         {/* ================================================================ */}
         <section className="border-y border-neutral-900 bg-neutral-950/40 py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionLabel>The vault</SectionLabel>
             <h2 className="mt-2 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-              A full Markdown workspace — in your browser.
+              A full Markdown workspace - in your browser.
             </h2>
 
             <div className="mt-12 grid gap-8 lg:grid-cols-2 lg:items-center">
@@ -300,7 +300,7 @@ export default function LandingPage() {
                   },
                   {
                     title: 'Export anytime',
-                    desc: 'Download a lossless Markdown ZIP or a JSON backup with one click — no account, no internet required.',
+                    desc: 'Download a lossless Markdown ZIP or a JSON backup with one click - no account, no internet required.',
                   },
                 ].map(({ title, desc }) => (
                   <FeatureLine key={title} title={title}>
@@ -323,7 +323,7 @@ export default function LandingPage() {
                 Not just a pretty hairball.
               </h2>
               <p className="mt-4 max-w-xl text-pretty text-base leading-relaxed text-neutral-400">
-                GraphVault&apos;s graph is a real navigation tool — degree-scaled nodes, live
+                GraphVault&apos;s graph is a real navigation tool - degree-scaled nodes, live
                 physics, hover highlights, and click-to-open. Filter by tag, type, or date. Double
                 click to open a note without leaving the graph.
               </p>
@@ -370,7 +370,7 @@ export default function LandingPage() {
 
             {/* Desktop: 3-column table; Mobile: stacked cards per feature */}
             <div className="mt-12 overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/40">
-              {/* Table header — only shown on sm+ */}
+              {/* Table header - only shown on sm+ */}
               <div className="hidden grid-cols-3 border-b border-neutral-800 text-xs font-semibold uppercase tracking-wide sm:grid">
                 <div className="px-5 py-3 text-neutral-500">Feature</div>
                 <div className="border-l border-neutral-800 px-5 py-3 text-neutral-500">Others</div>
@@ -459,7 +459,7 @@ export default function LandingPage() {
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-base text-neutral-400">
                 It&apos;s open-source, self-hostable, and gets better with every star. No account
-                needed to try the app — just open it and write.
+                needed to try the app - just open it and write.
               </p>
 
               <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -540,12 +540,12 @@ export default function LandingPage() {
 }
 
 // ============================================================================
-// PRODUCT PREVIEW — CSS/SVG mock of the vault + graph UI
+// PRODUCT PREVIEW - CSS/SVG mock of the vault + graph UI
 // ============================================================================
 
 /**
  * Simulates the app shell with a note editor on the left and a mini graph
- * panel on the right. Entirely CSS + inline SVG — no canvas, no images.
+ * panel on the right. Entirely CSS + inline SVG - no canvas, no images.
  */
 function ProductPreview() {
   return (
@@ -872,7 +872,7 @@ function GraphSVGPreview() {
             <line x1="300" y1="65" x2="260" y2="25" />
           </g>
 
-          {/* Satellite cluster — peripheral nodes */}
+          {/* Satellite cluster - peripheral nodes */}
           <circle cx="30" cy="130" r="5" fill="url(#g-grn)" opacity="0.7" />
           <circle cx="350" cy="120" r="5" fill="url(#g-grn)" opacity="0.7" />
           <circle cx="130" cy="30" r="5" fill="url(#g-sat)" opacity="0.7" />
@@ -889,7 +889,7 @@ function GraphSVGPreview() {
           <circle cx="145" cy="230" r="8" fill="url(#g-sat)" opacity="0.9" />
           <circle cx="240" cy="230" r="8" fill="url(#g-grn)" opacity="0.9" />
 
-          {/* Hub — glowing center */}
+          {/* Hub - glowing center */}
           <circle cx="190" cy="140" r="6" fill="url(#g-hub)" filter="url(#glow)" opacity="0.5" />
           <circle cx="190" cy="140" r="14" fill="url(#g-hub)" />
 

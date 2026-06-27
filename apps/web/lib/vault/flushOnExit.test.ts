@@ -1,5 +1,5 @@
 /**
- * Tests for registerFlushOnExit (fix #3 — flush-on-close listeners wired).
+ * Tests for registerFlushOnExit (fix #3 - flush-on-close listeners wired).
  *
  * We stub minimal `window`/`document` event targets so the helper's listener
  * wiring is exercised in Node.

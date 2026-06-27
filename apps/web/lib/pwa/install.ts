@@ -6,7 +6,7 @@
  * Node with zero DOM. The React component in
  * `components/InstallButton.tsx` wires the live browser values in.
  *
- * Why this exists: PWA install affordances are deeply platform-specific —
+ * Why this exists: PWA install affordances are deeply platform-specific -
  * Chromium fires `beforeinstallprompt`, iOS Safari never does (Add to Home
  * Screen is the only path), and an already-installed app must hide the CTA
  * entirely. Keeping that decision logic pure makes it auditable and testable.
@@ -78,17 +78,17 @@ export function isMobileOs(os: Os): boolean {
 /**
  * Which install affordance to present.
  *
- * - `prompt`      — a programmatic `beforeinstallprompt` is available; show an
+ * - `prompt`      - a programmatic `beforeinstallprompt` is available; show an
  *                   "Install app" button that triggers the native dialog.
- * - `ios-hint`    — iOS Safari; show the "Share → Add to Home Screen" hint
+ * - `ios-hint`    - iOS Safari; show the "Share → Add to Home Screen" hint
  *                   (the only install path Apple offers).
- * - `manual-hint` — another browser without `beforeinstallprompt` (e.g. Firefox,
+ * - `manual-hint` - another browser without `beforeinstallprompt` (e.g. Firefox,
  *                   desktop Safari); point at the browser menu.
- * - `none`        — already installed / running standalone; show nothing.
+ * - `none`        - already installed / running standalone; show nothing.
  */
 export type InstallAffordance = 'prompt' | 'ios-hint' | 'manual-hint' | 'none';
 
-/** Inputs the affordance decision depends on — all explicitly injected. */
+/** Inputs the affordance decision depends on - all explicitly injected. */
 export interface InstallEnv {
   /** `navigator.userAgent` (lower-casing is handled internally). */
   userAgent: string;
@@ -102,7 +102,7 @@ export interface InstallEnv {
  * Classify the platform from a user-agent string.
  *
  * iPadOS 13+ reports a desktop-Safari UA, so we additionally treat a
- * "Macintosh" UA that also exposes touch as iOS — but since touch isn't in the
+ * "Macintosh" UA that also exposes touch as iOS - but since touch isn't in the
  * UA string, callers that care should pass {@link detectIosFromNavigator}.
  */
 export function detectPlatform(userAgent: string): Platform {

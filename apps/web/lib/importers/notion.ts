@@ -14,7 +14,7 @@
  * What we normalise:
  *   1. Strip the UUID suffix from filenames: `My Page abc123.md` → `My Page.md`
  *   2. Strip the UUID suffix from all Markdown links that reference local files.
- *   3. Skip `.csv` files (database views) — they are not notes.
+ *   3. Skip `.csv` files (database views) - they are not notes.
  *   4. Skip image/attachment entries (non-.md, non-.markdown, non-.txt are
  *      already filtered by `safeImportPath`).
  *
@@ -22,7 +22,7 @@
  * the base name before the extension:  ` [0-9a-f]{32}` or the common
  * hyphenated form `[0-9a-f-]{32,36}` (with/without hyphens).
  * We use a conservative pattern: ` [0-9a-f]{8}(?:[0-9a-f]{4}){3}[0-9a-f]{12}`
- * (pure 32-char hex, no hyphens, preceded by a space — the exact Notion format).
+ * (pure 32-char hex, no hyphens, preceded by a space - the exact Notion format).
  */
 
 import { readVaultZip, safeImportPath, type ImportEntry } from '../vault/portability';
@@ -58,7 +58,7 @@ export function stripNotionUuid(baseName: string): string {
  *   3. Delegate final safety check to safeImportPath.
  */
 export function notionPathToVaultPath(raw: string): string | null {
-  // Reject CSV files (Notion database exports) — they have no note content.
+  // Reject CSV files (Notion database exports) - they have no note content.
   if (/\.csv$/i.test(raw)) return null;
 
   // Split into segments and strip UUIDs.
@@ -116,7 +116,7 @@ export function rewriteNotionLinks(content: string): string {
       const newHref = rewritten.join('/');
       return `[${text}](${newHref})`;
     } catch {
-      // decodeURIComponent threw — leave as-is.
+      // decodeURIComponent threw - leave as-is.
       return match;
     }
   });

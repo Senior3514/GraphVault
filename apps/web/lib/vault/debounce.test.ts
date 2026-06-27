@@ -77,9 +77,9 @@ test('debounce: resets timer on each call', () => {
     const fn = debounce((n: number) => calls.push(n), 100);
 
     fn(1);
-    tick(50); // 50 ms in — not fired
+    tick(50); // 50 ms in - not fired
     fn(2); // reset
-    tick(50); // 100 ms from start, only 50 from last call — not fired
+    tick(50); // 100 ms from start, only 50 from last call - not fired
     assert.deepEqual(calls, []);
     tick(50); // now 100 ms from the second call
     assert.deepEqual(calls, [2]);

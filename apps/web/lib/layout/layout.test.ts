@@ -1,6 +1,6 @@
 /**
  * Tests for pure layout utilities (storage serialisation, merge, clamp).
- * These run in Node.js — no DOM, no React.
+ * These run in Node.js - no DOM, no React.
  */
 
 import assert from 'node:assert/strict';
@@ -158,7 +158,7 @@ describe('focus mode', () => {
     assert.deepEqual(reloaded.widths, customised.widths);
     assert.deepEqual(reloaded.panels, customised.panels);
 
-    // Exit focus mode — widths + panels are untouched.
+    // Exit focus mode - widths + panels are untouched.
     const exited: WorkspaceLayout = { ...reloaded, focusMode: false };
     assert.equal(exited.focusMode, false);
     assert.deepEqual(exited.widths, customised.widths);

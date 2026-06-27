@@ -8,21 +8,21 @@
  *     credential-type specific info string `graphvault-gcs-cred-v1`, so GCS
  *     sub-keys are independent of WebDAV/S3/Azure sub-keys for the same user.
  *   - If no server encryption key is configured, a process-lifetime random key
- *     is used (credentials are lost on restart — same trade-off as S3/WebDAV).
+ *     is used (credentials are lost on restart - same trade-off as S3/WebDAV).
  *   - Credentials are NEVER returned to the client. The client receives only the
  *     non-secret GcsConfigInfo (bucket + accessId + prefix + updatedAt).
  *   - GCS exposes an S3-compatible XML API at https://storage.googleapis.com that
  *     accepts AWS Signature V4. We reuse the exact SigV4 signer from s3.ts with
- *     service "s3", region "auto", host storage.googleapis.com — zero new deps.
+ *     service "s3", region "auto", host storage.googleapis.com - zero new deps.
  *     This honors the lesson "host header not sent to fetch manually": signS3Request
  *     signs `host` then strips it from the returned headers.
  *   - The browser never contacts GCS directly (avoids CORS, keeps creds off the
  *     client).
  *
  * Proxy scope (single-object vault blob):
- *   - GET    /v1/storage/gcs/object/graphvault-vault.json — download
- *   - PUT    /v1/storage/gcs/object/graphvault-vault.json — upload
- *   - DELETE /v1/storage/gcs/object/graphvault-vault.json — delete
+ *   - GET    /v1/storage/gcs/object/graphvault-vault.json - download
+ *   - PUT    /v1/storage/gcs/object/graphvault-vault.json - upload
+ *   - DELETE /v1/storage/gcs/object/graphvault-vault.json - delete
  */
 
 import { hkdfSync, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
@@ -32,7 +32,7 @@ import { guardedFetch } from './ssrf.js';
 import type { GcsConfigRecord, Storage } from '../store/types.js';
 
 // ---------------------------------------------------------------------------
-// Public config shapes (defined here — shared package is not modifiable in this
+// Public config shapes (defined here - shared package is not modifiable in this
 // wave; mirrors the S3ConfigRequest / S3ConfigInfo split exactly).
 // ---------------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ export interface GcsConfigRequest {
   bucket: string;
   /** HMAC interop access ID (the "Access ID" from a GCS HMAC key). */
   accessId: string;
-  /** HMAC interop secret. The secret — encrypted at rest, never returned. */
+  /** HMAC interop secret. The secret - encrypted at rest, never returned. */
   secret: string;
   /**
    * Optional object-key prefix prepended to all keys. Must end with "/" when
@@ -266,7 +266,7 @@ export class GcsService {
     } catch (err) {
       throw badRequest(`GCS DELETE failed: ${err instanceof Error ? err.message : String(err)}`);
     }
-    // 204 = deleted, 404 = already gone — both acceptable.
+    // 204 = deleted, 404 = already gone - both acceptable.
     if (!res.ok && res.status !== 404) {
       throw badRequest(`GCS DELETE returned ${res.status}`);
     }

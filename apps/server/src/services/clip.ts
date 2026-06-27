@@ -19,7 +19,7 @@
  *
  * Timeout: 10 seconds total for the fetch, enforced via AbortSignal.timeout().
  *
- * Size cap: 5 MiB of HTML before conversion — responses exceeding this are
+ * Size cap: 5 MiB of HTML before conversion - responses exceeding this are
  * truncated so memory usage stays bounded.
  *
  * Zero new npm dependencies: uses only node:dns/promises + native fetch.
@@ -68,7 +68,7 @@ const MAX_REDIRECTS = 5;
 // The SSRF guard itself (private-IP detection, DNS-pinned connect, per-redirect
 // re-validation) lives in ./ssrf.ts and is shared by every outbound proxy.
 // Clipping fetches arbitrary user-supplied public URLs, so it ALWAYS runs the
-// guard with allowPrivate=false — the GRAPHVAULT_ALLOW_PRIVATE_PROXY_TARGETS
+// guard with allowPrivate=false - the GRAPHVAULT_ALLOW_PRIVATE_PROXY_TARGETS
 // env opt-in (used by self-hosted storage backends on localhost) never relaxes
 // clipping.
 
@@ -168,7 +168,7 @@ function extractAttr(tag: string, attr: string): string {
 
 /**
  * Tokenise HTML into a flat list of tokens: text nodes and open/close tags.
- * This is intentionally simple — no namespace support, handles most real pages.
+ * This is intentionally simple - no namespace support, handles most real pages.
  */
 interface TextToken {
   kind: 'text';
@@ -302,7 +302,7 @@ const SKIP_TAGS = new Set([
  * Convert a flat HTML string to Markdown.
  *
  * Rules:
- *   - h1–h6    → # … ######
+ *   - h1-h6    → # … ######
  *   - p/div/…  → paragraph (double newline)
  *   - ul/ol/li → bullet / numbered list
  *   - a        → [text](href)  (http/https only)
@@ -366,7 +366,7 @@ export function htmlToMarkdown(html: string): string {
       text = decodeHtmlEntities(text);
       text = text.replace(/\r?\n|\r/g, ' ').replace(/\s+/g, ' ');
       if (!text.trim()) {
-        // Pure whitespace between block elements — just mark a line break.
+        // Pure whitespace between block elements - just mark a line break.
         if (pendingNewlines === 0 && out.length > 0 && !out.endsWith('\n')) {
           pendingNewlines = 1;
         }
@@ -546,7 +546,7 @@ export function htmlToMarkdown(html: string): string {
       case 'a': {
         const href = extractAttr(raw, 'href');
         if (/^https?:\/\//i.test(href)) {
-          // We'll capture the text and close on </a> — but since we don't
+          // We'll capture the text and close on </a> - but since we don't
           // have lookahead we use a simple approach: emit markdown inline link
           // marker only. Text between open/close is emitted normally; we rely
           // on the close-tag logic to append the ](href) part.
@@ -608,7 +608,7 @@ function stripNoiseSections(html: string): string {
   const noiseTags = ['nav', 'footer', 'aside', 'header', 'form'];
   let result = html;
   for (const tag of noiseTags) {
-    // Greedy removal — removes the outermost occurrence.
+    // Greedy removal - removes the outermost occurrence.
     const re = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi');
     result = result.replace(re, '');
   }

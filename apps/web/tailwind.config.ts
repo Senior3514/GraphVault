@@ -13,10 +13,10 @@ const config: Config = {
       /**
        * Drive the `neutral` ramp from CSS variables (defined in globals.css) so
        * the thousands of existing `bg-neutral-950 text-neutral-100` utilities
-       * adapt per theme automatically — no per-component rewrite. Dark uses the
+       * adapt per theme automatically - no per-component rewrite. Dark uses the
        * stock Tailwind triples; light uses an inverted ramp so semantics hold
        * (`neutral-950` is always "page background", `neutral-50` "strongest
-       * text"). Accents (sky/amber/red) are unchanged — they read on both.
+       * text"). Accents (sky/amber/red) are unchanged - they read on both.
        */
       colors: {
         neutral: {

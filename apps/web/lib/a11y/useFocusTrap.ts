@@ -5,7 +5,7 @@
  *
  * Extracted from `AppFrame` so every `role="dialog" aria-modal="true"` overlay
  * can reuse the same, tested behaviour instead of re-implementing it (or, worse,
- * declaring `aria-modal` with no trap at all — which strands keyboard / screen
+ * declaring `aria-modal` with no trap at all - which strands keyboard / screen
  * reader users behind the curtain).
  *
  * Behaviour while `active`:

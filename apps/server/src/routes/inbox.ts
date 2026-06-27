@@ -5,7 +5,7 @@
  *  - authenticated token management + audit log (the vault owner mints/lists/
  *    revokes per-connector tokens and reviews what each connector did);
  *  - a single PUBLIC inbound endpoint `POST /v1/inbox/:token` where the token IS
- *    the credential — external services POST Markdown and it lands as a note.
+ *    the credential - external services POST Markdown and it lands as a note.
  *
  * The inbound endpoint carries a STRICTER per-window rate limit (like
  * `/v1/auth/*` and `/v1/snapshots`) and a size cap (413), since it is

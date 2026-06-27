@@ -1,6 +1,6 @@
 # GraphVault Sync Protocol (v1 draft)
 
-> Status: **draft** — Milestone 1. This document is the canonical specification
+> Status: **draft** - Milestone 1. This document is the canonical specification
 > for how GraphVault clients and the self-hosted server exchange notes. The
 > wire types live in `packages/shared/src/sync/` and must stay in sync with this
 > document.
@@ -32,7 +32,7 @@
 | **Content hash**  | `sha256:<hex>` of the raw file bytes. Identifies content; enables dedupe.                |
 | **Blob**          | The raw bytes for a given content hash, stored content-addressed on the server.          |
 | **Revision**      | A per-vault monotonically increasing integer (`seq`). Each accepted change bumps it.     |
-| **File state**    | `{ path, hash, size, mtime, deleted, revision }` — the server's view of one file.        |
+| **File state**    | `{ path, hash, size, mtime, deleted, revision }` - the server's view of one file.        |
 | **Tombstone**     | A file state with `deleted: true` and `hash: null`. Propagates deletions.                |
 | **Base revision** | The server revision a local change was last reconciled against (for conflict checks).    |
 | **Local index**   | The client's record of every file's `path, hash, mtime, deleted, baseRevision, dirty`.   |
@@ -52,7 +52,7 @@ A path is the stable identity of a file across devices.
 ### 2.2 Canonical content representation
 
 - Content is treated as **opaque bytes**. No normalization of line endings or
-  encoding in v0 — the bytes you write are the bytes that sync.
+  encoding in v0 - the bytes you write are the bytes that sync.
 - The content hash is `sha256` of those exact bytes, lowercase hex, prefixed
   `sha256:`. See `packages/shared/src/util/hash.ts`.
 - A tombstone has `hash: null` and `size: 0`.

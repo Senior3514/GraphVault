@@ -6,7 +6,7 @@
  * Fires onResize(deltaPx) continuously while dragging; the parent clamps and
  * applies the delta. Respects prefers-reduced-motion (no animated cursors).
  *
- * On mobile (< md) the divider is hidden — the WorkspaceLayout uses a single-
+ * On mobile (< md) the divider is hidden - the WorkspaceLayout uses a single-
  * pane + bottom-bar layout instead of resizable columns there.
  */
 

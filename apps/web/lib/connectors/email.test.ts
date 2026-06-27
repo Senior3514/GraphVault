@@ -1,5 +1,5 @@
 /**
- * Unit tests for the email import connector — pure functions, no browser needed.
+ * Unit tests for the email import connector - pure functions, no browser needed.
  *
  * Uses the same DOMParser + Node shim strategy as rssOpml.test.ts.
  *
@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 // ---------------------------------------------------------------------------
-// DOMParser shim (identical strategy to rssOpml.test.ts — Node has no DOMParser)
+// DOMParser shim (identical strategy to rssOpml.test.ts - Node has no DOMParser)
 // ---------------------------------------------------------------------------
 
 class ShimText {
@@ -389,7 +389,7 @@ test('buildEmailNotePath falls back to Untitled Message for empty subject', () =
 });
 
 // ---------------------------------------------------------------------------
-// Tests: parseEmlMessage — simple text/plain
+// Tests: parseEmlMessage - simple text/plain
 // ---------------------------------------------------------------------------
 
 test('parseEmlMessage parses a simple text/plain message', () => {
@@ -414,7 +414,7 @@ test('parseEmlMessage sets ctime/mtime from Date header', () => {
   const note = parseEmlMessage(SIMPLE_EML);
   assert.ok(note.ctime !== undefined && note.ctime > 0, 'ctime set');
   assert.ok(note.mtime !== undefined && note.mtime > 0, 'mtime set');
-  // Date is 2026-06-15 — epoch ms should be > 2024 epoch.
+  // Date is 2026-06-15 - epoch ms should be > 2024 epoch.
   assert.ok(note.ctime! > 1_700_000_000_000, `ctime seems wrong: ${note.ctime}`);
 });
 
@@ -525,7 +525,7 @@ test('splitMbox returns empty array for non-mbox input', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: parseEmailSource — mbox
+// Tests: parseEmailSource - mbox
 // ---------------------------------------------------------------------------
 
 test('parseEmailSource parses mbox into one note per message', () => {
@@ -548,7 +548,7 @@ test('mbox notes contain correct subjects', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: parseEmailSource — single .eml
+// Tests: parseEmailSource - single .eml
 // ---------------------------------------------------------------------------
 
 test('parseEmailSource parses single .eml (no From envelope line)', () => {

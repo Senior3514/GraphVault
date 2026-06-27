@@ -5,14 +5,14 @@
  * (resolved inbound edges from the engine index) plus controls to open the note
  * in `/vault` or focus a local graph around it.
  *
- * M21 AI additions (gated behind aiEnabled — hidden when AI is off):
- *  - "Suggest related" — surfaces vault notes the AI thinks are related but
+ * M21 AI additions (gated behind aiEnabled - hidden when AI is off):
+ *  - "Suggest related" - surfaces vault notes the AI thinks are related but
  *    not yet linked. Clicking a suggestion navigates to that note.
- *  - "Find gaps" — surfaces note titles the AI thinks are MISSING from this
+ *  - "Find gaps" - surfaces note titles the AI thinks are MISSING from this
  *    cluster, useful for surfacing future writing ideas.
  *
  * Privacy invariant: these sections are hidden entirely when AI is off.
- * When shown, only note TITLES and link topology are sent — never bodies.
+ * When shown, only note TITLES and link topology are sent - never bodies.
  * The "what we'll send" notice is shown before the first request fires.
  */
 
@@ -39,7 +39,7 @@ export interface NodePanelProps {
   onSelect: (id: string) => void;
   /** Open the note in the vault editor (the page owns the URL shape). */
   onOpen: (path: string) => void;
-  /** AI settings — when kind === 'off' the AI sections are hidden entirely. */
+  /** AI settings - when kind === 'off' the AI sections are hidden entirely. */
   aiSettings?: AISettings;
   /**
    * Server-proxy options (token + URL) for `server` AI mode. Required for the
@@ -130,7 +130,7 @@ export function NodePanel({
         )}
       </Section>
 
-      {/* M21: AI sections — only rendered when AI is enabled */}
+      {/* M21: AI sections - only rendered when AI is enabled */}
       {aiEnabled && aiSettings && (
         <>
           <RelatedNotesSection

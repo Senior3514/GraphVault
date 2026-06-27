@@ -10,7 +10,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 // ---------------------------------------------------------------------------
-// Minimal DOM shim (no jsdom dependency — we only test pure logic)
+// Minimal DOM shim (no jsdom dependency - we only test pure logic)
 // ---------------------------------------------------------------------------
 
 // We extract and test only the pure text-processing functions, not DOM-walking.

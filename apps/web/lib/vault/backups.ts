@@ -9,11 +9,11 @@
  * ## Snapshot model
  * A snapshot is a point-in-time copy of the full vault (array of Notes)
  * serialised to JSON. Each snapshot carries:
- *   - `id`          — opaque string (timestamp + random suffix), used as IDB key.
- *   - `takenAt`     — epoch ms when the snapshot was taken.
- *   - `noteCount`   — how many notes were captured (for the UI without deserialising).
- *   - `label`       — optional human-readable label (e.g. "pre-restore").
- *   - `notesJson`   — serialised Note[] (JSON string stored inline).
+ *   - `id`          - opaque string (timestamp + random suffix), used as IDB key.
+ *   - `takenAt`     - epoch ms when the snapshot was taken.
+ *   - `noteCount`   - how many notes were captured (for the UI without deserialising).
+ *   - `label`       - optional human-readable label (e.g. "pre-restore").
+ *   - `notesJson`   - serialised Note[] (JSON string stored inline).
  *
  * ## Retention policy
  * `pruneOld()` keeps:
@@ -66,7 +66,7 @@ export const RETENTION_RECENT = 20;
 export const RETENTION_DAILY_DAYS = 30;
 
 // ---------------------------------------------------------------------------
-// IDBStore port — inject in prod, fake in tests
+// IDBStore port - inject in prod, fake in tests
 // ---------------------------------------------------------------------------
 
 /**
@@ -154,7 +154,7 @@ export class RealIDBStore implements IDBStore {
 }
 
 // ---------------------------------------------------------------------------
-// BackupStore — the public API
+// BackupStore - the public API
 // ---------------------------------------------------------------------------
 
 function generateId(): string {
@@ -268,7 +268,7 @@ export class BackupStore {
    * Safety guarantee: before restoring, a "pre-restore" snapshot of the
    * current vault is taken so the user can always undo the restore. The
    * snapshot notes are then merged into `currentNotes` via the collision-safe
-   * `mergeImport` function — identical notes are de-duped, collisions become
+   * `mergeImport` function - identical notes are de-duped, collisions become
    * "(imported)" copies. Nothing is silently overwritten.
    *
    * @param id            The snapshot to restore.

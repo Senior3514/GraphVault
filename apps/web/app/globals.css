@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ============================================================================
-   Design tokens — the `neutral` ramp as CSS variables (RGB triples, no alpha).
+   Design tokens - the `neutral` ramp as CSS variables (RGB triples, no alpha).
    Tailwind's neutral.* colours resolve to `rgb(var(--n-XXX) / <alpha-value>)`
    (see tailwind.config.ts), so every existing `bg-neutral-950 text-neutral-100`
    utility flips per theme with zero per-component changes.
@@ -54,7 +54,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Refined interactive defaults — smooth hover/focus transitions everywhere. */
+/* Refined interactive defaults - smooth hover/focus transitions everywhere. */
 a,
 button,
 [role='button'] {
@@ -92,7 +92,7 @@ button,
 }
 
 /* ============================================================================
-   Skip-to-content link — visually hidden until focused by keyboard.
+   Skip-to-content link - visually hidden until focused by keyboard.
    Placed as the first child of <body> / root layout for screen-reader and
    keyboard users to jump past the navigation rail directly to main content.
    ============================================================================ */
@@ -115,7 +115,7 @@ button,
    focus-visible is not applicable (mouse users switching split modes).
    ============================================================================ */
 [aria-pressed='true'] {
-  /* No visual override needed — components handle active state via className.
+  /* No visual override needed - components handle active state via className.
      This rule is a named hook so future token changes stay in one place. */
 }
 
@@ -263,7 +263,7 @@ button,
 }
 
 /* ============================================================================
-   Empty state helper — centred muted placeholder used across vault/graph views
+   Empty state helper - centred muted placeholder used across vault/graph views
    ============================================================================ */
 .empty-state {
   @apply flex flex-col items-center justify-center gap-3 py-16 text-center;
@@ -289,7 +289,7 @@ button,
 }
 
 /* ============================================================================
-   Safe-area utilities — used by fixed/sticky elements near notches / home bars
+   Safe-area utilities - used by fixed/sticky elements near notches / home bars
    ============================================================================ */
 .safe-top {
   padding-top: env(safe-area-inset-top);

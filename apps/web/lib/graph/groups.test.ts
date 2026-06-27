@@ -238,7 +238,7 @@ const _localStorage = {
     delete _storage[k];
   },
 };
-// @ts-expect-error — patching globalThis for test environment
+// @ts-expect-error - patching globalThis for test environment
 globalThis.localStorage = _localStorage;
 
 test('saveGroups + loadGroups round-trips correctly', () => {

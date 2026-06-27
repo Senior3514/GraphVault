@@ -5,7 +5,7 @@ security reports seriously and appreciate responsible disclosure.
 
 ## Reporting a vulnerability
 
-Please report security issues **privately** — do not open a public issue for a
+Please report security issues **privately** - do not open a public issue for a
 suspected vulnerability.
 
 - Email: **<TODO: security@your-domain>** (or use GitHub's
@@ -27,12 +27,12 @@ tag for stability and update promptly when fixes ship.
 GraphVault's security model is documented in
 [`docs/security-model.md`](docs/security-model.md). Highlights:
 
-- **Local-first, zero telemetry** by default — note content stays on the device
+- **Local-first, zero telemetry** by default - note content stays on the device
   unless the user explicitly enables a sync server or AI/connector provider.
-- **Credentials never live in the browser** — sync auth uses device-bound bearer
+- **Credentials never live in the browser** - sync auth uses device-bound bearer
   tokens; AI, WebDAV, and S3 credentials are held and encrypted (AES-256-GCM,
   per-user HKDF) on the user's self-hosted server, proxied server-side.
-- **Untrusted input is validated** — imports guard against zip-slip / path
+- **Untrusted input is validated** - imports guard against zip-slip / path
   traversal / oversized archives; the URL clipper has an SSRF guard; rendered
   Markdown is sanitized with DOMPurify.
 - **Optional at-rest vault encryption** (passphrase-derived AES-256-GCM).

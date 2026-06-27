@@ -1,6 +1,6 @@
 /**
  * Unit tests for the Logseq / Roam Research importer.
- * Pure functions — no browser APIs needed.
+ * Pure functions - no browser APIs needed.
  */
 
 import assert from 'node:assert/strict';
@@ -194,7 +194,7 @@ test('parseRoamJson handles empty array', () => {
 });
 
 // ---------------------------------------------------------------------------
-// logseqRoamImporter.convert — single .json file
+// logseqRoamImporter.convert - single .json file
 // ---------------------------------------------------------------------------
 
 test('logseqRoamImporter converts Roam JSON file', async () => {

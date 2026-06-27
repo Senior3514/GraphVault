@@ -5,4 +5,4 @@ contact_links:
     about: Ask questions and share ideas in Discussions.
   - name: Security vulnerability
     url: https://github.com/Senior3514/GraphVault/blob/main/SECURITY.md
-    about: Please report security issues privately — see SECURITY.md (do not open a public issue).
+    about: Please report security issues privately - see SECURITY.md (do not open a public issue).

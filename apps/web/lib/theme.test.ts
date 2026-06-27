@@ -1,6 +1,6 @@
 /**
  * Tests for the pure theme helpers (resolveTheme) and the SSR-safe persistence
- * helpers (load/saveThemeMode). These run in Node.js — no DOM, no React — so we
+ * helpers (load/saveThemeMode). These run in Node.js - no DOM, no React - so we
  * stub `globalThis.window` to exercise the localStorage paths (per the wave-3
  * "shim browser APIs via globalThis" lesson), then restore it afterwards.
  */

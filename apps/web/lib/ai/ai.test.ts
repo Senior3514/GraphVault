@@ -115,7 +115,7 @@ describe('chat() with kind=server and no bearer token', () => {
       () =>
         chat(settings, [{ role: 'user', content: 'hello' }], {
           serverUrl: 'http://localhost:4000',
-          bearerToken: '', // empty — not signed in
+          bearerToken: '', // empty - not signed in
         }),
       (err: unknown) => {
         assert.ok(err instanceof Error);
@@ -636,7 +636,7 @@ describe('AI settings persistence', () => {
       },
     };
     const loaded = loadAISettings();
-    // Must be migrated to 'off' — the client-side key path no longer exists.
+    // Must be migrated to 'off' - the client-side key path no longer exists.
     assert.equal(loaded.kind, 'off');
   });
 });

@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * OnboardingHint — lightweight first-run tour strip.
+ * OnboardingHint - lightweight first-run tour strip.
  *
  * Shows three contextual tips after the vault loads for the first time.
  * Once dismissed (X button) the preference is persisted in localStorage and
  * the hint never appears again. Animates in; respects prefers-reduced-motion.
  *
  * Mount once inside AppShell (after the vault shell is shown). The component
- * self-hides if the user is on the landing page — AppFrame already guards that,
+ * self-hides if the user is on the landing page - AppFrame already guards that,
  * but it is defensive about it.
  */
 
@@ -35,7 +35,7 @@ export function OnboardingHint() {
     try {
       if (window.localStorage.getItem(DISMISSED_KEY) === '1') return;
     } catch {
-      return; // storage unavailable — skip
+      return; // storage unavailable - skip
     }
     const id = setTimeout(() => setVisible(true), 600);
     return () => clearTimeout(id);
@@ -103,7 +103,7 @@ export function OnboardingHint() {
             onClick={dismiss}
             className="text-[11px] text-neutral-600 transition-colors hover:text-neutral-400"
           >
-            Got it — don&apos;t show again
+            Got it - don&apos;t show again
           </button>
         </div>
       </div>

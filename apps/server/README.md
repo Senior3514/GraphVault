@@ -33,7 +33,7 @@ test/                 node:test integration tests via app.inject()
 
 ## Configuration
 
-All configuration is via environment variables — see [`.env.example`](./.env.example).
+All configuration is via environment variables - see [`.env.example`](./.env.example).
 
 | Var                                  | Default      | Meaning                                                |
 | ------------------------------------ | ------------ | ------------------------------------------------------ |
@@ -42,14 +42,14 @@ All configuration is via environment variables — see [`.env.example`](./.env.e
 | `GRAPHVAULT_CORS_ORIGIN`             | `*`          | Comma-separated origins, or `*`                        |
 | `GRAPHVAULT_DATA_DIR`                | `./storage`  | Where blob bytes live on disk                          |
 | `GRAPHVAULT_STORAGE`                 | `memory`     | `memory` or `postgres`                                 |
-| `DATABASE_URL`                       | —            | Postgres DSN (required for `postgres`)                 |
+| `DATABASE_URL`                       | -            | Postgres DSN (required for `postgres`)                 |
 | `GRAPHVAULT_MAX_BLOB_BYTES`          | `67108864`   | Max blob upload size (64 MiB)                          |
 | `GRAPHVAULT_RATE_LIMIT_MAX`          | `300`        | Max requests per window per client (global)            |
 | `GRAPHVAULT_RATE_LIMIT_WINDOW`       | `60000`      | Rate-limit window, in milliseconds                     |
 | `GRAPHVAULT_AUTH_RATE_LIMIT_MAX`     | `10`         | Stricter per-window cap on `/v1/auth/*`                |
 | `GRAPHVAULT_TRUST_PROXY`             | `false`      | Trust `X-Forwarded-*` from a fronting proxy            |
 | `GRAPHVAULT_REQUIRE_HTTPS`           | prod: `true` | Reject plaintext (honors `X-Forwarded-Proto`)          |
-| `GRAPHVAULT_ENCRYPTION_KEY`          | —            | base64 32-byte AES-256 key for at-rest blob encryption |
+| `GRAPHVAULT_ENCRYPTION_KEY`          | -            | base64 32-byte AES-256 key for at-rest blob encryption |
 | `GRAPHVAULT_MAX_JSON_BYTES`          | `1048576`    | Max body size for JSON / non-blob routes (1 MiB)       |
 | `GRAPHVAULT_REQUEST_TIMEOUT_MS`      | `30000`      | Max time to fully receive a request before aborting    |
 | `GRAPHVAULT_KEEP_ALIVE_TIMEOUT_MS`   | `72000`      | Idle keep-alive socket lifetime (keep above proxy's)   |
@@ -74,7 +74,7 @@ the URL. The snapshot payload is an **opaque, already-encoded string**
 returns it **verbatim** and never parses or executes it beyond size validation.
 
 It is **off by default** (`GRAPHVAULT_SNAPSHOTS_ENABLED=false`). When disabled,
-every `/v1/snapshots*` route returns `404` — the feature is invisible. Snapshots
+every `/v1/snapshots*` route returns `404` - the feature is invisible. Snapshots
 are **unauthenticated public shares** (no account): anyone with the short id can
 read it, so only enable it if you intend to host public read-only graph shares.
 
@@ -83,7 +83,7 @@ Endpoints (only registered when enabled):
 | Method   | Path                | Auth | Body                      | Success                       |
 | -------- | ------------------- | ---- | ------------------------- | ----------------------------- |
 | `POST`   | `/v1/snapshots`     | none | `{ data: string }`        | `201 { id, deleteToken }`     |
-| `GET`    | `/v1/snapshots/:id` | none | —                         | `200 { id, data, createdAt }` |
+| `GET`    | `/v1/snapshots/:id` | none | -                         | `200 { id, data, createdAt }` |
 | `DELETE` | `/v1/snapshots/:id` | none | `{ deleteToken: string }` | `204`                         |
 
 - `POST` rejects an empty payload (`400`) and one over `GRAPHVAULT_SNAPSHOT_MAX_BYTES`
@@ -105,27 +105,27 @@ Endpoints (only registered when enabled):
 Lets an external service (Zapier, an email forwarder, IFTTT, a `curl` in cron, …)
 POST Markdown to a **per-connector token** and have it land as a **new note** in
 the user's vault, with a per-connector **audit log**. It reuses the existing,
-tested blob + sync services — the content hash is the `sha256` of the **plaintext**
+tested blob + sync services - the content hash is the `sha256` of the **plaintext**
 note bytes, exactly like the rest of the protocol.
 
 It is **on by default** (`GRAPHVAULT_INBOX_ENABLED=true`): the public inbound
 endpoint does nothing until an authenticated user explicitly mints a token. Set
 the flag to `false` to remove every `/v1/inbox*` route (the feature becomes
-invisible — `404`).
+invisible - `404`).
 
 | Method   | Path                   | Auth | Body                                   | Success                                                                 |
 | -------- | ---------------------- | ---- | -------------------------------------- | ----------------------------------------------------------------------- |
 | `POST`   | `/v1/inbox/tokens`     | yes  | `{ vaultId, label }`                   | `201 { id, token, label }` (token once)                                 |
-| `GET`    | `/v1/inbox/tokens`     | yes  | —                                      | `200 [{ id, vaultId, label, createdAt, lastUsedAt }]`                   |
-| `DELETE` | `/v1/inbox/tokens/:id` | yes  | —                                      | `204`                                                                   |
-| `GET`    | `/v1/inbox/log`        | yes  | —                                      | `200 [{ id, tokenId, source, path, bytes, status, at }]` (newest first) |
+| `GET`    | `/v1/inbox/tokens`     | yes  | -                                      | `200 [{ id, vaultId, label, createdAt, lastUsedAt }]`                   |
+| `DELETE` | `/v1/inbox/tokens/:id` | yes  | -                                      | `204`                                                                   |
+| `GET`    | `/v1/inbox/log`        | yes  | -                                      | `200 [{ id, tokenId, source, path, bytes, status, at }]` (newest first) |
 | `POST`   | `/v1/inbox/:token`     | none | `{ title?, markdown, tags?, source? }` | `201 { path }`                                                          |
 
 - A token binds `(userId, vaultId, label)`. Minting verifies the caller **owns**
   the vault. Only the token's **SHA-256 hash** is stored; the raw token is
   returned **once** at creation and never appears in the list (which exposes
   neither the token nor its hash).
-- `POST /v1/inbox/:token` is **unauthenticated — the token is the credential**.
+- `POST /v1/inbox/:token` is **unauthenticated - the token is the credential**.
   It is resolved by `hashToken(:token)`; an unknown/revoked token → `404` (we
   never leak which tokens exist). The route is size-capped
   (`GRAPHVAULT_INBOX_MAX_BYTES` → `413`) and carries a stricter per-window cap
@@ -153,8 +153,8 @@ token.
 | Method   | Path            | Body                                                           | Returns                                                            |
 | -------- | --------------- | -------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `POST`   | `/v1/ai/config` | `{ apiKey, gateway?, model?, spendCapUsd?, dailyRequestCap? }` | `201` (key stored encrypted at rest)                               |
-| `GET`    | `/v1/ai/config` | —                                                              | `{ keySet, gateway, model, spendCapUsd?, spendCapState }` (no key) |
-| `DELETE` | `/v1/ai/config` | —                                                              | `204` (removes the config)                                         |
+| `GET`    | `/v1/ai/config` | -                                                              | `{ keySet, gateway, model, spendCapUsd?, spendCapState }` (no key) |
+| `DELETE` | `/v1/ai/config` | -                                                              | `204` (removes the config)                                         |
 | `POST`   | `/v1/ai/chat`   | `{ messages, model?, stream? }`                                | forwarded completion (`{ content, model?, usage? }`)               |
 
 ### Streaming (`stream: true`)
@@ -162,7 +162,7 @@ token.
 `POST /v1/ai/chat` with `stream: true` responds with **Server-Sent Events**
 (`text/event-stream`, `X-Accel-Buffering: no` to defeat nginx/Caddy buffering).
 The server is a **translating relay**: it parses the upstream OpenAI-compatible
-stream and re-emits a stable, provider-agnostic frame set — never the raw
+stream and re-emits a stable, provider-agnostic frame set - never the raw
 upstream JSON. Named events: `delta` (text chunk), `usage` (token/cost
 accounting), `done` (resolved model), `error` (sanitised, key redacted). A
 `:keepalive` heartbeat is sent every ~15s; a client disconnect aborts the
@@ -173,15 +173,15 @@ upstream fetch so a closed tab stops burning the user's budget.
 Two independent caps share one UTC-day window, **persisted in the storage layer**
 (`AiSpendWindowRecord`) so they survive a restart:
 
-- **request count** — per-user `dailyRequestCap` (config) or the
+- **request count** - per-user `dailyRequestCap` (config) or the
   `GRAPHVAULT_AI_DAILY_CAP` env default (`200`); `0` = unlimited.
-- **monetary spend** — per-user `spendCapUsd` (config); unset/`0` = no `$` cap.
+- **monetary spend** - per-user `spendCapUsd` (config); unset/`0` = no `$` cap.
 
 Caps are **soft**: the cost is unknown until generation completes, so one
 in-flight call may cross the cap and the **next** call is refused with `429
 RATE_LIMITED`. The committed cost is the provider-reported dollar amount; when the
 gateway reports none the server records `costUsd: 0` and relies on the request
-cap — it never estimates. `GET /v1/ai/config` surfaces `spendCapState`
+cap - it never estimates. `GET /v1/ai/config` surfaces `spendCapState`
 (`ok`/`warning`/`exceeded` + accrued spend/requests + reset time) so the client
 can render a budget meter and gate the send button. The key is never returned.
 
@@ -198,13 +198,13 @@ route inherits the global rate limit.
 ## Storage backends
 
 - **memory** (default): `InMemoryStorage`, ideal for development and tests. No
-  external dependencies; **all** data — including provider/AI credentials and
-  inbox tokens/audit — is lost on restart.
+  external dependencies; **all** data - including provider/AI credentials and
+  inbox tokens/audit - is lost on restart.
 - **postgres**: Prisma + PostgreSQL. The generated Prisma client is loaded with
   a dynamic import, so the default in-memory path builds and runs without a
   database or a generated client. On this backend everything is durable,
   including the server-proxied storage / AI credentials (stored as AES-256-GCM
-  ciphertext) and the inbox tokens + audit log — they survive a restart. To use
+  ciphertext) and the inbox tokens + audit log - they survive a restart. To use
   it:
 
   ```bash
@@ -219,7 +219,7 @@ route inherits the global rate limit.
   > The `prisma:migrate` script (`prisma migrate deploy`) is reserved for a
   > future versioned-migration workflow; with no `prisma/migrations/` directory
   > committed it creates no tables. Use `prisma db push` to materialize the
-  > schema from `prisma/schema.prisma` directly — this is what the Compose stack
+  > schema from `prisma/schema.prisma` directly - this is what the Compose stack
   > runs on every boot.
 
 ## Develop / run / test
@@ -263,7 +263,7 @@ deployment writeup (Milestone 10 docs). The hardening below is implemented here:
   AES-256-GCM (random nonce per blob, authenticated; on-disk layout is
   `[nonce][tag][ciphertext]`). The content hash remains the hash of the
   **plaintext**, so dedupe and the wire protocol are unchanged. A malformed key
-  makes the server fail fast. Keep the key secret and backed up — losing it
+  makes the server fail fast. Keep the key secret and backed up - losing it
   makes encrypted blobs unrecoverable. Unset = plaintext (legacy behavior).
 - **No telemetry.** Logs stay local; the server makes no outbound calls except
   the database connection you configure.
@@ -283,7 +283,7 @@ connection strings.
 
 A GraphVault vault is a single JSON blob (`graphvault-vault.json`). You can keep
 that blob in any of several cloud-storage backends **without the browser ever
-holding the provider credentials** — the server stores them encrypted at rest
+holding the provider credentials** - the server stores them encrypted at rest
 and proxies the one object. Each adapter exposes exactly three operations
 (`GET` / `PUT` / `DELETE`) on the single well-known object; any other key is
 rejected with `400`. Credentials are encrypted with AES-256-GCM, the key derived
@@ -308,16 +308,16 @@ PUT    /v1/storage/<p>/object/graphvault-vault.json   # upload the vault blob
 DELETE /v1/storage/<p>/object/graphvault-vault.json   # delete the vault blob
 ```
 
-**Azure Blob Storage** — config: `account`, `container`, `accountKey` (base64
+**Azure Blob Storage** - config: `account`, `container`, `accountKey` (base64
 account key; the secret), optional `endpoint` (for Azurite/testing; defaults to
 `https://<account>.blob.core.windows.net`). Requests use the Shared Key scheme
 with `x-ms-version: 2021-08-06` and `x-ms-blob-type: BlockBlob` on PUT.
 
-**Google Cloud Storage** — config: `bucket`, `accessId` + `secret` (a GCS HMAC
+**Google Cloud Storage** - config: `bucket`, `accessId` + `secret` (a GCS HMAC
 interop key pair; the secret is encrypted), optional `prefix`. Requests target
 the GCS S3-compatible XML API (`https://storage.googleapis.com`) signed with AWS
 SigV4 (`service=s3`, `region=auto`). Create an HMAC key in the Cloud console
 under _Cloud Storage → Settings → Interoperability_.
 
-No additional environment variables are required for any provider — users
+No additional environment variables are required for any provider - users
 configure their credentials via the `POST .../config` endpoint after signing in.

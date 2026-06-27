@@ -1,5 +1,5 @@
 /**
- * S3-compatible storage {@link StorageAdapter} — M18.
+ * S3-compatible storage {@link StorageAdapter} - M18.
  *
  * Privacy model: the browser NEVER talks directly to an S3 server.
  * All operations are proxied through the user's self-hosted GraphVault server
@@ -14,7 +14,7 @@
  *
  * Storage format: all notes are serialised as a single JSON document stored
  * as a single S3 object at a well-known key (`graphvault-vault.json`). This
- * keeps the proxy surface minimal and auditable — one PUT per save, one GET
+ * keeps the proxy surface minimal and auditable - one PUT per save, one GET
  * per load.
  *
  * Migration: switching to this adapter uses the same copy-verify-switch
@@ -122,7 +122,7 @@ export class S3StorageAdapter implements StorageAdapter {
    *   1. We are in a browser (not SSR/Node).
    *   2. A bearer token is present in sessionStorage (user is signed in).
    *
-   * The server-side S3 config is checked lazily — `isAvailable()` must be
+   * The server-side S3 config is checked lazily - `isAvailable()` must be
    * synchronous and cannot make a network request.
    */
   isAvailable(): boolean {
@@ -149,11 +149,11 @@ export class S3StorageAdapter implements StorageAdapter {
       });
     } catch (err) {
       throw new Error(
-        `S3 adapter: network error loading vault — ${err instanceof Error ? err.message : String(err)}`,
+        `S3 adapter: network error loading vault - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
-    // 404 means the vault object does not exist yet in S3 — treat as empty.
+    // 404 means the vault object does not exist yet in S3 - treat as empty.
     if (res.status === 404) {
       return [];
     }
@@ -168,7 +168,7 @@ export class S3StorageAdapter implements StorageAdapter {
       return deserialise(text);
     } catch (err) {
       throw new Error(
-        `S3 adapter: vault document is corrupt — ${err instanceof Error ? err.message : String(err)}`,
+        `S3 adapter: vault document is corrupt - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
@@ -195,7 +195,7 @@ export class S3StorageAdapter implements StorageAdapter {
       });
     } catch (err) {
       throw new Error(
-        `S3 adapter: network error saving vault — ${err instanceof Error ? err.message : String(err)}`,
+        `S3 adapter: network error saving vault - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
@@ -221,7 +221,7 @@ export class S3StorageAdapter implements StorageAdapter {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Ignore the response — DELETE is best-effort in clear().
+      // Ignore the response - DELETE is best-effort in clear().
     } catch {
       // Network errors in clear() are silently ignored.
     }

@@ -1,5 +1,5 @@
 /**
- * WebDAV-backed {@link StorageAdapter} — M18.
+ * WebDAV-backed {@link StorageAdapter} - M18.
  *
  * Privacy model: the browser NEVER talks directly to a WebDAV server.
  * All operations are proxied through the user's self-hosted GraphVault server
@@ -10,7 +10,7 @@
  *
  * Storage format: all notes are serialised as a single JSON document stored
  * at a well-known path on the WebDAV server (`graphvault-vault.json`). This
- * keeps the proxy surface minimal and auditable — one PUT per save, one GET
+ * keeps the proxy surface minimal and auditable - one PUT per save, one GET
  * per load.
  *
  * Availability guard: the adapter is available only when the user is signed in
@@ -125,7 +125,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
    *   1. We are in a browser (not SSR/Node).
    *   2. A bearer token is present in sessionStorage (user is signed in).
    *
-   * The server-side WebDAV config is checked lazily — `isAvailable()` must be
+   * The server-side WebDAV config is checked lazily - `isAvailable()` must be
    * synchronous and cannot make a network request.
    */
   isAvailable(): boolean {
@@ -152,11 +152,11 @@ export class WebDavStorageAdapter implements StorageAdapter {
       });
     } catch (err) {
       throw new Error(
-        `WebDAV adapter: network error loading vault — ${err instanceof Error ? err.message : String(err)}`,
+        `WebDAV adapter: network error loading vault - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
-    // 404 means the vault does not exist yet on WebDAV — treat as empty.
+    // 404 means the vault does not exist yet on WebDAV - treat as empty.
     if (res.status === 404) {
       return [];
     }
@@ -171,7 +171,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
       return deserialise(text);
     } catch (err) {
       throw new Error(
-        `WebDAV adapter: vault document is corrupt — ${err instanceof Error ? err.message : String(err)}`,
+        `WebDAV adapter: vault document is corrupt - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
@@ -198,7 +198,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
       });
     } catch (err) {
       throw new Error(
-        `WebDAV adapter: network error saving vault — ${err instanceof Error ? err.message : String(err)}`,
+        `WebDAV adapter: network error saving vault - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
@@ -225,7 +225,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Ignore the response — DELETE is best-effort in clear().
+      // Ignore the response - DELETE is best-effort in clear().
     } catch {
       // Network errors in clear() are silently ignored.
     }
@@ -236,7 +236,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
  * Singleton adapter instance. Registered in the adapter registry by
  * `store.ts` so it is available to Settings and the vault provider.
  *
- * It does NOT auto-register itself here — registration happens in `store.ts`
+ * It does NOT auto-register itself here - registration happens in `store.ts`
  * so the module graph stays acyclic.
  */
 export const webdavAdapter = new WebDavStorageAdapter();

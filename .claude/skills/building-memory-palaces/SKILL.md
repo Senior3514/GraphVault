@@ -1,15 +1,15 @@
 ---
 name: building-memory-palaces
 description: >-
-  Turn anything a person needs to memorize — a speech, vocabulary, a grocery or
-  packing list, a sequence of steps, numbers, exam facts, names at an event — into
+  Turn anything a person needs to memorize - a speech, vocabulary, a grocery or
+  packing list, a sequence of steps, numbers, exam facts, names at an event - into
   a vivid, personalized memory palace using the method of loci plus deliberately
   absurd mnemonic imagery, then hand back a spaced-repetition review schedule and
   optionally quiz them. Use this skill whenever someone says they need to memorize,
   remember, or "can't keep X in their head"; mentions an upcoming exam, speech, or
   presentation they must deliver from memory; asks for a mnemonic or memory trick;
   wants to learn a list, vocabulary, or facts by heart; keeps forgetting
-  names/numbers/dates; or asks "how do I remember this" — even if they never say
+  names/numbers/dates; or asks "how do I remember this" - even if they never say
   the words "memory palace." Default to building a full palace rather than offering
   generic study tips.
 ---
@@ -29,7 +29,7 @@ It works for ordinary people on ordinary material just as well.
 
 ## The core workflow
 
-Work through these steps in order. Don't skip the questions — a palace built on a
+Work through these steps in order. Don't skip the questions - a palace built on a
 location the person can't actually picture will collapse.
 
 ### 1. Find out what's being memorized and why
@@ -49,7 +49,7 @@ Match the material to a method. See `references/techniques.md` for the full
 toolbox; the quick map:
 
 - **Ordered list / speech / steps** → method of loci (a route through a place)
-- **~5–20 unordered items** → linking / story method (chain images together)
+- **~5-20 unordered items** → linking / story method (chain images together)
 - **Numbers, dates, PINs, years** → Major System or PAO (`references/techniques.md`)
 - **Names & faces** → face → feature → meaning hook (`references/techniques.md`)
 - **Vocabulary / foreign words** → keyword + image substitution
@@ -58,13 +58,13 @@ You can combine them: a number inside a palace room, a name linked to a face, et
 
 ### 3. Choose the location (for loci)
 
-Have them pick a place they know in their bones — childhood home, daily commute,
+Have them pick a place they know in their bones - childhood home, daily commute,
 their gym, a video-game map. Walk it in a **fixed, repeatable order** (e.g., always
 clockwise, front door → hallway → kitchen → …). Identify distinct "stations." You
 need at least as many stations as items. List the stations back to them so the
 route is explicit and shared.
 
-### 4. Forge the images — this is where it's won or lost
+### 4. Forge the images - this is where it's won or lost
 
 For each item, invent an image and place it at a station. The image must be
 **ridiculous on purpose.** Boring images evaporate; absurd ones stick. Apply the
@@ -74,7 +74,7 @@ with its station rather than just sit there.
 
 Present each as: **Station → Item → Image (one vivid sentence).**
 
-Example (memorizing a grocery list — milk, batteries, bananas — in a kitchen):
+Example (memorizing a grocery list - milk, batteries, bananas - in a kitchen):
 - **Fridge door** → milk → a fire-hose of milk explodes out of the fridge and
   knocks you flat, soaking the floor.
 - **Toaster** → batteries → the toaster spits out glowing AA batteries like
@@ -135,7 +135,7 @@ Structure the build like this so it's scannable and reusable:
   fears out-sticks a generically witty one. Ask for a detail if it helps.
 - **One image per station.** Cramming two items into one spot is the most common
   failure. Add a station instead.
-- **Weird is the whole point.** If an image feels reasonable, it's too weak — push
+- **Weird is the whole point.** If an image feels reasonable, it's too weak - push
   it further. Motion, scale, and absurdity are free.
 - **Don't lecture about memory science.** Build the thing. A short "here's why it
   sticks" line is fine; a treatise is not.

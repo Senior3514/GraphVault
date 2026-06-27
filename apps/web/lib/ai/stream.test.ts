@@ -2,10 +2,10 @@
  * Tests for the SSE consumption layer (lib/ai/stream.ts).
  *
  * Covers:
- *  1. parseSseRecords — record splitting, multi-line data, comments, partials.
- *  2. parseAiStreamRecord — schema validation, [DONE] sentinel, event-name
+ *  1. parseSseRecords - record splitting, multi-line data, comments, partials.
+ *  2. parseAiStreamRecord - schema validation, [DONE] sentinel, event-name
  *     synthesis, malformed JSON.
- *  3. readAiStream — end-to-end dispatch from a ReadableStream, terminal frame
+ *  3. readAiStream - end-to-end dispatch from a ReadableStream, terminal frame
  *     handling, abort, and chunk boundaries that split a frame.
  */
 
@@ -180,7 +180,7 @@ describe('readAiStream()', () => {
   it('dispatches an error frame and stops', async () => {
     const body = streamFromChunks([
       'event: error\ndata: {"type":"error","code":"RATE_LIMITED","message":"cap"}\n\n',
-      // This delta must never be dispatched — the stream stops on error.
+      // This delta must never be dispatched - the stream stops on error.
       'event: delta\ndata: {"type":"delta","content":"after"}\n\n',
     ]);
     const deltas: string[] = [];

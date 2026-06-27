@@ -9,7 +9,7 @@
  * Arrow keys + Enter/Tab/click insert the selection (closing the `]]` for
  * wikilinks, or the bare tag text for tags). Editing is uncontrolled-by-
  * keystroke but value-synced via props; changes are pushed up through
- * `onChange` for the parent to autosave — the popup never mutates content
+ * `onChange` for the parent to autosave - the popup never mutates content
  * except on an explicit insert, so it can never drop the user's keystrokes.
  */
 
@@ -64,7 +64,7 @@ function findActiveTag(text: string, caret: number): ActiveToken | null {
   const before = hash === 0 ? '' : text[hash - 1];
   if (before !== '' && !/\s/.test(before)) return null;
   const between = text.slice(hash + 1, caret);
-  // Only fire while typing the tag body — valid tag chars, no whitespace.
+  // Only fire while typing the tag body - valid tag chars, no whitespace.
   if (!/^[\p{L}\p{N}_/-]*$/u.test(between)) return null;
   return { kind: 'tag', start: hash + 1, query: between };
 }

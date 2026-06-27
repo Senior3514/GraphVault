@@ -90,7 +90,7 @@ def main():
     print()
     print("Each review: walk the route from memory FIRST, only then peek. Rebuild")
     print("any image you blanked on, making it stranger. Skipped reviews are the")
-    print("main reason palaces fade — put these on a calendar.")
+    print("main reason palaces fade - put these on a calendar.")
 
 
 if __name__ == "__main__":

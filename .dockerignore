@@ -1,4 +1,4 @@
-# Build context excludes — keep the Docker build small and reproducible.
+# Build context excludes - keep the Docker build small and reproducible.
 
 # Dependencies (reinstalled inside the image)
 **/node_modules
@@ -12,7 +12,7 @@
 **/*.tsbuildinfo
 apps/server/src/store/generated
 
-# Runtime data — never bake blobs or a local DB into the image
+# Runtime data - never bake blobs or a local DB into the image
 **/storage
 *.sqlite
 *.sqlite-journal

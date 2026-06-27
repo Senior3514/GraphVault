@@ -3,8 +3,8 @@
  *
  * `showDirectoryPicker` is a browser API that cannot run in Node. We stub the
  * `FileSystemDirectoryHandle` / `FileSystemFileHandle` / `FileSystemWritableFileStream`
- * interface in-process so the pure logic — path segmentation, subfolder
- * creation, write calls — can be verified without a browser.
+ * interface in-process so the pure logic - path segmentation, subfolder
+ * creation, write calls - can be verified without a browser.
  *
  * `isDirectoryExportSupported` is also covered: it must read from `window`
  * without throwing in environments where `window` is absent.
@@ -97,7 +97,7 @@ test('isDirectoryExportSupported returns false when window is undefined', () => 
 });
 
 // ---------------------------------------------------------------------------
-// writeNoteToDirectory — path segmentation
+// writeNoteToDirectory - path segmentation
 // ---------------------------------------------------------------------------
 
 test('writeNoteToDirectory writes a flat note to the root directory', async () => {
@@ -142,7 +142,7 @@ test('writeNoteToDirectory reuses an existing subfolder', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// exportToDirectory — summary and error handling
+// exportToDirectory - summary and error handling
 // ---------------------------------------------------------------------------
 
 test('exportToDirectory returns correct written count for multiple notes', async () => {

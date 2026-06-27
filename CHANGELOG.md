@@ -5,10 +5,10 @@ All notable changes to GraphVault are documented here. The format is based on
 [Semantic Versioning](https://semver.org/). GraphVault is pre-1.0, so `0.x`
 releases may still refine APIs.
 
-## [0.1.0] — 2026-06-17
+## [0.1.0] - 2026-06-17
 
 First tagged release. GraphVault is a **local-first Markdown notes app** with
-self-hosted sync and a graph you can actually think in — plain `.md` files on
+self-hosted sync and a graph you can actually think in - plain `.md` files on
 disk, no lock-in, no telemetry, security-conscious by default.
 
 ### Notes, editor & workspace
@@ -28,7 +28,7 @@ disk, no lock-in, no telemetry, security-conscious by default.
 - Force-directed graph with colour-by-type/tag/cluster, hover/neighbour glow,
   in-graph search, drag-to-pin, zoom controls, a time-slider, and group overlays.
 - Lazy-loaded canvas (`ssr:false`), retina-aware, reduced-motion aware.
-- **Embeddable read-only graph** and **public shareable snapshots** — share a
+- **Embeddable read-only graph** and **public shareable snapshots** - share a
   self-contained `/embed?s=` link, or an opt-in short `/embed?id=&srv=` link
   backed by the server snapshot store.
 
@@ -41,7 +41,7 @@ disk, no lock-in, no telemetry, security-conscious by default.
   history, lossless `.zip` + JSON export and collision-safe import.
 - Pluggable `StorageAdapter`s: localStorage, File System Access (disk), Tauri
   native disk, and **server-proxied WebDAV, S3-compatible, Azure Blob, and Google
-  Cloud Storage** — provider credentials never touch the browser.
+  Cloud Storage** - provider credentials never touch the browser.
 
 ### AI, MCP & connectors (privacy-first, opt-in, off by default)
 
@@ -49,7 +49,7 @@ disk, no lock-in, no telemetry, security-conscious by default.
   spectrum: local → bring-your-own-key → server-side AI proxy (BFF) with
   OpenRouter; keys never in the browser.
 - **MCP server** (`@graphvault/mcp`): exposes the vault to external agents over
-  stdio — read + conflict-safe write tools, notes as `graphvault://note/<path>`
+  stdio - read + conflict-safe write tools, notes as `graphvault://note/<path>`
   **resources**, and ready-made **prompts** (summarize / find-connections /
   search-and-synthesize).
 - One-click importers (Obsidian / Notion / Roam / Logseq), email (`.eml`/`.mbox`)

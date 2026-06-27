@@ -66,7 +66,7 @@ test('mergeImport adds new notes', () => {
   assert.ok(notes.some((n) => n.path === 'fresh.md'));
 });
 
-test('mergeImport never overwrites — keeps a conflict copy', () => {
+test('mergeImport never overwrites - keeps a conflict copy', () => {
   const { notes, summary } = mergeImport(sample, [
     { path: 'Welcome.md', content: 'DIFFERENT content' },
   ]);
@@ -155,7 +155,7 @@ test('entry CONTENT containing the EOCD signature bytes still imports correctly 
   // A note whose body literally contains the 4 EOCD signature bytes. A naive
   // backward scan could latch onto those bytes and silently return 0 entries.
   const eocdSig = String.fromCharCode(0x50, 0x4b, 0x05, 0x06);
-  const poison = note('trap.md', `before ${eocdSig} after — real content here`);
+  const poison = note('trap.md', `before ${eocdSig} after - real content here`);
   const zip = buildVaultZip([poison, note('other.md', 'second note')]);
   const entries = await readVaultZip(zip);
   assert.equal(entries.length, 2, 'must not silently drop notes');

@@ -45,7 +45,7 @@ function allSummaries(snapshot: VaultSnapshot): NoteSummary[] {
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
-/** `list_notes` — optional substring filter on path/title. */
+/** `list_notes` - optional substring filter on path/title. */
 export function listNotes(snapshot: VaultSnapshot, args: ListNotesArgs): NoteSummary[] {
   const limit = clampLimit(args.limit);
   const q = args.query?.trim().toLowerCase();
@@ -58,7 +58,7 @@ export function listNotes(snapshot: VaultSnapshot, args: ListNotesArgs): NoteSum
   return summaries.slice(0, limit);
 }
 
-/** `read_note` — raw markdown for a path, or an error when absent. */
+/** `read_note` - raw markdown for a path, or an error when absent. */
 export function readNote(snapshot: VaultSnapshot, path: string): string {
   const content = snapshot.contentByPath.get(path);
   if (content === undefined) {
@@ -68,7 +68,7 @@ export function readNote(snapshot: VaultSnapshot, path: string): string {
 }
 
 /**
- * `search_notes` — match the query against title, tags, outbound link targets,
+ * `search_notes` - match the query against title, tags, outbound link targets,
  * and body text. Combines the engine index (title/tags/links) with a content
  * scan of the cached markdown. Results are de-duplicated by path.
  */
@@ -116,7 +116,7 @@ export interface BacklinkResult {
   alias?: string;
 }
 
-/** `get_backlinks` — resolved backlink edges pointing at `path`. */
+/** `get_backlinks` - resolved backlink edges pointing at `path`. */
 export function backlinksFor(snapshot: VaultSnapshot, path: string): BacklinkResult[] {
   if (!snapshot.index.nodes.has(path)) {
     throw new Error(`Note not found: ${path}`);
@@ -140,7 +140,7 @@ export interface GraphNeighborsResult {
 export const DEFAULT_DEPTH = 1;
 export const MAX_DEPTH = 4;
 
-/** `graph_neighbors` — local subgraph (engine `getLocalGraph`) around `path`. */
+/** `graph_neighbors` - local subgraph (engine `getLocalGraph`) around `path`. */
 export function graphNeighbors(
   snapshot: VaultSnapshot,
   args: { path: string; depth?: number },
@@ -174,7 +174,7 @@ export interface VaultStats {
   unresolved: number;
 }
 
-/** `vault_stats` — counts of notes, distinct tags, links, and unresolved links. */
+/** `vault_stats` - counts of notes, distinct tags, links, and unresolved links. */
 export function vaultStats(snapshot: VaultSnapshot): VaultStats {
   const tagSet = new Set<string>();
   for (const node of snapshot.index.nodes.values()) {

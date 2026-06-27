@@ -48,11 +48,11 @@ export function formatStats(stats: StatsResult): string {
   }
 
   if (stats.orphanNotes.length > 0) {
-    lines.push('', `Orphan Notes (${stats.orphanNotes.length} — no inbound links)`);
+    lines.push('', `Orphan Notes (${stats.orphanNotes.length} - no inbound links)`);
     lines.push(hr());
     for (const p of stats.orphanNotes) lines.push(`  ${p}`);
   } else {
-    lines.push('', '(No orphan notes — all notes are linked.)');
+    lines.push('', '(No orphan notes - all notes are linked.)');
   }
 
   return lines.join('\n');

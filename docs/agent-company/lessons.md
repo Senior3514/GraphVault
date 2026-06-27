@@ -1,4 +1,4 @@
-# GraphVault Agent Company — Lessons Learned
+# GraphVault Agent Company - Lessons Learned
 
 The company's living memory. Append a concise entry whenever you hit a non-obvious
 problem: **symptom → root cause → fix/rule**. Read this before starting work so we
@@ -68,7 +68,7 @@ stop repeating mistakes. Newest at the top within each section.
   each owns a **disjoint** set of paths. Cherry-picking their single commits onto
   the feature branch then never conflicts.
 - **Rule:** the only routinely contended files are `pnpm-lock.yaml` (regenerate
-  centrally — agents must NOT stage it), shared `package.json` files, and
+  centrally - agents must NOT stage it), shared `package.json` files, and
   `apps/web/components/Sidebar.tsx`. Assign each contended file to exactly one
   agent per round, or reconcile centrally during integration.
 
@@ -110,7 +110,7 @@ stop repeating mistakes. Newest at the top within each section.
   to the auth token at registration. The server correctly enforces device
   binding.
 - **Fix / rule:** clients must use the `deviceId` returned in the `AuthToken`.
-  When writing smoke tests, capture and reuse it. Not a bug — a security control.
+  When writing smoke tests, capture and reuse it. Not a bug - a security control.
 
 ### Content hash must be of plaintext, even with at-rest encryption
 
@@ -129,7 +129,7 @@ stop repeating mistakes. Newest at the top within each section.
 ### `env(safe-area-inset-*)` is inert without `viewport-fit=cover`
 
 - **Symptom:** the mobile shell padded its top bar / bottom nav with
-  `env(safe-area-inset-*)`, but on notched devices the padding was always 0 — the
+  `env(safe-area-inset-*)`, but on notched devices the padding was always 0 - the
   chrome still clipped under the notch / home indicator.
 - **Root cause:** there was no `viewport` export anywhere, so Next.js emitted no
   `viewport-fit=cover`. The `env(safe-area-inset-*)` variables only resolve to
@@ -140,7 +140,7 @@ stop repeating mistakes. Newest at the top within each section.
   `app/layout.tsx` with `width: 'device-width'`, `initialScale: 1`, and
   `viewportFit: 'cover'`. Put `themeColor` there too (Next.js merges it into a
   `<meta name="theme-color">`) and DELETE any hand-written `theme-color` meta to
-  avoid duplicates. Don't pin `maximumScale`/`userScalable` — leave pinch-zoom on
+  avoid duplicates. Don't pin `maximumScale`/`userScalable` - leave pinch-zoom on
   for accessibility. Verify in the built `out/index.html`, not just source.
 
 ### Keep PWA install decision logic pure (no DOM) and inject the live values
@@ -155,7 +155,7 @@ stop repeating mistakes. Newest at the top within each section.
   `navigator.standalone`, and the captured `beforeinstallprompt` event into it.
   iPadOS 13+ reports a desktop-Safari UA, so detect it via `maxTouchPoints > 1`
   in the component (touch isn't in the UA string) and normalise before calling
-  the pure helper. iOS Safari NEVER fires `beforeinstallprompt` — Add to Home
+  the pure helper. iOS Safari NEVER fires `beforeinstallprompt` - Add to Home
   Screen is the only path, so target that hint at Safari specifically (CriOS /
   FxiOS on iOS get the generic browser-menu hint, since they also can't install).
 
@@ -165,13 +165,13 @@ stop repeating mistakes. Newest at the top within each section.
   impossible to unit-test without mocking the whole stream/decoder stack, and
   frames that split across TCP chunks (e.g. `data: {"ty` + `pe":...}`) get
   silently dropped.
-- **Fix / rule:** split it in two — a **pure** `parseSseRecords(buffer)` that
+- **Fix / rule:** split it in two - a **pure** `parseSseRecords(buffer)` that
   returns `{records, rest}` (carry `rest` into the next chunk to reassemble
   split frames) + a thin `readAiStream(body, handlers, signal)` that wires a
   `ReadableStream` reader + `TextDecoder` to the parser. The pure half gets full
   `node:test` coverage (multi-line `data:`, `:heartbeat` comments, CRLF, partial
   trailing record, `[DONE]` sentinel) with zero network. Validate every frame
-  against the shared zod schema (`aiStreamEventSchema`) — never trust the wire.
+  against the shared zod schema (`aiStreamEventSchema`) - never trust the wire.
 
 ### Abort the stream on panel close / unmount (stop burning budget)
 
@@ -184,13 +184,13 @@ stop repeating mistakes. Newest at the top within each section.
 
 - **Rule:** when an "Update key" form pre-fills non-secret fields (gateway,
   model, caps) from the GET config-info response, the API key field must stay
-  blank — the key is write-only over the wire and the GET never returns it
+  blank - the key is write-only over the wire and the GET never returns it
   (only `{keySet}`). Pre-filling it would imply the browser holds the secret.
 
 ### Hide opt-in AI surfaces entirely when mode is `off`
 
 - **Rule:** when the privacy dial is `off`, return `null` from BOTH the toggle
-  button and the panel itself (not just disable them) — zero network, and no
+  button and the panel itself (not just disable them) - zero network, and no
   hint of a feature the user has not opted into. Default stays `off`.
 
 ### Browser-only widgets need `ssr: false`
@@ -202,7 +202,7 @@ stop repeating mistakes. Newest at the top within each section.
 ### Runtime release-asset resolution: pure matcher + tolerant suffix match
 
 - **Symptom/risk:** a download page that hardcodes installer filenames breaks on
-  every version bump — the desktop pipeline emits VERSION-specific names
+  every version bump - the desktop pipeline emits VERSION-specific names
   (`GraphVault_0.2.0_x64-setup.exe`, `..._universal.dmg`, `..._amd64.AppImage`).
 - **Fix / rule:** fetch the latest GitHub release at runtime and resolve assets
   with a PURE `pickAssets(assets, os)` that matches by lowercased extension
@@ -224,7 +224,7 @@ stop repeating mistakes. Newest at the top within each section.
   lands in the static export (`out/download/index.html`), not just `next build`'s
   route table.
 
-### Download-page GitHub fetch is privacy-safe — read-only, `credentials: 'omit'`
+### Download-page GitHub fetch is privacy-safe - read-only, `credentials: 'omit'`
 
 - **Rule:** the only allowed network call on the download page is
   `fetch('https://api.github.com/.../releases/latest')`. It reads PUBLIC release
@@ -241,7 +241,7 @@ stop repeating mistakes. Newest at the top within each section.
 ### A delegating agent must not end its turn before integrating
 
 - **Symptom:** the orchestrator spawned parallel slice agents in worktrees, then
-  ended its own turn ("I'll wait for completion") — so its children were
+  ended its own turn ("I'll wait for completion") - so its children were
   orphaned and their results never bubbled back to it. The top-level driver had
   to discover the finished worktree branches and integrate them by hand.
 - **Rule:** the agent that owns integration must stay alive until the slices
@@ -253,7 +253,7 @@ stop repeating mistakes. Newest at the top within each section.
 
 - **Note:** the same slice was dispatched twice (two graph branches, two shell
   branches) in isolated worktrees. They are mutually-conflicting rewrites of the
-  same files — pick exactly one per slice and discard the rest; never try to
+  same files - pick exactly one per slice and discard the rest; never try to
   merge both.
 - **Tie-breaker used:** prefer the implementation that keeps the engine
   UI-agnostic (synthesize attachment/unresolved graph nodes in `apps/web/lib/graph`,
@@ -263,7 +263,7 @@ stop repeating mistakes. Newest at the top within each section.
 ### `grep $'\x00'` cannot detect NUL bytes
 
 - **Symptom:** `grep -c $'\x00' file` reported "189" on a clean file, falsely
-  implying corruption — bash can't pass a literal NUL as an argument, so the
+  implying corruption - bash can't pass a literal NUL as an argument, so the
   pattern degrades to empty and matches every line.
 - **Rule:** detect NUL bytes with `tr -cd '\000' < file | wc -c` (byte count) or
   `git diff --numstat` showing `-`/`Bin`, not with `grep`.
@@ -272,7 +272,7 @@ stop repeating mistakes. Newest at the top within each section.
 
 - GraphVault is **open-core**: client + engine open and auditable, optional paid
   hosted sync proprietary. For a local-first app, data access comes from local
-  Markdown + export — closed source would not improve access, only reduce trust.
+  Markdown + export - closed source would not improve access, only reduce trust.
 
 ## Crypto / WebCrypto
 
@@ -308,7 +308,7 @@ stop repeating mistakes. Newest at the top within each section.
   before running `pnpm build` in `apps/web`. The root `pnpm -r build` handles this
   ordering automatically via topological sort.
 
-### Worktree isolation can branch from a stale base — verify before integrating
+### Worktree isolation can branch from a stale base - verify before integrating
 
 - **Symptom:** five parallel slice agents (`isolation: worktree`) all branched
   from the old `29e3071` v0 squash-merge, NOT the driver's current branch HEAD.
@@ -318,16 +318,16 @@ stop repeating mistakes. Newest at the top within each section.
   `useVault.ts`) conflicted because they were built on v0, missing v1-graph + the
   command-palette shell.
 - **Rule:** before integrating a worktree branch, run
-  `git log --oneline <currentHEAD>..<branch>` — if it contains an OLD merge
+  `git log --oneline <currentHEAD>..<branch>` - if it contains an OLD merge
   commit, the branch is stale-based. For additive new-file work, `git checkout
 <branch> -- <paths>` is cleanest. For rewrites of shared files, do a manual
   3-way: take the agent's file, then re-thread the current API (e.g. the panes
   `EditorBody` needed the shell's `tags` prop wired into `MarkdownEditor`).
   Keep exactly one implementation per slice; defer divergent duplicates.
 - **Data-safety:** never blindly overwrite the editor page (autosave/draft logic
-  is where data-loss bugs hide) — adapt props, keep the tested flush logic.
+  is where data-loss bugs hide) - adapt props, keep the tested flush logic.
 
-## Wave 2 — named parallel team (Vera/Cipher/Axis/Quill)
+## Wave 2 - named parallel team (Vera/Cipher/Axis/Quill)
 
 ### Fix for stale-base worktrees: reset to origin HEAD before coding
 
@@ -349,7 +349,7 @@ stop repeating mistakes. Newest at the top within each section.
   a wrong passphrase on load rejects without touching storage (verified by a
   byte-for-byte "original unmodified" test). Storage migration is copy → verify
   (path+content+mtime+ctime) → activate; the source is never auto-cleared.
-- `isEncrypted()` checks raw magic bytes, not the Base64 form — detect stored
+- `isEncrypted()` checks raw magic bytes, not the Base64 form - detect stored
   encrypted values via a try/catch envelope decode, not `isEncrypted(b64)`.
 
 ### Graph v2 without regressing v1 (Axis)
@@ -363,13 +363,13 @@ stop repeating mistakes. Newest at the top within each section.
 - Grep public docs for the owner's account/repo slug before release; use generic
   "your fork" wording in setup docs, keep the real GitHub link only in app code.
 
-## Wave 3 — cross-cutting hardening (Pixel/Forge/Warden/Drift)
+## Wave 3 - cross-cutting hardening (Pixel/Forge/Warden/Drift)
 
 ### Responsive: dual-render structurally-different layouts (Pixel)
 
 - When mobile vs desktop differ in STRUCTURE (not just size), render two DOM
   trees guarded by `hidden md:flex` / `flex md:hidden` instead of one
-  conditional-class tree — SSR-safe, no `matchMedia` JS, each layout stays
+  conditional-class tree - SSR-safe, no `matchMedia` JS, each layout stays
   readable. Use `style={{ height: '100dvh' }}` (+ `h-screen` fallback) for
   correct mobile viewport height; Tailwind 3's arbitrary `supports-*` variant is
   unreliable for `100svh`.
@@ -395,20 +395,20 @@ stop repeating mistakes. Newest at the top within each section.
 
 - Shim browser APIs via `globalThis` (not `window`, which is undefined in Node;
   `window === globalThis` in browsers). Augment DOM types with
-  `declare global { interface Window { … } }` — never re-declare a DOM interface
+  `declare global { interface Window { … } }` - never re-declare a DOM interface
   partially (creates a conflicting parallel type).
 
-## Wave 4 — time-slider (Nova)
+## Wave 4 - time-slider (Nova)
 
 ### Additive overlay vs hard-filter for timeline scrubbing
 
 - **Symptom concern:** removing nodes from the force layout while scrubbing
-  causes constant layout thrash — nodes re-enter at random positions every time
+  causes constant layout thrash - nodes re-enter at random positions every time
   the window moves, making the animation disorienting.
 - **Root cause / rule:** the time-slider must operate as a _dimming overlay_ (like
   `searchIds`) rather than a hard filter that changes `payload.nodes`. The graph
   layout stays completely stable; only canvas alpha changes. This means
-  `timelineIds: Set<string> | null` travels the same path as `searchIds` —
+  `timelineIds: Set<string> | null` travels the same path as `searchIds` -
   computed from index nodes, passed through a ref inside `nodeCanvasObject`, and
   combined with hover/search dimming. Never rebuild `payload` or `model` on
   timeline scrub.
@@ -429,7 +429,7 @@ stop repeating mistakes. Newest at the top within each section.
   avoids needing to re-register the interval on every state change (which would
   reset the cadence and create micro-gaps in the animation).
 
-## Wave 5 — visual / cluster polish (Lumen)
+## Wave 5 - visual / cluster polish (Lumen)
 
 ### `react-force-graph-2d` does not expose `pixelRatio` as a React prop
 
@@ -447,7 +447,7 @@ stop repeating mistakes. Newest at the top within each section.
 
 - **Rule:** the "context view" (isolate selected neighbourhood) must be implemented
   as a per-node `ctx.globalAlpha` adjustment inside `nodeCanvasObject`, reading the
-  focus set through a stable ref — exactly like timeline and search dimming. This
+  focus set through a stable ref - exactly like timeline and search dimming. This
   keeps the layout completely stable, composes correctly with all other dimming
   modes (search, timeline, hover), and avoids re-creating the callback on every
   selection change. Never add a separate force-graph data rebuild for visual-only
@@ -463,7 +463,7 @@ stop repeating mistakes. Newest at the top within each section.
   option. This keeps the model builder framework-free and makes it trivial to swap
   in a richer community-detection algorithm later without touching `model.ts`.
 
-## Wave 6 — Groups overlay (Prism)
+## Wave 6 - Groups overlay (Prism)
 
 ### Groups as a colour overlay, not a new colour mode
 
@@ -473,7 +473,7 @@ stop repeating mistakes. Newest at the top within each section.
   (a) compute a `Map<nodeId, groupColor>` in a separate `useMemo` keyed only on
   `[groups, payload.nodes]`, (b) pass it as `groupNodeColor` to
   `buildRenderModel`, which applies it as a final override after the base colour
-  is set. Zero changes to `ForceGraphCanvas` — group colours land in
+  is set. Zero changes to `ForceGraphCanvas` - group colours land in
   `node.color`, so the canvas draws them without any extra logic.
 
 ### Proxy-node trick for group matching before render model is built
@@ -503,7 +503,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 ## QA / Gauntlet
 
-### `vercel.json` response-header CSP overrides `<meta>` CSP — keep them in sync
+### `vercel.json` response-header CSP overrides `<meta>` CSP - keep them in sync
 
 - **Symptom:** `vercel.json` sets `connect-src 'self'` as a response header;
   `apps/web/app/layout.tsx` sets `connect-src 'self' https: http:` in a `<meta>`
@@ -511,7 +511,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   meta CSP), so all outbound fetch calls to the self-hosted sync server and to
   AI BYOK providers (Anthropic/OpenAI) are silently blocked by the browser on every
   Vercel deployment.
-- **Root cause:** the two CSP sources diverged — the meta tag was correctly
+- **Root cause:** the two CSP sources diverged - the meta tag was correctly
   updated to allow `https:` for sync + AI BYOK, but the vercel.json header was
   not updated to match.
 - **Fix / rule:** whenever `connect-src` in `layout.tsx` changes, update
@@ -519,7 +519,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   policy. On Vercel, ONLY the response header is enforced. The `<meta>` tag is
   the fallback for self-hosted static deployments.
 
-### `pnpm -r build` fails for desktop — `beforeBuildCommand` targets missing script
+### `pnpm -r build` fails for desktop - `beforeBuildCommand` targets missing script
 
 - **Symptom:** `apps/desktop/src-tauri/tauri.conf.json` has
   `"beforeBuildCommand": "pnpm run build:web"`, but `apps/desktop/package.json`
@@ -533,7 +533,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 ## S3-compatible storage (M18 / Vault3)
 
-### AWS SigV4 from `node:crypto` — zero new dependencies, but the `host` header must not be sent manually
+### AWS SigV4 from `node:crypto` - zero new dependencies, but the `host` header must not be sent manually
 
 - **Rule:** when implementing SigV4 in pure Node, the `host` header MUST be
   included in the signed canonical headers and the `SignedHeaders` list, but
@@ -543,7 +543,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   compute the signature, then `delete allHeaders['host']` before returning the
   final headers object.
 
-### Restrict S3 proxy to a single well-known object key — don't build a generic object proxy
+### Restrict S3 proxy to a single well-known object key - don't build a generic object proxy
 
 - **Rule:** the S3 proxy exposes only `GET/PUT/DELETE` for
   `graphvault-vault.json`. Attempting to proxy arbitrary object keys would
@@ -567,7 +567,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 - **Rule:** a redirect-chain attack starts with a public URL that redirects to a
   private address. The SSRF guard must re-run `dns/promises.lookup` on every URL
-  in the redirect chain — use `redirect: 'manual'` in the fetch call and follow
+  in the redirect chain - use `redirect: 'manual'` in the fetch call and follow
   redirects manually, re-validating the `Location` header URL before each hop.
   The guard also blocks bare `localhost`, `*.localhost`, and `.internal` TLD
   hostnames before DNS lookup (fast path).
@@ -578,14 +578,14 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   (a simple state machine handling quotes in attributes) then converting them in
   a single pass with a small state set (`inPre`, list stack, `inBlockquote`,
   pending-newline counter). This avoids jsdom/cheerio but means the converter is
-  not spec-compliant for pathological inputs — acceptable when the output passes
+  not spec-compliant for pathological inputs - acceptable when the output passes
   through DOMPurify before browser display. Test by asserting on specific patterns
   in the output string, not exact equality.
 
 ### Unused variables after refactoring: let ESLint guide the cleanup
 
 - **Symptom:** introduced an `inCode` boolean for tracking inline-code state but
-  never needed it to affect other logic — the close tag just emits the backtick
+  never needed it to affect other logic - the close tag just emits the backtick
   symmetrically with the open tag. ESLint `@typescript-eslint/no-unused-vars`
   caught it.
 - **Rule:** for a converter like this, symmetric open/close tag output is enough
@@ -610,7 +610,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 - **Symptom/concern:** server encrypts WebDAV, S3, and AI credentials all under
   the same `GRAPHVAULT_ENCRYPTION_KEY`. If the HKDF info string were shared,
-  two credential types for the same `userId` would derive the same sub-key —
+  two credential types for the same `userId` would derive the same sub-key -
   enabling cross-type confusion attacks.
 - **Rule:** every credential type must use a unique HKDF info string:
   `graphvault-webdav-cred-v1`, `graphvault-s3-cred-v1`,
@@ -629,7 +629,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   define the type with a minimum-length tuple. Do not rely on a length-check
   type guard to narrow array element access in TypeScript strict mode.
 
-## Wave 14 — MCP server + VPS hardening + Prism2 theming (sequential specialist slices)
+## Wave 14 - MCP server + VPS hardening + Prism2 theming (sequential specialist slices)
 
 ### MCP SDK forces zod ≥3.25 (the `zod/v3` subpath)
 
@@ -647,7 +647,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 - **Rule:** stdout carries the JSON-RPC frames; any stray `console.log` there
   corrupts the protocol stream. All diagnostics AND the config fail-fast message
   go to **stderr**, and the process exits non-zero on bad config so the MCP host
-  detects the failure (verified: exit 1, token value never printed — only the
+  detects the failure (verified: exit 1, token value never printed - only the
   env-var _name_ appears in the "Required" message).
 
 ### Lowering Fastify's global `bodyLimit` has blast radius beyond blob PUT
@@ -656,7 +656,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   limit also throttles the WebDAV/S3 vault-upload _proxy_ PUTs (they carry a whole
   vault JSON, previously covered by the 64 MiB global) → large-vault sync breaks.
 - **Fix / rule:** any route that legitimately carries large bodies needs an
-  explicit per-route `bodyLimit: maxBlobBytes` — audit all `.put`/proxy routes
+  explicit per-route `bodyLimit: maxBlobBytes` - audit all `.put`/proxy routes
   when tightening the global limit, not just the obvious blob route.
 
 ### Compose `read_only: true` must pair with `tmpfs`; keep keep-alive above the proxy
@@ -672,7 +672,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 - **Rule:** redefining `colors.neutral.{50..950}` as
   `rgb(var(--n-XXX) / <alpha-value>)`, with a dark `:root` ramp and an **inverted**
   `[data-theme='light']` ramp (`light --n-950 := dark --n-50`, …), flips thousands
-  of existing `bg-neutral-950 text-neutral-100` utilities automatically — near-zero
+  of existing `bg-neutral-950 text-neutral-100` utilities automatically - near-zero
   blast radius, no per-component rewrite. Inverting preserves contrast semantics.
 - **Gotcha:** `theme('colors.neutral.700')` outside an `@apply` context emits
   `rgb(var(--n-700) / <alpha-value>)` with the alpha placeholder unresolved →
@@ -696,24 +696,24 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 ### Integration: worktree isolation needs a git repo at the agent's cwd
 
 - **Symptom:** `Agent` with `isolation: "worktree"` failed with "not in a git
-  repository" even though the project dir was a fresh clone — the harness recorded
+  repository" even though the project dir was a fresh clone - the harness recorded
   the session root as non-git at startup.
 - **Fix / rule:** when worktree isolation is unavailable, run specialists
   **sequentially** in the shared tree with strict disjoint directory ownership and
   commit between each; this preserves conflict-free delegation without the
   concurrent-install/git-index races that parallel-in-one-tree would cause.
 
-## Wave 15 — programmable vault (MCP write tools + CLI HTTP API)
+## Wave 15 - programmable vault (MCP write tools + CLI HTTP API)
 
 ### Conflict-safe writes need the raw per-path FileState (incl. tombstones), not the read view
 
 - **Symptom/risk:** the MCP read path (`latestMarkdownStates`) drops tombstones and
-  non-markdown — wrong for writes, where a prior tombstone's `revision` must become
+  non-markdown - wrong for writes, where a prior tombstone's `revision` must become
   the new note's `baseRevision`, or the push is rejected `STALE_BASE`.
 - **Fix / rule:** writes use a dedicated `client.getFileState(path)` that keeps the
   highest-revision entry for the path **including** deleted tombstones. `baseRevision`
   = that revision (or `0` if absent). Push is fast-forward-only server-side; surface
-  any `conflicts` entry as an error ("NOT applied — no data overwritten"), **never**
+  any `conflicts` entry as an error ("NOT applied - no data overwritten"), **never**
   blind-retry with a bumped base. Invalidate the index cache only on confirmed apply.
   `append_to_note` must read at the same revision it pushes as base so a concurrent
   edit between read and write is caught as a conflict, not silently lost.
@@ -721,7 +721,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 ### TS strict: narrow the nullable field in the type guard, and avoid `BodyInit`/loose-JSON types
 
 - A guard `state is FileState` does NOT make `state.hash` non-null under
-  `noUncheckedIndexedAccess`/strict — use `state is FileState & { hash: string }`.
+  `noUncheckedIndexedAccess`/strict - use `state is FileState & { hash: string }`.
 - `BodyInit` and a recursive `Json` interface both bite here: type a write helper's
   body as `Uint8Array | string` (not `BodyInit`, which isn't in the Node lib types),
   and for fetch-based tests prefer a single `json(r): Promise<any>` helper (one
@@ -739,11 +739,11 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 - **Rule:** engine ids are vault-relative POSIX strings, so a read-only vault HTTP API
   guards traversal by rejecting `..` segments, backslashes, and NUL and collapsing
-  `.`/empty segments — no `fs.realpath` needed. Test the URL-encoded form (`%2e%2e%2f`)
+  `.`/empty segments - no `fs.realpath` needed. Test the URL-encoded form (`%2e%2e%2f`)
   too, since the router decodes before matching. Bind `127.0.0.1` by default; warn
   loudly when `--host` is non-loopback (exposes the vault).
 
-## Wave 16 — Azure Blob + GCS server-proxied storage adapters
+## Wave 16 - Azure Blob + GCS server-proxied storage adapters
 
 ### Azure Shared Key: Content-Length line is empty for empty bodies
 
@@ -753,12 +753,12 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   Derive it as `payload.length === 0 ? '' : String(len)`. `x-ms-*` headers are
   lowercased, sorted, and joined into CanonicalizedHeaders; the CanonicalizedResource
   is `/<account>/<container>/<blob>` plus sorted query params. Implement with
-  `node:crypto` HMAC-SHA256 over the base64-decoded account key — zero new deps.
+  `node:crypto` HMAC-SHA256 over the base64-decoded account key - zero new deps.
 
 ### GCS interop = free SigV4 reuse
 
 - **Rule:** GCS's S3-compatible XML API accepts AWS SigV4 verbatim, so a GCS
-  server-proxy adapter needs ZERO new signing code — feed `host=storage.googleapis.com`,
+  server-proxy adapter needs ZERO new signing code - feed `host=storage.googleapis.com`,
   `region=auto`, `service=s3` into the existing `signS3Request`. The only
   provider-specific surface is the URL builder + credential schema (HMAC interop
   access id/secret). When adding S3-alike providers (R2, Backblaze, GCS, MinIO),
@@ -767,13 +767,13 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 ### Per-credential HKDF info strings extend cleanly to new providers
 
 - **Rule (reaffirmed):** each new credential-bearing provider gets its own versioned
-  HKDF info string — `graphvault-azure-cred-v1`, `graphvault-gcs-cred-v1` — distinct
+  HKDF info string - `graphvault-azure-cred-v1`, `graphvault-gcs-cred-v1` - distinct
   from webdav/s3/ai, so a shared `userId` can never derive the same sub-key across
   providers. Secrets AES-256-GCM at rest; config GET never returns the plaintext
   secret (assert this in tests). Keep the single-well-known-object restriction
   (`graphvault-vault.json`, other keys → 400) for every storage proxy.
 
-## Wave 17 — web Azure/GCS storage adapters + Settings picker
+## Wave 17 - web Azure/GCS storage adapters + Settings picker
 
 ### Trust the deployed server source over any brief for wire contracts
 
@@ -796,13 +796,13 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 ### Factor shared proxy-adapter plumbing once, mirror per provider
 
-- **Rule:** Azure/GCS/S3 web adapters differ only in `id`/`label`/proxy path —
+- **Rule:** Azure/GCS/S3 web adapters differ only in `id`/`label`/proxy path -
   token+serverUrl session reads, `isNote` guards, JSON (de)serialise, and the
   load/save/clear/isAvailable proxy flow are identical. Extract a single
   apps/web-local `proxyAdapterHelpers.ts` (no new dep) and keep each adapter a thin
   shell, rather than copy-pasting the whole s3Adapter three times.
 
-## Wave 18 — public opt-in graph-snapshot store + web short share links
+## Wave 18 - public opt-in graph-snapshot store + web short share links
 
 ### Unauthenticated public-write endpoints: default OFF + layered caps
 
@@ -811,13 +811,13 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   the feature is invisible/404). When enabled, layer every cap: per-payload size
   (413), total count with oldest-first eviction (bounded disk), TTL sweep on read,
   and a STRICTER per-window rate limit on POST (like `/v1/auth/*`). Treat the payload
-  as opaque text — never parse/execute it server-side. Validate the id against a
+  as opaque text - never parse/execute it server-side. Validate the id against a
   strict `^[A-Za-z0-9_-]{16,32}$` pattern before building any path (traversal guard,
   defense-in-depth in both service and store).
 
 ### No owner? Gate destructive ops behind a one-time token, hashed + constant-time
 
-- **Rule:** with no account, DELETE can't be owner-checked — return a `deleteToken`
+- **Rule:** with no account, DELETE can't be owner-checked - return a `deleteToken`
   from POST, store only its SHA-256 hash, and require it on DELETE with a
   `timingSafeEqual` compare. A party who only knows the public share id cannot grief
   the snapshot.
@@ -825,23 +825,23 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 ### `URL.origin` is the clean SSRF/junk guard for an attacker-controllable origin param
 
 - **Rule:** when a share link carries a `srv=<serverOrigin>` the embed page will fetch
-  from, validate it via `new URL(srv).origin` and require `http:`/`https:` — this
+  from, validate it via `new URL(srv).origin` and require `http:`/`https:` - this
   rejects non-http(s) schemes and strips any path/query/hash a crafted link added,
   leaving only `scheme://host:port`. No manual string parsing.
 
-### Client-side cap can pre-empt the server 413 — keep both
+### Client-side cap can pre-empt the server 413 - keep both
 
 - **Note:** the web `encodeSnapshot` cap (200 KB) is below the server default
   `snapshotMaxBytes` (400 KB), so oversized graphs are rejected client-side first.
   Still wire + test the 413 path: the server cap is operator-configurable and is the
   authoritative backstop.
 
-## Wave 19 — "connect anything" inbound webhook + per-connector audit log
+## Wave 19 - "connect anything" inbound webhook + per-connector audit log
 
 ### Server-side note creation: blob.put plaintext BEFORE sync.push
 
 - **Rule:** when the server itself creates a note (inbound webhook), it must
-  `blob.put(hash, plaintextBytes)` BEFORE `sync.push([...])` — the sync decision
+  `blob.put(hash, plaintextBytes)` BEFORE `sync.push([...])` - the sync decision
   rejects `MISSING_BLOB` for any non-delete op whose hash isn't already uploaded.
   Hash is `sha256` of the **plaintext** UTF-8. `SyncService.push` does NOT enforce
   the device check (only the route does), so an internal caller acting on the
@@ -858,7 +858,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 ### Unauthenticated public-write: token IS the credential, hashed; 404 on unknown
 
-- **Rule:** the inbound `POST /v1/inbox/:token` is unauthenticated by design — the
+- **Rule:** the inbound `POST /v1/inbox/:token` is unauthenticated by design - the
   token is the credential. Store only `hashToken(token)`; look up by hash; return
   404 (not 403) for unknown/revoked tokens so the endpoint never reveals which
   tokens exist. Owner mints tokens via authenticated, vault-ownership-checked
@@ -866,7 +866,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   limit + service-level size cap on the _rendered_ note (frontmatter adds bytes)
   with the Fastify global bodyLimit as the coarse outer guard.
 
-## Wave 20 — MCP resources + prompts
+## Wave 20 - MCP resources + prompts
 
 ### SDK 1.29 registration signatures + capability auto-advertise
 
@@ -874,14 +874,14 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `registerResource(name, ResourceTemplate, config, readCb)` and
   `registerPrompt(name, { title, description, argsSchema }, cb)`. `ResourceTemplate`
   requires the `list` key to be present (even if `undefined`). Registering
-  resources/prompts auto-advertises the capabilities — no manual capability wiring.
+  resources/prompts auto-advertises the capabilities - no manual capability wiring.
   Always read the SDK's installed `dist` types (pnpm virtual store, not a top-level
   `node_modules/@modelcontextprotocol`) since these APIs shift across 1.x.
 
 ### URI-template `{+path}` matches multi-segment, but YOU must guard traversal
 
 - **Rule:** the reserved-expansion `graphvault://note/{+path}` form lets one template
-  match multi-segment note paths, but the template does NOT sanitize — decode and
+  match multi-segment note paths, but the template does NOT sanitize - decode and
   validate each segment yourself (reject `..`/empty/absolute, including encoded
   `%2e%2e`, and require the path to be a known note) before reading. Percent-encode
   per segment when generating URIs so spaces/`#` round-trip.
@@ -889,12 +889,12 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 ### Prompt-text assertions are case-sensitive
 
 - **Rule:** an emphasized all-caps word ("MISSING") in generated prompt copy won't
-  match a `[Mm]issing` regex — use `/.../i` for word-presence checks on copy you may
+  match a `[Mm]issing` regex - use `/.../i` for word-presence checks on copy you may
   later restyle.
 
-## Wave 21 — focus mode (distraction-free editing)
+## Wave 21 - focus mode (distraction-free editing)
 
-### Two independent useLayout() instances don't share React state — broadcast
+### Two independent useLayout() instances don't share React state - broadcast
 
 - **Rule:** when more than one component calls `useLayout()` (the shell hides the
   rail/sidebar; the workspace hides panes/centers the editor), a plain state toggle
@@ -914,7 +914,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `[role="dialog"][aria-modal="true"]` and bail if present, so Esc closes the
   palette/drawer/modal first instead of an unexpected mode change.
 
-## Audit fixes — server SSRF + hardening
+## Audit fixes - server SSRF + hardening
 
 ### Every outbound proxy needs the SSRF guard, not just the clipper
 
@@ -928,7 +928,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 ### DNS-pin to defeat rebinding; don't rewrite the URL host to a bare IP
 
-- **Bug:** resolve-then-fetch re-resolves the name independently (TOCTOU) — a name
+- **Bug:** resolve-then-fetch re-resolves the name independently (TOCTOU) - a name
   that flips to a private IP between the two lookups bypasses the check. **Fix:**
   resolve once, validate, then connect via `node:http(s)` with a custom `lookup` that
   returns only a pre-validated IP. Keep the original hostname for SNI/`Host` so TLS
@@ -947,12 +947,12 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 - The daily AI cap threw `badRequest` (400); clients can't tell "malformed" from
   "retry tomorrow." Throw `AppError(429, 'RATE_LIMITED', …)` to match the rest of the app.
 
-## Audit fixes — server durability (postgres persistence)
+## Audit fixes - server durability (postgres persistence)
 
 ### Don't advertise "encrypted at rest" while storing config in process memory
 
 - **Bug:** in postgres mode, provider/AI configs lived in `PrismaStorage` in-process
-  `Map`s (documented TODO) and inbox tokens/audit lived in `InboxService` Maps — all
+  `Map`s (documented TODO) and inbox tokens/audit lived in `InboxService` Maps - all
   silently wiped on restart while `/v1/server-info` claimed `credentialsEncryptedAtRest`.
   **Fix:** add Prisma models (WebDav/S3/Azure/Gcs/Ai config + InboxToken/InboxAuditEntry)
   and route everything through the `Storage` layer; move inbox state out of the service
@@ -961,9 +961,9 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 ### prisma validate/generate + gitignored client gotchas
 
-- `prisma validate` needs `DATABASE_URL` set just to parse the datasource — pass a dummy
+- `prisma validate` needs `DATABASE_URL` set just to parse the datasource - pass a dummy
   DSN when there's no DB. The generated client is gitignored and NOT in root eslint
-  ignores, so a stray `prisma generate` floods eslint with artifact errors — remove the
+  ignores, so a stray `prisma generate` floods eslint with artifact errors - remove the
   generated dir after verifying. The store loads the client via runtime dynamic
   `import()` + a structural `PrismaLike` type, so build/typecheck/test pass without a
   generated client or a live DB (only the in-memory path is runtime-tested).
@@ -974,16 +974,16 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `InboxService` methods `async`; audit every caller (routes needed an explicit `await`
   on `revokeToken`).
 
-## Audit fixes — web critical
+## Audit fixes - web critical
 
-### Centralize storage-key constants — drift across copies is a silent P0
+### Centralize storage-key constants - drift across copies is a silent P0
 
 - **Bug:** 4 proxy adapters + the graph share path each hardcoded `gv:auth:token`/
   `gv:serverUrl`, but the real keys are `graphvault:auth-token:v1` (sessionStorage)
   and `graphvault:server-url` (**localStorage**). Every cloud backend's
   `isAvailable()` was false → all dead on arrival, masked by adapter tests that used
   the wrong keys too. **Fix:** one `lib/api/storageKeys.ts`; hooks + adapters import
-  it. Note the two values live in DIFFERENT tiers (token=session, url=local) — a
+  it. Note the two values live in DIFFERENT tiers (token=session, url=local) - a
   copy-pasted `getServerUrl` reading sessionStorage was part of the bug.
 
 ### View-mode flags must neutralize conflicting persisted layout state
@@ -1004,7 +1004,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 - The encrypted store hard-wires localStorage while the unencrypted path uses the
   active adapter. Gate "enable encryption" on the active adapter being localStorage
-  rather than reworking encryption-through-any-adapter — prevents ciphertext-to-local
+  rather than reworking encryption-through-any-adapter - prevents ciphertext-to-local
   while the cloud copy stays stale.
 
 ### Canvas/WebGL colors must read the theme tokens, not hardcode dark
@@ -1012,13 +1012,13 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 - The force-graph canvas hardcoded `#0a0a0a` bg/labels → a black block in light
   theme. Read `--n-*` via `getComputedStyle` and re-read on a `data-theme`
   MutationObserver. Snapshot share also leaked full note paths (`i: n.id` where id IS
-  the path) — emit opaque ids and remap edges.
+  the path) - emit opaque ids and remap edges.
 
-## End-to-end ship-readiness audit (5-agent) — data-safety fixes
+## End-to-end ship-readiness audit (5-agent) - data-safety fixes
 
 ### Conflict resolution: "preserve content over honoring a delete" must hold for BOTH directions
 
-- **Bug:** `settle` implemented only the symmetric (client-delete/server-edit) direction and unconditionally adopted server state as canonical. So when the SERVER held a tombstone and the CLIENT held an edit, a delete beat a concurrent edit and devices diverged (edit demoted to a conflict copy under a different path). **Fix:** special-case `DELETE_EDIT_CONFLICT` — if local is a non-deleted edit and `conflict.server` is a tombstone, keep the edit canonical (re-base so it re-pushes and wins). Spec §6.3. Test the failing direction explicitly — the original test only covered the opposite one, masking the bug.
+- **Bug:** `settle` implemented only the symmetric (client-delete/server-edit) direction and unconditionally adopted server state as canonical. So when the SERVER held a tombstone and the CLIENT held an edit, a delete beat a concurrent edit and devices diverged (edit demoted to a conflict copy under a different path). **Fix:** special-case `DELETE_EDIT_CONFLICT` - if local is a non-deleted edit and `conflict.server` is a tombstone, keep the edit canonical (re-base so it re-pushes and wins). Spec §6.3. Test the failing direction explicitly - the original test only covered the opposite one, masking the bug.
 
 ### Conflict-copy paths must be uniquified, not just date-stamped
 
@@ -1026,21 +1026,21 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 ### STALE_BASE with `server: null` must re-base to 0, not livelock
 
-- **Bug:** an op with `baseRevision > 0` but no server file never advanced (guard required `conflict.server`), re-pushed forever, hit maxRounds, threw — one bad file aborted the whole sync. **Fix:** when STALE_BASE carries a null server, re-base to revision 0 (treat as brand-new → fast-forwards).
+- **Bug:** an op with `baseRevision > 0` but no server file never advanced (guard required `conflict.server`), re-pushed forever, hit maxRounds, threw - one bad file aborted the whole sync. **Fix:** when STALE_BASE carries a null server, re-base to revision 0 (treat as brand-new → fast-forwards).
 
 ### Normalize-at-the-boundary is necessary but not sufficient
 
-- **Bug:** spec mandates NFC path normalization but nothing applied it. Adding `.transform(p => p.normalize('NFC'))` to `filePathSchema` only protects the validated boundary (the server); the engine and sync-core cast `FilePath` strings directly and bypass it. **Fix:** also NFC-normalize keys/lookups in the engine resolution maps and the sync index. NFD/NFC test fixtures are fragile — author them with explicit `\u` escapes (editors silently NFC-normalize source).
+- **Bug:** spec mandates NFC path normalization but nothing applied it. Adding `.transform(p => p.normalize('NFC'))` to `filePathSchema` only protects the validated boundary (the server); the engine and sync-core cast `FilePath` strings directly and bypass it. **Fix:** also NFC-normalize keys/lookups in the engine resolution maps and the sync index. NFD/NFC test fixtures are fragile - author them with explicit `\u` escapes (editors silently NFC-normalize source).
 
 ### Duplicate paths: dedup BEFORE the edge pass
 
 - **Bug:** `buildIndex` did last-write-wins on nodes but built edges from ALL parsed entries, so a discarded duplicate's links survived as phantom edges. **Fix:** dedup parsed entries by path (last-wins) before building edges so nodes and edges stay consistent.
 
-## AI BFF Slice B (server) — SSE streaming + durable spend caps
+## AI BFF Slice B (server) - SSE streaming + durable spend caps
 
 ### SSE translating relay: capture `usage`/`done`, never re-emit them inline
 
-- **Symptom/risk:** when relaying an OpenAI-compatible upstream stream, yielding every parsed event inline (including `usage` and `[DONE]`) double-emits the terminal frames once you also append your own canonical `usage`+`done` at the end. **Fix:** in the relay generator, `continue` on parsed `usage` (capture into `finalUsage`) and `done` (capture model); only relay `delta`/`error` inline. Emit exactly one canonical `usage` then one `done` after the read loop. The browser depends on a stable, provider-agnostic frame set — assert in a test that the body never contains `"choices"` or `"delta":{` (the raw upstream shape), and that every frame validates against `aiStreamEventSchema`.
+- **Symptom/risk:** when relaying an OpenAI-compatible upstream stream, yielding every parsed event inline (including `usage` and `[DONE]`) double-emits the terminal frames once you also append your own canonical `usage`+`done` at the end. **Fix:** in the relay generator, `continue` on parsed `usage` (capture into `finalUsage`) and `done` (capture model); only relay `delta`/`error` inline. Emit exactly one canonical `usage` then one `done` after the read loop. The browser depends on a stable, provider-agnostic frame set - assert in a test that the body never contains `"choices"` or `"delta":{` (the raw upstream shape), and that every frame validates against `aiStreamEventSchema`.
 
 ### SSE pre-check must run BEFORE `reply.hijack()` / `writeHead(200)`
 
@@ -1052,17 +1052,17 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 ### `guardedFetch` streaming: change ONLY the body tail; keep the DNS pin byte-for-byte
 
-- **Rule:** add `stream?: boolean` that resolves the `Response` with a `ReadableStream` backed by the `IncomingMessage` for a final 2xx only — leave the validate→pin→revalidate path and the buffered redirect (3xx) path untouched. Redirect hops must still carry `stream`+`signal` forward so the final 2xx is streamed and a disconnect aborts mid-chase. `ReadableStreamReadResult` is not a TS lib global — type the reader result as `Awaited<ReturnType<typeof reader.read>>`.
+- **Rule:** add `stream?: boolean` that resolves the `Response` with a `ReadableStream` backed by the `IncomingMessage` for a final 2xx only - leave the validate→pin→revalidate path and the buffered redirect (3xx) path untouched. Redirect hops must still carry `stream`+`signal` forward so the final 2xx is streamed and a disconnect aborts mid-chase. `ReadableStreamReadResult` is not a TS lib global - type the reader result as `Awaited<ReturnType<typeof reader.read>>`.
 
 ### Durable spend cap: persist the window in Storage; never estimate cost
 
-- **Rule:** the old in-process `Map<userId,{date,count}>` is wiped on restart — replace it with an `AiSpendWindowRecord` (in-memory + Prisma) and a `commitAiSpend(userId, addUsd, addRequests, today)` read-modify-write that lazily resets when `windowDate !== today`. Enforce BOTH caps (monetary `spendCapUsd` + request `dailyRequestCap`/env) against the _previously accrued_ window (soft cap: one call may cross, next is refused → `429 RATE_LIMITED`, never `400`). Commit the **provider-reported** `costUsd`; when the gateway reports none, record `costUsd: 0` and rely on the request cap — guessing risks over/under-charging the user's own budget. Surface `spendCapState` on the config GET (non-secret) for the budget meter; the key stays redacted everywhere. Test the cap by re-building the app over the SAME storage instance to prove the window survives a simulated restart.
+- **Rule:** the old in-process `Map<userId,{date,count}>` is wiped on restart - replace it with an `AiSpendWindowRecord` (in-memory + Prisma) and a `commitAiSpend(userId, addUsd, addRequests, today)` read-modify-write that lazily resets when `windowDate !== today`. Enforce BOTH caps (monetary `spendCapUsd` + request `dailyRequestCap`/env) against the _previously accrued_ window (soft cap: one call may cross, next is refused → `429 RATE_LIMITED`, never `400`). Commit the **provider-reported** `costUsd`; when the gateway reports none, record `costUsd: 0` and rely on the request cap - guessing risks over/under-charging the user's own budget. Surface `spendCapState` on the config GET (non-secret) for the budget meter; the key stays redacted everywhere. Test the cap by re-building the app over the SAME storage instance to prove the window survives a simulated restart.
 
-### Slice-A doc may ship unformatted — don't "fix" files outside your ownership
+### Slice-A doc may ship unformatted - don't "fix" files outside your ownership
 
-- **Symptom:** `pnpm format:check` (repo-wide) flagged `docs/ai-bff.md`, which the server slice doesn't own and didn't touch. It was already non-prettier-compliant on the base `ai-bff` branch (Slice A). **Rule:** verify a format/lint failure pre-exists on the base branch and is outside your path set before touching it; format only your own files. Prisma's `schema.prisma` has no prettier parser (expected `No parser could be inferred`) — exclude it from per-file format checks.
+- **Symptom:** `pnpm format:check` (repo-wide) flagged `docs/ai-bff.md`, which the server slice doesn't own and didn't touch. It was already non-prettier-compliant on the base `ai-bff` branch (Slice A). **Rule:** verify a format/lint failure pre-exists on the base branch and is outside your path set before touching it; format only your own files. Prisma's `schema.prisma` has no prettier parser (expected `No parser could be inferred`) - exclude it from per-file format checks.
 
-## SecAudit — session https://claude.ai/code/session_01Qw5rxHnoo4J3PuVwfEo79v
+## SecAudit - session https://claude.ai/code/session_01Qw5rxHnoo4J3PuVwfEo79v
 
 ### VULN-1 (REAL, FIXED): WebDAV proxy path-traversal via URL-encoded dots
 
@@ -1070,7 +1070,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `apps/server/src/services/webdav.ts` `joinWebDavUrl`.
 - **Root cause:** the proxy path schema only checked `p.includes('..')`. Fastify
   decodes wildcard path params exactly once, so a double-encoded input
-  `%252e%252e` arrives in the handler as `%2e%2e` — no literal `..`, so the check
+  `%252e%252e` arrives in the handler as `%2e%2e` - no literal `..`, so the check
   passed. The resulting path was appended to the WebDAV base URL and sent upstream;
   the remote WebDAV server decoded `%2e%2e` to `..` and resolved files outside the
   configured directory.
@@ -1087,10 +1087,10 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   fast path. Apply both checks at the schema boundary AND at the service layer
   (belt-and-suspenders), since schema validation can be bypassed by direct service
   calls or future refactors.
-- **Tests:** `apps/server/test/sec-audit.test.ts` — VULN-1 tests were written
+- **Tests:** `apps/server/test/sec-audit.test.ts` - VULN-1 tests were written
   FAILING first (proved exploitable), then the fix was applied and all pass.
 
-### CONFIRMED SOLID — areas audited and found secure (no new bugs)
+### CONFIRMED SOLID - areas audited and found secure (no new bugs)
 
 - **SSRF (all proxies):** WebDAV/S3/Azure/GCS/AI custom endpoint/clip all route
   through `guardedFetch` in `services/ssrf.ts`. DNS-pinned transport prevents
@@ -1114,16 +1114,16 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   `@graphvault/shared`.
 - **Bug:** `buildIndex` did last-write-wins on nodes but built edges from ALL parsed entries, so a discarded duplicate's links survived as phantom edges. **Fix:** dedup parsed entries by path (last-wins) before building edges so nodes and edges stays consistent.
 
-## DataSafe audit — beforeunload / React async-effect gap
+## DataSafe audit - beforeunload / React async-effect gap
 
 ### `flushAll` via `setRawNotes` loses the last keystrokes on hard close
 
-- **Bug (`apps/web/app/vault/page.tsx` `flushAll`):** The `beforeunload` and `visibilitychange=hidden` flush called `vault.updateContent(path, draft)`, which dispatches a React state update (`setRawNotes`). Persistence happens in a `useEffect` that runs AFTER the browser paints — React's effect pipeline is asynchronous. Under `beforeunload`, the browser can unload the page before React runs the effect and `localStorage.setItem` is called, silently dropping the last unsaved keystrokes. This is the classic React-state-in-beforeunload trap.
-- **Fix / rule:** Add `vault.directFlush(updates)` to `useVault` — it applies the pending draft patches to `latestNotesRef.current` and calls the adapter's `save()` DIRECTLY (bypassing `setRawNotes → useEffect`), then ALSO dispatches `setRawNotes` for the case where the tab is not actually closing (mobile background/resume). Wire `registerFlushOnExit` to `flushAllDirect` (which calls `directFlush`) instead of `flushAll` (which calls `updateContent`). The in-session flush on tab switch / unmount still uses `updateContent` since React's async pipeline is running there. Rule: **never rely on `setRawNotes → useEffect` for `beforeunload` writes; write directly to the adapter**.
+- **Bug (`apps/web/app/vault/page.tsx` `flushAll`):** The `beforeunload` and `visibilitychange=hidden` flush called `vault.updateContent(path, draft)`, which dispatches a React state update (`setRawNotes`). Persistence happens in a `useEffect` that runs AFTER the browser paints - React's effect pipeline is asynchronous. Under `beforeunload`, the browser can unload the page before React runs the effect and `localStorage.setItem` is called, silently dropping the last unsaved keystrokes. This is the classic React-state-in-beforeunload trap.
+- **Fix / rule:** Add `vault.directFlush(updates)` to `useVault` - it applies the pending draft patches to `latestNotesRef.current` and calls the adapter's `save()` DIRECTLY (bypassing `setRawNotes → useEffect`), then ALSO dispatches `setRawNotes` for the case where the tab is not actually closing (mobile background/resume). Wire `registerFlushOnExit` to `flushAllDirect` (which calls `directFlush`) instead of `flushAll` (which calls `updateContent`). The in-session flush on tab switch / unmount still uses `updateContent` since React's async pipeline is running there. Rule: **never rely on `setRawNotes → useEffect` for `beforeunload` writes; write directly to the adapter**.
 
-## Graph perf — lazy-load placeholder
+## Graph perf - lazy-load placeholder
 
-### "Lazy-load graph" was already done — verify the bundle before claiming a win
+### "Lazy-load graph" was already done - verify the bundle before claiming a win
 
 - **Symptom:** the ROADMAP listed "Lazy-load graph" as not started, but the heavy
   `react-force-graph-2d` (~186 kB) was ALREADY code-split: `ForceGraphCanvas` is
@@ -1136,7 +1136,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   contain `forceEngine`/`ForceGraph`, then assert that chunk filename is NOT in
   `pages['/graph/page']`. It loads on mount via the dynamic import instead.
 - **Rule:** before implementing a "make it lazy" task, build and inspect the
-  manifest first — the heavy module may already be split, in which case the real
+  manifest first - the heavy module may already be split, in which case the real
   remaining value is the loading UX, not the split. Report honestly rather than
   fabricating a First-Load delta.
 
@@ -1144,7 +1144,7 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 
 - **Rule:** a `next/dynamic` `loading` component renders BEFORE the lazy chunk
   arrives, so it ships in the page's initial chunk and must import nothing heavy
-  (no force-graph, no engine) — a pure SVG/CSS skeleton. It adds a small constant
+  (no force-graph, no engine) - a pure SVG/CSS skeleton. It adds a small constant
   (~1 kB here, 172→173 kB) to First Load by design; that's the cost of "click and
   use" instead of a dead screen. Fill the exact `h-full w-full` box the canvas
   will occupy (no layout shift), gate animation behind `motion-safe:` (respect

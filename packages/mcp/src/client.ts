@@ -2,9 +2,9 @@
  * Minimal, typed HTTP client for the GraphVault sync server.
  *
  * It speaks only the read-only subset the MCP server needs:
- *   - `GET /v1/vaults`                       — list the caller's vaults.
- *   - `GET /v1/vaults/:id/changes?since&limit` — paginated file states.
- *   - `GET /v1/blobs/:hash`                  — raw content bytes.
+ *   - `GET /v1/vaults`                       - list the caller's vaults.
+ *   - `GET /v1/vaults/:id/changes?since&limit` - paginated file states.
+ *   - `GET /v1/blobs/:hash`                  - raw content bytes.
  *
  * Every request carries `Authorization: Bearer <token>`. The token is held in
  * memory only and is NEVER included in thrown error messages or logged, so it
@@ -105,7 +105,7 @@ export class GraphVaultClient {
     return new GraphVaultApiError(message, res.status, code);
   }
 
-  /** `GET /v1/vaults` — the bearer token's vaults. */
+  /** `GET /v1/vaults` - the bearer token's vaults. */
   async listVaults(): Promise<VaultRef[]> {
     const res = await this.request('/v1/vaults', 'application/json');
     const body: unknown = await res.json();
@@ -199,7 +199,7 @@ export class GraphVaultClient {
   }
 
   /**
-   * `PUT /v1/blobs/:hash` — upload raw content bytes. The server recomputes and
+   * `PUT /v1/blobs/:hash` - upload raw content bytes. The server recomputes and
    * verifies the SHA-256, so a mismatched hash is rejected. Idempotent: an
    * existing blob is accepted unchanged.
    */
@@ -212,7 +212,7 @@ export class GraphVaultClient {
   }
 
   /**
-   * `POST /v1/vaults/:id/push` — submit ops. The server only fast-forward
+   * `POST /v1/vaults/:id/push` - submit ops. The server only fast-forward
    * accepts ops whose `baseRevision` matches the current server revision;
    * otherwise it returns a conflict and does NOT clobber. The caller MUST
    * inspect `conflicts` before treating a push as successful.
@@ -258,7 +258,7 @@ export class GraphVaultClient {
     return res;
   }
 
-  /** `GET /v1/blobs/:hash` — raw bytes for a content hash. */
+  /** `GET /v1/blobs/:hash` - raw bytes for a content hash. */
   async getBlob(hash: string): Promise<Uint8Array> {
     const res = await this.request(
       `/v1/blobs/${encodeURIComponent(hash)}`,

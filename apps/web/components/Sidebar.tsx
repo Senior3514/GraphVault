@@ -96,7 +96,7 @@ export function Sidebar({ collapsed, onToggle, mobileDrawerClose }: SidebarProps
             <li key={item.href}>
               <Link
                 href={item.href}
-                title={collapsed ? `${item.label} — ${item.hint}` : undefined}
+                title={collapsed ? `${item.label} - ${item.hint}` : undefined}
                 aria-current={active ? 'page' : undefined}
                 onClick={mobileDrawerClose}
                 className={[

@@ -1,5 +1,5 @@
 /**
- * Importer registry (M20 — one-click importers).
+ * Importer registry (M20 - one-click importers).
  *
  * Import from here to get the full list of importers in display order.
  * The list drives both the Settings UI picker and the file-extension accept
@@ -22,7 +22,7 @@ import { genericImporter } from './generic';
 
 /**
  * All importers, in display order. The last entry (`generic`) is always shown
- * as a fallback — it handles GraphVault's own ZIP/JSON formats and raw .md files.
+ * as a fallback - it handles GraphVault's own ZIP/JSON formats and raw .md files.
  */
 export const ALL_IMPORTERS: readonly Importer[] = [
   obsidianImporter,

@@ -1,4 +1,4 @@
-# CLAUDE.md — GraphVault project rules
+# CLAUDE.md - GraphVault project rules
 
 This file orients any contributor (human or AI) working in this repo. Read it
 before making changes.
@@ -10,7 +10,7 @@ sync and a powerful, dynamic graph view.
 
 Core promises:
 
-- Plain Markdown files on disk — **no lock-in**.
+- Plain Markdown files on disk - **no lock-in**.
 - Simple, secure **self-hosted** sync on any VPS.
 - A graph view that is **actually usable for thinking**, not just pretty.
 - Fast, responsive, **security-conscious** UX.
@@ -38,14 +38,14 @@ At the end of each milestone, report:
 - ❌ Mobile clients (desktop + web only; the web app is fully responsive).
 - ❌ Plugin marketplace.
 - ❌ Public multi-user collaboration (single user / small trusted team is enough).
-- ❌ WYSIWYG-only editor — **Markdown is first-class**.
+- ❌ WYSIWYG-only editor - **Markdown is first-class**.
 
 > **Direction update (owner, post-v0):** AI features and external connectors
-> (email, cloud storage, etc.) are now **in scope** — but only **privacy-first**:
+> (email, cloud storage, etc.) are now **in scope** - but only **privacy-first**:
 > opt-in, **off by default**, with a privacy spectrum (local/on-device model →
 > bring-your-own-key → never hosted-by-us by default). Note content must never
 > leave the device unless the user explicitly enables a provider. This preserves
-> the local-first, zero-telemetry promise. See `docs/ROADMAP.md` M21–M22.
+> the local-first, zero-telemetry promise. See `docs/ROADMAP.md` M21-M22.
 
 ## Tech stack
 
@@ -78,9 +78,9 @@ README.md   CLAUDE.md   DESIGN.md
 
 This project is operated by a dedicated, in-repo "company" of specialist agents
 (architect, server, web, graph, sync, security, devops, docs, QA, orchestrator).
-The roster lives in `.claude/agents/gv-*.md`; how it works — ownership matrix,
+The roster lives in `.claude/agents/gv-*.md`; how it works - ownership matrix,
 parallel-worktree workflow, the Definition-of-Done gauntlet, and the continuous
-learning loop — is documented in `docs/agent-company/`. Before doing substantial
+learning loop - is documented in `docs/agent-company/`. Before doing substantial
 work, read `docs/agent-company/playbook.md` and `docs/agent-company/lessons.md`.
 The company always learns and evolves: append lessons after each task.
 

@@ -8,13 +8,13 @@
  *   2. Write them all to the destination adapter.
  *   3. Load back from the destination and verify every note survived intact
  *      (path, content, mtime, ctime equality check).
- *   4. Only then declare success — the source is NOT cleared automatically
+ *   4. Only then declare success - the source is NOT cleared automatically
  *      (the caller decides whether to clear).
  *
  * This means at no point during migration are notes accessible only from the
  * destination: the source stays intact until the caller explicitly clears it.
  * If verification fails, the destination is cleared (best-effort) and the
- * error is thrown — the source is unaffected.
+ * error is thrown - the source is unaffected.
  *
  * ## Why not clear source automatically?
  *
@@ -58,7 +58,7 @@ export async function migrateAdapter(
   const sourceNotes = await source.load();
 
   if (sourceNotes.length === 0) {
-    // Nothing to migrate — write an empty vault to the destination so it
+    // Nothing to migrate - write an empty vault to the destination so it
     // initialises correctly (seed notes will appear on next load).
     await destination.save([]);
     return {
@@ -77,7 +77,7 @@ export async function migrateAdapter(
   const { ok, missing, corrupt } = verifyNotes(sourceNotes, destNotes);
 
   if (!ok) {
-    // Verification failed — clean up destination (best-effort) and throw.
+    // Verification failed - clean up destination (best-effort) and throw.
     try {
       await destination.clear();
     } catch {
@@ -87,7 +87,7 @@ export async function migrateAdapter(
       missing.length > 0
         ? `Missing notes: ${missing.join(', ')}`
         : `Corrupted notes: ${corrupt.join(', ')}`;
-    throw new Error(`Migration verification failed — source is unchanged. ${detail}`);
+    throw new Error(`Migration verification failed - source is unchanged. ${detail}`);
   }
 
   return {

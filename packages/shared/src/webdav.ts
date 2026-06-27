@@ -72,7 +72,7 @@ function containsPathTraversal(p: string): boolean {
       decoded = decodeURIComponent(decoded);
     }
   } catch {
-    // Malformed percent sequence — reject for safety.
+    // Malformed percent sequence - reject for safety.
     return true;
   }
   if (decoded.includes('..')) return true;

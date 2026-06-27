@@ -8,7 +8,7 @@
  *
  * Off by default: when `config.snapshotsEnabled` is false, NONE of these routes
  * is registered, so every `/v1/snapshots*` request falls through to the 404
- * not-found handler — the feature is invisible.
+ * not-found handler - the feature is invisible.
  *
  * No auth (public share, no account). The routes still count against the global
  * rate limit, and `POST` carries a STRICTER per-window cap (like `/v1/auth/*`)

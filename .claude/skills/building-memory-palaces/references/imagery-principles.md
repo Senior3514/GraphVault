@@ -12,7 +12,7 @@ dull material as something the ancient brain treats as important.
 
 ## The principles
 
-**Exaggerate scale and number.** Never picture *a* key — picture a thousand keys
+**Exaggerate scale and number.** Never picture *a* key - picture a thousand keys
 raining down, or one key the size of a car. Normal-sized things are forgettable;
 absurdly large, small, or numerous things are not.
 
@@ -25,16 +25,16 @@ sweet, burning), texture (slimy, sticky), temperature, pain. The more sensory
 channels, the more retrieval routes back to the memory.
 
 **Use humor, shock, and emotion.** Funny, gross, frightening, or sexual images
-encode far better than neutral ones — emotion tells the brain "this matters." Lean
+encode far better than neutral ones - emotion tells the brain "this matters." Lean
 into the ridiculous. (Keep it appropriate to the person and context, but don't make
 it boring.)
 
-**Make elements interact.** Don't park the image next to its location — fuse them.
+**Make elements interact.** Don't park the image next to its location - fuse them.
 The milk shouldn't be *near* the fridge; it should be erupting *out of* it and
 soaking *you*. Interaction is the glue between item and place.
 
-**Make it personal.** An image built from the person's own life — their actual dog,
-their boss, an inside joke, a place they fear — beats a generic clever one every
+**Make it personal.** An image built from the person's own life - their actual dog,
+their boss, an inside joke, a place they fear - beats a generic clever one every
 time. When an image feels flat, ask the person for a concrete detail and rebuild
 around it.
 
@@ -45,7 +45,7 @@ a cash register vomiting coins; justice → a giant gavel flattening a courtroom
 ## A quick self-test
 
 Before locking an image in, ask: *would this make me laugh, wince, or recoil if I
-actually saw it?* If the honest answer is "no, it's fine," the image is too tame —
+actually saw it?* If the honest answer is "no, it's fine," the image is too tame -
 push the scale, the motion, or the absurdity one notch further and test again.
 
 ## Common failure modes

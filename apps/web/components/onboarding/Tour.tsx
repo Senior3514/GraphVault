@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Guided tour — multi-step coachmark/spotlight shown on first run.
+ * Guided tour - multi-step coachmark/spotlight shown on first run.
  *
  * ## Behaviour
  * - Shown once; dismissed state persisted in localStorage.
@@ -12,7 +12,7 @@
  * - Keyboard: Esc → close; ArrowRight/Enter → next; ArrowLeft → prev.
  * - Focus trapped inside the coachmark while open.
  * - `prefers-reduced-motion` respected (animation class is motion-safe).
- * - Fully responsive — falls back to centred modal when no target element
+ * - Fully responsive - falls back to centred modal when no target element
  *   is found or the step is designated center-only.
  *
  * ## Architecture
@@ -50,7 +50,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'command-palette',
     title: 'Command Palette',
-    body: 'Press Cmd K (or Ctrl K) to open any note, run commands, or search your entire vault — from anywhere in the app. This is your fastest way to navigate.',
+    body: 'Press Cmd K (or Ctrl K) to open any note, run commands, or search your entire vault - from anywhere in the app. This is your fastest way to navigate.',
     targetSelector: null,
     placement: 'center',
     shortcut: 'Cmd K',
@@ -58,7 +58,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'wikilinks',
     title: 'Link notes with [[ ]]',
-    body: 'Type [[ in the editor to link to another note. Autocomplete pops up immediately. Every link you write becomes an edge in your knowledge graph — no orphans.',
+    body: 'Type [[ in the editor to link to another note. Autocomplete pops up immediately. Every link you write becomes an edge in your knowledge graph - no orphans.',
     targetSelector: null,
     placement: 'center',
     shortcut: '[[',
@@ -66,7 +66,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'tags',
     title: 'Organise with #tags',
-    body: 'Add a #tag anywhere in a note (or in frontmatter). Tags cluster nodes in the graph and power the filter panel — great for cross-cutting themes.',
+    body: 'Add a #tag anywhere in a note (or in frontmatter). Tags cluster nodes in the graph and power the filter panel - great for cross-cutting themes.',
     targetSelector: null,
     placement: 'center',
     shortcut: '#',
@@ -74,7 +74,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'graph',
     title: 'Your knowledge graph',
-    body: 'Every wikilink becomes a graph edge. Open the Graph view to see your notes as a living map — filter by tag, scrub through time, or let AI name your clusters.',
+    body: 'Every wikilink becomes a graph edge. Open the Graph view to see your notes as a living map - filter by tag, scrub through time, or let AI name your clusters.',
     targetSelector: 'a[href="/graph"], [data-tour="graph-link"]',
     placement: 'right',
   },

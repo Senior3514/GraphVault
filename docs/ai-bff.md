@@ -1,4 +1,4 @@
-# GraphVault AI BFF — Server-Side AI Proxy (Backend-for-Frontend)
+# GraphVault AI BFF - Server-Side AI Proxy (Backend-for-Frontend)
 
 > **Status:** design (architecture + contracts). The config CRUD, encrypted
 > at-rest key storage, OpenRouter gateway, SSRF-guarded egress, and a
@@ -6,9 +6,9 @@
 > `apps/server/src/{routes,services}/ai.ts` and `packages/shared/src/ai.ts`.
 > This document is the **canonical contract** for that feature and specifies the
 > two remaining additions: **SSE streaming** and **per-key spend caps**. The doc
-> and the shared zod schemas are one source of truth — change them together.
+> and the shared zod schemas are one source of truth - change them together.
 >
-> Roadmap: M21 — "Server-side AI proxy (BFF)". See `docs/ROADMAP.md`.
+> Roadmap: M21 - "Server-side AI proxy (BFF)". See `docs/ROADMAP.md`.
 
 ## 1. Why a BFF exists
 
@@ -29,7 +29,7 @@ The BFF is an **additional rung**, not a replacement for the others:
 | **`server` (BFF)** | **your server, AES-256-GCM at rest** | **server → gateway**         | only on use      |
 
 **The research-backed rationale for the BFF rung:** a key stored in the browser
-(`byo`) is _extractable_ — by XSS, by a malicious extension, by anyone with
+(`byo`) is _extractable_ - by XSS, by a malicious extension, by anyone with
 devtools on a shared machine, and it travels to every device that signs in. The
 BFF moves the secret to the one machine the user already trusts with their notes
 (their self-hosted server), encrypts it at rest, and **never returns it to any
@@ -53,16 +53,16 @@ client**. The browser only ever learns `{ keySet: true }`.
 
 All routes live under `/v1/ai`, require a valid bearer token (`requireAuth`),
 and operate on the **authenticated user's own** config (`user.id` from the auth
-context — there is no cross-user surface; see §7).
+context - there is no cross-user surface; see §7).
 
-### 2.1 `POST /v1/ai/config` — set provider + key
+### 2.1 `POST /v1/ai/config` - set provider + key
 
 Write-only. Stores (and encrypts) the key; returns no secret.
 
-Request body — `aiConfigRequestSchema`:
+Request body - `aiConfigRequestSchema`:
 
 ```ts
-// packages/shared/src/ai.ts  (SHIPPED — with spend-cap additions sketched in §4)
+// packages/shared/src/ai.ts  (SHIPPED - with spend-cap additions sketched in §4)
 export const aiConfigRequestSchema = z.object({
   apiKey: z.string().min(1).max(1024), // sent once over TLS, then encrypted
   gateway: z.enum(['openrouter', 'custom']).default('openrouter'),
@@ -86,11 +86,11 @@ Responses:
   `baseUrl` (validated in the route).
 - `401 UNAUTHENTICATED` with no/invalid token.
 
-### 2.2 `GET /v1/ai/config` — non-secret status only
+### 2.2 `GET /v1/ai/config` - non-secret status only
 
-Returns the redacted status object — **never** the key, never the ciphertext.
+Returns the redacted status object - **never** the key, never the ciphertext.
 
-Response — `aiConfigInfoSchema`:
+Response - `aiConfigInfoSchema`:
 
 ```ts
 export const aiConfigInfoSchema = z.object({
@@ -112,22 +112,22 @@ export const aiConfigInfoSchema = z.object({
 ```
 
 - `200` with the info object when configured.
-- `404 NOT_FOUND` (`{ error: { code, message } }`) when AI is not configured —
+- `404 NOT_FOUND` (`{ error: { code, message } }`) when AI is not configured -
   this is how the web client decides whether to show the "Add a key" CTA.
 
-> **Design note — why `spendCapState` here:** the client needs to render a
+> **Design note - why `spendCapState` here:** the client needs to render a
 > budget meter and disable the send button when `state === 'exceeded'` _without_
 > making a doomed chat call. Surfacing it on the config GET keeps the chat
 > request path lean and lets the Settings UI show a live budget bar.
 
-### 2.3 `DELETE /v1/ai/config` — remove config
+### 2.3 `DELETE /v1/ai/config` - remove config
 
 - `204 No Content`. Idempotent (deleting an absent config still returns 204).
   Removing the config zeroes the stored ciphertext; the key is gone.
 
-### 2.4 `POST /v1/ai/chat` — non-streaming proxy (SHIPPED)
+### 2.4 `POST /v1/ai/chat` - non-streaming proxy (SHIPPED)
 
-Request — `aiChatRequestSchema`:
+Request - `aiChatRequestSchema`:
 
 ```ts
 export const aiChatRequestSchema = z.object({
@@ -138,13 +138,13 @@ export const aiChatRequestSchema = z.object({
 });
 ```
 
-Response — `aiChatResponseSchema`:
+Response - `aiChatResponseSchema`:
 
 ```ts
 export const aiChatResponseSchema = z.object({
   content: z.string(),
   model: z.string().optional(), // model the upstream reports
-  // --- NEW (spend caps, §4) — echoed so the client can update its meter ---
+  // --- NEW (spend caps, §4) - echoed so the client can update its meter ---
   usage: z
     .object({
       promptTokens: z.number().int().optional(),
@@ -157,13 +157,13 @@ export const aiChatResponseSchema = z.object({
 
 Errors (all use the app's standard `{ error: { code, message } }` envelope):
 
-- `404 NOT_FOUND` — AI not configured.
-- `429 RATE_LIMITED` — daily request cap **or** spend cap exceeded (§4).
-- `400 BAD_REQUEST` — upstream non-2xx or malformed response (sanitised body,
+- `404 NOT_FOUND` - AI not configured.
+- `429 RATE_LIMITED` - daily request cap **or** spend cap exceeded (§4).
+- `400 BAD_REQUEST` - upstream non-2xx or malformed response (sanitised body,
   key redacted, truncated to 400 chars).
-- `401 UNAUTHENTICATED` — no/invalid token.
+- `401 UNAUTHENTICATED` - no/invalid token.
 
-### 2.5 `POST /v1/ai/chat` with `stream: true` — SSE streaming proxy (NEW)
+### 2.5 `POST /v1/ai/chat` with `stream: true` - SSE streaming proxy (NEW)
 
 The browser and the BFF speak **Server-Sent Events**; the BFF and the gateway
 speak the OpenAI-compatible streaming format (`data: {…}\n\n` lines ending in
@@ -209,7 +209,7 @@ browser                         BFF (/v1/ai/chat stream)              gateway (O
 2. **Metering happens in the relay.** The BFF reads the terminal `usage` chunk
    (OpenRouter returns it when the request includes
    `"usage": { "include": true }` / `stream_options: { include_usage: true }`)
-   and commits the actual cost to the spend counter (§4) — accurate, not
+   and commits the actual cost to the spend counter (§4) - accurate, not
    estimated.
 3. **Key redaction.** Any upstream error surfaced mid-stream is rewritten as a
    clean `event: error` with the key stripped.
@@ -220,7 +220,7 @@ browser                         BFF (/v1/ai/chat stream)              gateway (O
   Node `Readable`/web `ReadableStream` with
   `reply.header('Content-Type', 'text/event-stream')`,
   `'Cache-Control': 'no-cache, no-transform'`, `'Connection': 'keep-alive'`,
-  `'X-Accel-Buffering': 'no'` (defeats nginx proxy buffering — required for the
+  `'X-Accel-Buffering': 'no'` (defeats nginx proxy buffering - required for the
   self-hosted reverse-proxy deployment; see `docs/hardening.md`).
 - **`guardedFetch` must gain a streaming mode.** Today its transport buffers the
   whole response (`chunks` → `Buffer.concat`). Add a `stream: true` option that
@@ -234,7 +234,7 @@ browser                         BFF (/v1/ai/chat stream)              gateway (O
   not idle-timeout a slow generation.
 - **Spend pre-check before opening the upstream socket; spend commit after the
   terminal usage chunk.** If the pre-check fails, emit a single
-  `event: error data:{code:"RATE_LIMITED"}` and close — no upstream call.
+  `event: error data:{code:"RATE_LIMITED"}` and close - no upstream call.
 
 ## 3. Streaming summary
 
@@ -265,7 +265,7 @@ kind". Both are checked; whichever trips first throws 429.
 
 ### 4.2 Where the counter lives
 
-The shipped counter is a process-local `Map<userId, {date, count}>` — **fine for
+The shipped counter is a process-local `Map<userId, {date, count}>` - **fine for
 a single-process self-hosted server, but it is wiped on restart and does not
 survive the postgres durability work** (lessons: "Don't advertise _encrypted at
 rest_ while storing config in process memory"). The spend cap must be
@@ -275,10 +275,10 @@ rest_ while storing config in process memory"). The spend cap must be
   (in-memory impl + Prisma model), as an `AiSpendWindow` record:
 
 ```ts
-// apps/server/src/store/types.ts  (NEW — server slice)
+// apps/server/src/store/types.ts  (NEW - server slice)
 export interface AiSpendWindowRecord {
   userId: string;
-  windowDate: string; // "YYYY-MM-DD" UTC — the active window
+  windowDate: string; // "YYYY-MM-DD" UTC - the active window
   requests: number; // requests committed this window
   spentUsd: number; // cost accrued this window (provider-reported)
   updatedAt: string; // ISO-8601
@@ -303,7 +303,7 @@ this is a self-hosted single-tenant-ish workload, not a billing system.
       commitAiSpend(userId, costUsd, +1 request, today)
 ```
 
-- **Pre-check uses the _previous_ window's accrued spend** — a single call can
+- **Pre-check uses the _previous_ window's accrued spend** - a single call can
   cross the cap (we cannot know the cost until after generation), but the _next_
   call is then refused. This is the standard, simple "soft cap" behaviour; it
   cannot be made a hard pre-spend cap without per-token pre-authorization, which
@@ -312,7 +312,7 @@ this is a self-hosted single-tenant-ish workload, not a billing system.
   `stream_options.include_usage`, a terminal usage chunk) containing token
   counts and, for many models, a computed cost. When the gateway does not return
   a dollar cost, fall back to **request-count capping only** for that call and
-  record `costUsd: 0` (never guess — guessing risks both over- and
+  record `costUsd: 0` (never guess - guessing risks both over- and
   under-charging the user's own budget; the request cap remains the backstop).
 
 ### 4.4 429 behaviour (reuse the existing envelope)
@@ -331,7 +331,7 @@ throw new AppError(
 For streaming requests the 429 is delivered as a single
 `event: error data: {"code":"RATE_LIMITED","message":"…"}` then the stream
 closes (an SSE response has already committed `200` headers, so we cannot send an
-HTTP 429 status mid-stream — the _pre-check_ therefore runs before any SSE
+HTTP 429 status mid-stream - the _pre-check_ therefore runs before any SSE
 headers are written, allowing a real `429` status for the common case, and the
 `event: error` path is the fallback for a cap tripped after headers).
 
@@ -358,7 +358,7 @@ This design preserves that and extends it:
   resolves the `Response` immediately with the live `IncomingMessage` as the
   body stream instead of buffering `chunks` → `Buffer.concat`. The DNS-pinned
   `lookup`, scheme check, private-IP rejection, and per-redirect-hop
-  revalidation are **unchanged** — only the body-handling tail differs. Redirects
+  revalidation are **unchanged** - only the body-handling tail differs. Redirects
   on a streaming request are still followed via the buffered small-response path
   (3xx bodies are tiny); only the final 2xx is streamed.
 - **Egress posture unchanged when AI is off:** no config → no chat route work →
@@ -371,12 +371,12 @@ The exact helper to reuse already exists inside
 
 - **AES-256-GCM** (`aes-256-gcm`, 12-byte nonce, 16-byte tag), key material =
   `HKDF-SHA256(ikm = GRAPHVAULT_ENCRYPTION_KEY, salt = userId, info =
-"graphvault-ai-cred-v1", 32 bytes)` — the same per-user HKDF scheme as
+"graphvault-ai-cred-v1", 32 bytes)` - the same per-user HKDF scheme as
   `webdav.ts` / `s3.ts` / `azure.ts` / `gcs.ts`, with the **distinct, versioned
   info string** `graphvault-ai-cred-v1` (lessons: "HKDF info strings must be
   unique per credential type"). When `GRAPHVAULT_ENCRYPTION_KEY` is unset a
   process-lifetime random fallback key is used (config does not survive restart
-  in that mode — acceptable, and matches the other proxies).
+  in that mode - acceptable, and matches the other proxies).
 - On disk the value is `base64(nonce ‖ tag ‖ ciphertext)` in
   `AiConfigRecord.encryptedApiKey`. The **plaintext key exists only in a local
   variable during one outbound call** and is never assigned to a field,
@@ -388,7 +388,7 @@ The exact helper to reuse already exists inside
 
 **Do not** introduce a new crypto path. If a shared crypto helper is later
 factored out of the four storage proxies, the AI service should adopt it with
-its existing info string — but that refactor is out of scope here.
+its existing info string - but that refactor is out of scope here.
 
 ## 7. Security review
 
@@ -396,7 +396,7 @@ Reviewed against the threat list in the brief:
 
 ### Key extraction
 
-- **Browser:** impossible by construction — the key is never sent to any client;
+- **Browser:** impossible by construction - the key is never sent to any client;
   `GET /config` returns `keySet` only; no endpoint echoes the ciphertext.
 - **At rest:** AES-256-GCM, per-user HKDF sub-key. A DB/disk leak yields
   ciphertext bound to `GRAPHVAULT_ENCRYPTION_KEY` (operator secret, env-only).
@@ -420,7 +420,7 @@ Reviewed against the threat list in the brief:
 - Every route resolves `user.id` from the bearer token and scopes **all** storage
   reads/writes to that `userId` (`getAiConfig(user.id)`, `saveConfig(user.id,…)`,
   `commitAiSpend(user.id,…)`). There is **no vault-scoped object** here, so the
-  `assertVaultOwner` check that storage proxies use does not apply — the config
+  `assertVaultOwner` check that storage proxies use does not apply - the config
   is keyed directly by the authenticated user. There is no path/param a caller
   can supply to reach another user's config. Confirmed: no IDOR surface.
 
@@ -441,12 +441,12 @@ Reviewed against the threat list in the brief:
 
 - **Prompt content is user data.** The BFF necessarily sees note text in
   `messages` (it must, to forward it). This is the documented, consented trade of
-  enabling the `server` rung — surface it in the Settings privacy notice. The BFF
+  enabling the `server` rung - surface it in the Settings privacy notice. The BFF
   must **not** persist prompts or responses (no request/response logging of
   bodies; only counts + cost go into the spend window). Make this explicit in the
   privacy copy.
 - **Spend cap as a safety control:** the durable spend counter also limits the
-  blast radius of a stolen _bearer token_ (not the AI key) — an attacker who
+  blast radius of a stolen _bearer token_ (not the AI key) - an attacker who
   steals a session can still only burn up to the daily cap before being 429'd.
 
 ## 8. Implementation slices (ownership-disjoint)
@@ -455,7 +455,7 @@ Sequence matters: shared-types first (both other slices import the new schemas),
 then server, then web. Each slice owns a disjoint path set per the playbook
 ownership matrix.
 
-### Slice A — shared-types (`gv-architect`) — **do first**
+### Slice A - shared-types (`gv-architect`) - **do first**
 
 - **Paths:** `packages/shared/src/ai.ts`, this doc.
 - **Work:** add `stream` to `aiChatRequestSchema`; add `usage` to
@@ -467,14 +467,14 @@ ownership matrix.
 - **DoD:** `pnpm --filter @graphvault/shared build typecheck test`. No consumer
   breakage (all additions optional).
 
-### Slice B — server (`gv-server-engineer`, reviewed by `gv-security-engineer`)
+### Slice B - server (`gv-server-engineer`, reviewed by `gv-security-engineer`)
 
 - **Paths:** `apps/server/src/{routes,services}/ai.ts`,
   `apps/server/src/store/types.ts` + the in-memory & prisma store impls,
   `apps/server/test/ai.test.ts`.
 - **Work:** (1) streaming branch on `POST /v1/ai/chat` (SSE relay, abort
   propagation, heartbeat); (2) `stream` option on `guardedFetch`/transport in
-  `services/ssrf.ts` (coordinate — security-owned file) without touching the
+  `services/ssrf.ts` (coordinate - security-owned file) without touching the
   buffered/validate path; (3) durable `AiSpendWindowRecord` + `commitAiSpend` in
   Storage, replacing the in-process daily `Map`; (4) two-cap enforcement (request
   - spend) with the 429 envelope; (5) `spendCapState` in `getConfigInfo`.
@@ -483,7 +483,7 @@ ownership matrix.
   pre-check 429, durable counter survives a simulated restart (in-memory store
   re-read), disconnect aborts upstream. Full gauntlet green.
 
-### Slice C — web settings + assistant (`gv-web-engineer`)
+### Slice C - web settings + assistant (`gv-web-engineer`)
 
 - **Paths:** `apps/web/**` AI settings panel + assistant panel + the AI client
   helper (e.g. `apps/web/lib/ai/*`). **No `packages/**` edits\*\* (lessons: use the

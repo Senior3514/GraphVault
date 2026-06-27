@@ -13,13 +13,13 @@
  *   - GET    /v1/snapshots/:id         → 200 { id, data, createdAt } | 404
  *
  * The `data` we upload is the SAME opaque, already-encoded snapshot string the
- * long-link path produces (`encodeSnapshot`) — titles + topology only, never
+ * long-link path produces (`encodeSnapshot`) - titles + topology only, never
  * note content. The server treats it as opaque text.
  *
  * Security note (SSRF / junk guard): the embed page reads the `srv` origin from
  * an attacker-controllable URL the recipient clicked. `normalizeServerOrigin`
  * validates it is a well-formed http(s) URL before any fetch is made, rejecting
- * anything else (file:, javascript:, data:, garbage). Only the origin is kept —
+ * anything else (file:, javascript:, data:, garbage). Only the origin is kept -
  * any path/query/hash a crafted link carried is discarded.
  */
 
@@ -102,7 +102,7 @@ export function normalizeServerOrigin(serverUrl: string | null | undefined): str
  * Build the SHORT embed URL: `${appOrigin}/embed/?id=<id>&srv=<serverOrigin>`.
  *
  * The `srv` origin is normalised + URL-encoded. Throws if either origin is not a
- * valid http(s) URL (a programming error — both come from trusted local state at
+ * valid http(s) URL (a programming error - both come from trusted local state at
  * build time) so we never emit a link the embed page would reject on read.
  */
 export function buildShortEmbedUrl(appOrigin: string, serverUrl: string, id: string): string {
@@ -130,7 +130,7 @@ export function buildShortEmbedUrl(appOrigin: string, serverUrl: string, id: str
 /**
  * GET `/v1/server-info` and return the `snapshots` posture block, or `null` on
  * any failure (network error, non-OK status, missing/malformed field). Callers
- * treat `null` exactly like "disabled" — the short-link affordance simply does
+ * treat `null` exactly like "disabled" - the short-link affordance simply does
  * not appear and the long link is used.
  */
 export async function getServerSnapshotConfig(
@@ -188,7 +188,7 @@ export async function uploadSnapshot(
     });
   } catch (err) {
     throw new ShareLinkError(
-      `Network error creating short link — ${err instanceof Error ? err.message : String(err)}`,
+      `Network error creating short link - ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
@@ -241,7 +241,7 @@ export async function fetchSnapshot(serverUrl: string, id: string): Promise<stri
     });
   } catch (err) {
     throw new ShareLinkError(
-      `Network error loading shared graph — ${err instanceof Error ? err.message : String(err)}`,
+      `Network error loading shared graph - ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 

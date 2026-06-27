@@ -2,7 +2,7 @@
  * No-flash theme boot script.
  *
  * This runs synchronously in <head> BEFORE first paint, so the correct
- * `data-theme` is on <html> before any styled content is rendered — preventing
+ * `data-theme` is on <html> before any styled content is rendered - preventing
  * a light/dark flash on load (FOUC). It is intentionally tiny, dependency-free,
  * and self-contained (no imports) because it is serialised verbatim into an
  * inline <script>.

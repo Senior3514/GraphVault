@@ -5,13 +5,13 @@
  * the per-OS installers.
  *
  * Privacy: this is the ONLY network call on the download page. It reads PUBLIC
- * release metadata from the GitHub API and sends NO user data — no auth header,
+ * release metadata from the GitHub API and sends NO user data - no auth header,
  * no cookies (default fetch credentials are omitted for a cross-origin GET),
  * no telemetry. The app's CSP already allows `connect-src 'self' https:`.
  *
  * The hook returns a discriminated state so the UI can render loading, a
  * friendly "no release yet" (404) message, a network-error fallback, or the
- * resolved installers — always keeping the instant web/PWA paths front-and-centre.
+ * resolved installers - always keeping the instant web/PWA paths front-and-centre.
  */
 
 import { useEffect, useState } from 'react';
@@ -37,7 +37,7 @@ export type ReleaseState =
     }
   /** No release published yet (GitHub returns 404 when none exists). */
   | { status: 'no-release' }
-  /** Network / rate-limit / unexpected error — point at the releases page. */
+  /** Network / rate-limit / unexpected error - point at the releases page. */
   | { status: 'error' };
 
 export function useLatestRelease(): ReleaseState {
@@ -75,7 +75,7 @@ export function useLatestRelease(): ReleaseState {
           installers,
         });
       } catch (err) {
-        // Aborted on unmount — not an error worth surfacing.
+        // Aborted on unmount - not an error worth surfacing.
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setState({ status: 'error' });
       }

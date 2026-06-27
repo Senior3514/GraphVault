@@ -1,4 +1,4 @@
-// GraphVault sync server — PostgreSQL schema (spec §3).
+// GraphVault sync server - PostgreSQL schema (spec §3).
 //
 // This schema is the durable backend selected via GRAPHVAULT_STORAGE=postgres.
 // In environments without a live database (and without `prisma generate` run),

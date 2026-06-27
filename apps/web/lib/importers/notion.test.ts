@@ -1,6 +1,6 @@
 /**
  * Unit tests for the Notion importer.
- * Pure functions — no browser APIs or network calls.
+ * Pure functions - no browser APIs or network calls.
  *
  * Notion UUIDs are exactly 32 lowercase hex characters, preceded by a space.
  * Example: "My Page abc1234567890abcdef1234567890ab" (32 hex chars at end).

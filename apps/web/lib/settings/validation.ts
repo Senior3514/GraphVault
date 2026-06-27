@@ -57,7 +57,7 @@ export function validateFields(rules: Record<string, FieldRule>): FieldErrors {
       errors[name] = `${rule.label} is required.`;
       continue;
     }
-    // For optional fields, an empty value is acceptable — skip remaining checks.
+    // For optional fields, an empty value is acceptable - skip remaining checks.
     if (trimmed === '') continue;
     if (rule.url && !isHttpUrl(trimmed)) {
       errors[name] = `${rule.label} must be a valid http(s) URL.`;

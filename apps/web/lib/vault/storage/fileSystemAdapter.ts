@@ -20,7 +20,7 @@
  *
  * ## Persistence of the directory handle
  * The Web API requires a user gesture to open a directory picker. This adapter
- * does NOT automatically re-open the picker on every page load — callers must
+ * does NOT automatically re-open the picker on every page load - callers must
  * invoke {@link FileSystemAdapter.create} once per session with a user gesture,
  * then pass the resulting adapter to the registry (or swap it as the active
  * backend via Settings).
@@ -292,7 +292,7 @@ export class FileSystemAdapter implements StorageAdapter {
    *
    * On first run (empty directory), seeds the vault with sample notes and
    * persists them. Failed file reads surface as notes with an error-marker
-   * content so the caller can detect and surface the problem — no silent data
+   * content so the caller can detect and surface the problem - no silent data
    * loss.
    */
   async load(): Promise<Note[]> {
@@ -330,7 +330,7 @@ export class FileSystemAdapter implements StorageAdapter {
    * as needed. Existing files are overwritten; the vault is the single source
    * of truth.
    *
-   * Does NOT delete `.md` files that are no longer in `notes` — use
+   * Does NOT delete `.md` files that are no longer in `notes` - use
    * {@link clear} first if a full reset is needed. This prevents accidental
    * deletion of files the user placed in the folder manually.
    */
@@ -354,7 +354,7 @@ export class FileSystemAdapter implements StorageAdapter {
   /**
    * Remove every `.md` file that the adapter currently tracks.
    *
-   * Only removes files whose paths are present in a fresh `load()` call — no
+   * Only removes files whose paths are present in a fresh `load()` call - no
    * arbitrary directory wipe. If `load()` itself errors (e.g. permission
    * revoked), the clear is a no-op rather than throwing, to avoid leaving the
    * vault in a broken state.
@@ -366,7 +366,7 @@ export class FileSystemAdapter implements StorageAdapter {
     try {
       existing = await this.load();
     } catch {
-      return; // Cannot enumerate — do nothing rather than guess.
+      return; // Cannot enumerate - do nothing rather than guess.
     }
 
     for (const note of existing) {
@@ -381,7 +381,7 @@ export class FileSystemAdapter implements StorageAdapter {
         }
         await targetDir.removeEntry(filename);
       } catch {
-        // If a specific file cannot be removed, continue — partial clear is
+        // If a specific file cannot be removed, continue - partial clear is
         // better than aborting the whole operation.
       }
     }

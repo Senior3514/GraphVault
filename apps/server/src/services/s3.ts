@@ -10,13 +10,13 @@
  *   - Credentials are NEVER returned to the client. The client receives only the
  *     non-secret S3ConfigInfo (endpoint + region + bucket + accessKeyId + updatedAt).
  *   - All outbound S3 requests are signed using AWS Signature Version 4 (SigV4)
- *     implemented in pure Node `node:crypto` — zero new dependencies.
+ *     implemented in pure Node `node:crypto` - zero new dependencies.
  *   - The browser never contacts S3 directly (avoids CORS, keeps creds off client).
  *
  * Proxy scope (single-object vault blob):
- *   - GET  /v1/storage/s3/object/graphvault-vault.json — download vault blob
- *   - PUT  /v1/storage/s3/object/graphvault-vault.json — upload vault blob
- *   - DELETE /v1/storage/s3/object/graphvault-vault.json — delete vault blob
+ *   - GET  /v1/storage/s3/object/graphvault-vault.json - download vault blob
+ *   - PUT  /v1/storage/s3/object/graphvault-vault.json - upload vault blob
+ *   - DELETE /v1/storage/s3/object/graphvault-vault.json - delete vault blob
  *
  * SigV4 implementation:
  *   AWS SigV4 signs each request with HMAC-SHA256 keyed on a date-derived signing
@@ -85,7 +85,7 @@ function decryptSecret(ciphertext: string, userId: string, serverKey?: Buffer): 
 }
 
 // ---------------------------------------------------------------------------
-// AWS Signature Version 4 (pure node:crypto — no aws-sdk)
+// AWS Signature Version 4 (pure node:crypto - no aws-sdk)
 // ---------------------------------------------------------------------------
 
 /** SHA-256 hex digest. */
@@ -172,7 +172,7 @@ export function signS3Request(params: SigV4Params, now: Date = new Date()): Sign
     'x-amz-date': amzDate,
   };
 
-  // Merge extra headers (content-type etc.) — lowercase keys for canonical form.
+  // Merge extra headers (content-type etc.) - lowercase keys for canonical form.
   for (const [k, v] of Object.entries(extraHeaders)) {
     headersToSign[k.toLowerCase()] = v;
   }
@@ -216,7 +216,7 @@ export function signS3Request(params: SigV4Params, now: Date = new Date()): Sign
     ...headersToSign,
     authorization,
   };
-  // Remove `host` from the final headers map — fetch sets it automatically.
+  // Remove `host` from the final headers map - fetch sets it automatically.
   delete allHeaders['host'];
 
   return { url, headers: allHeaders };
@@ -279,7 +279,7 @@ export class S3Service {
 
   /**
    * Return the non-secret config info for the user. Returns null if not
-   * configured — callers should convert this to a 404.
+   * configured - callers should convert this to a 404.
    */
   async getConfigInfo(userId: string): Promise<S3ConfigInfo | null> {
     const record = await this.storage.getS3Config(userId);
@@ -445,7 +445,7 @@ export class S3Service {
       throw badRequest(`S3 DELETE failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 204 = deleted, 404 = already gone — both acceptable.
+    // 204 = deleted, 404 = already gone - both acceptable.
     if (!res.ok && res.status !== 404) {
       throw badRequest(`S3 DELETE returned ${res.status}`);
     }

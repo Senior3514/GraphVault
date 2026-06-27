@@ -8,7 +8,7 @@ import {
 } from './handleStore';
 
 // ---------------------------------------------------------------------------
-// handleStore — must degrade gracefully without IndexedDB (Node / SSR).
+// handleStore - must degrade gracefully without IndexedDB (Node / SSR).
 // ---------------------------------------------------------------------------
 
 test('handleStore degrades gracefully when IndexedDB is unavailable', async () => {
@@ -20,7 +20,7 @@ test('handleStore degrades gracefully when IndexedDB is unavailable', async () =
 });
 
 // ---------------------------------------------------------------------------
-// verifyPermission — reconnect permission logic for a stored handle.
+// verifyPermission - reconnect permission logic for a stored handle.
 // ---------------------------------------------------------------------------
 
 type Perm = 'granted' | 'denied' | 'prompt';
@@ -88,7 +88,7 @@ test('verifyPermission treats a thrown query as denied (no crash)', async () => 
 });
 
 // ---------------------------------------------------------------------------
-// restore() — returns null when nothing is persisted (no IDB in Node).
+// restore() - returns null when nothing is persisted (no IDB in Node).
 // ---------------------------------------------------------------------------
 
 test('FileSystemAdapter.restore returns null with no API / no stored handle', async () => {

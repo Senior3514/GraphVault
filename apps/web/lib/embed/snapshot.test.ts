@@ -59,7 +59,7 @@ test('buildSnapshot includes only id+title for nodes, no content', () => {
 
   assert.equal(snap.v, 1);
   assert.equal(snap.n.length, 2);
-  // Only i (id) and t (title) present — no path, tags, folder, timestamps.
+  // Only i (id) and t (title) present - no path, tags, folder, timestamps.
   for (const sn of snap.n) {
     assert.deepEqual(Object.keys(sn).sort(), ['i', 't']);
   }
@@ -139,7 +139,7 @@ test('buildSnapshot handles empty graph', () => {
 });
 
 // ---------------------------------------------------------------------------
-// encode / decode round-trip (uncompressed path — CompressionStream may be
+// encode / decode round-trip (uncompressed path - CompressionStream may be
 // unavailable in the test runner, but the fallback path is always exercised)
 // ---------------------------------------------------------------------------
 
@@ -346,7 +346,7 @@ test('snapshot never contains raw note content even for long titles', async () =
       title: 'Safe Title',
       tags: [],
       folder: '',
-      // GraphNode has no `content` field — confirm buildSnapshot only takes id + title.
+      // GraphNode has no `content` field - confirm buildSnapshot only takes id + title.
     },
   ];
   const snap = buildSnapshot(nodes, []);

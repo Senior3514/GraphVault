@@ -227,7 +227,7 @@ test('PUT /v1/storage/webdav/proxy/vault.json uploads to fake WebDAV', async () 
     },
     payload: content,
   });
-  // 201 for a new file, 204 for overwrite — both are success
+  // 201 for a new file, 204 for overwrite - both are success
   assert.ok(
     [201, 204].includes(res.statusCode),
     `unexpected status ${res.statusCode}: ${res.body}`,

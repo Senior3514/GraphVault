@@ -3,15 +3,15 @@
  * generate-desktop-icons.mjs
  *
  * Generates valid Tauri 2 desktop icon assets for GraphVault with ZERO external
- * dependencies — only Node.js built-ins (zlib, fs, path).
+ * dependencies - only Node.js built-ins (zlib, fs, path).
  *
  * Outputs to apps/desktop/src-tauri/icons/:
- *   32x32.png           — RGBA PNG (color type 6)
- *   128x128.png         — RGBA PNG (color type 6)
- *   128x128@2x.png      — RGBA PNG 256×256 (color type 6)
- *   icon.png            — RGBA PNG 512×512 (color type 6)
- *   icon.ico            — multi-size ICO (16/32/48/256, PNG-compressed entries)
- *   icon.icns           — Apple ICNS container with PNG payloads
+ *   32x32.png           - RGBA PNG (color type 6)
+ *   128x128.png         - RGBA PNG (color type 6)
+ *   128x128@2x.png      - RGBA PNG 256×256 (color type 6)
+ *   icon.png            - RGBA PNG 512×512 (color type 6)
+ *   icon.ico            - multi-size ICO (16/32/48/256, PNG-compressed entries)
+ *   icon.icns           - Apple ICNS container with PNG payloads
  *
  * Brand:
  *   Background  #0a0a0a (brand dark)
@@ -52,14 +52,14 @@ function crc32(buf) {
 }
 
 // ---------------------------------------------------------------------------
-// PNG encoder — RGBA (color type 6), 8 bits per channel
+// PNG encoder - RGBA (color type 6), 8 bits per channel
 // ---------------------------------------------------------------------------
 
 /**
  * @param {number} width
  * @param {number} height
- * @param {Buffer} pixels  — RGBA bytes, width*height*4 in length
- * @returns {Buffer}       — complete PNG file
+ * @param {Buffer} pixels  - RGBA bytes, width*height*4 in length
+ * @returns {Buffer}       - complete PNG file
  */
 function encodePNG(width, height, pixels) {
   const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -74,7 +74,7 @@ function encodePNG(width, height, pixels) {
   ihdr[11] = 0; // filter method
   ihdr[12] = 0; // interlace method
 
-  // Apply PNG filter type None (0x00) — prepend one byte per row
+  // Apply PNG filter type None (0x00) - prepend one byte per row
   const stride = width * 4;
   const filtered = Buffer.alloc(height * (1 + stride));
   for (let y = 0; y < height; y++) {
@@ -103,7 +103,7 @@ function encodePNG(width, height, pixels) {
 }
 
 // ---------------------------------------------------------------------------
-// Rasteriser — draw the GraphVault mark onto an RGBA pixel buffer
+// Rasteriser - draw the GraphVault mark onto an RGBA pixel buffer
 // ---------------------------------------------------------------------------
 
 function drawCircle(pixels, width, height, cx, cy, r, col) {
@@ -273,7 +273,7 @@ function buildPNG(size) {
 }
 
 // ---------------------------------------------------------------------------
-// ICO builder — multi-size, PNG-compressed entries (valid for Windows Vista+)
+// ICO builder - multi-size, PNG-compressed entries (valid for Windows Vista+)
 // ---------------------------------------------------------------------------
 
 /**
@@ -325,7 +325,7 @@ function buildICO(sizes) {
 }
 
 // ---------------------------------------------------------------------------
-// ICNS builder — Apple icon container with PNG payloads
+// ICNS builder - Apple icon container with PNG payloads
 //
 // ICNS format:
 //   Magic:  'icns' (4 bytes)
@@ -336,7 +336,7 @@ function buildICO(sizes) {
 //   'ic07' = 128×128 (PNG)
 //   'ic08' = 256×256 (PNG)
 //   'ic09' = 512×512 (PNG)
-//   'ic10' = 1024×1024 (PNG) — optional, we skip for size
+//   'ic10' = 1024×1024 (PNG) - optional, we skip for size
 //   'ic11' = 32×32 @2x (PNG)
 //   'ic12' = 16×16 @2x (PNG)
 //   'ic13' = 128×128 @2x (PNG)
@@ -363,7 +363,7 @@ function buildICNS(entries) {
 }
 
 // ---------------------------------------------------------------------------
-// Validation — re-parse generated files to confirm correctness
+// Validation - re-parse generated files to confirm correctness
 // ---------------------------------------------------------------------------
 
 function validatePNG(buf, expectedSize) {

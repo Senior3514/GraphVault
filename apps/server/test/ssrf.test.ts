@@ -86,7 +86,7 @@ test('assertSafeUrl: rejects non-http(s) schemes', async () => {
 });
 
 test('assertSafeUrl: blocks localhost by hostname before DNS', async () => {
-  // No resolver stub installed for "localhost" — the hostname pre-check must
+  // No resolver stub installed for "localhost" - the hostname pre-check must
   // fire first, so this rejects without ever calling the resolver.
   await assert.rejects(() => assertSafeUrl('http://localhost/admin', { allowPrivate: false }));
 });
@@ -106,7 +106,7 @@ test('assertSafeUrl: GRAPHVAULT_ALLOW_PRIVATE_PROXY_TARGETS relaxes private reje
   process.env.GRAPHVAULT_ALLOW_PRIVATE_PROXY_TARGETS = 'true';
   try {
     // With the opt-in on (and no explicit allowPrivate override), a loopback
-    // target is permitted — for self-hosted MinIO/Azurite on localhost.
+    // target is permitted - for self-hosted MinIO/Azurite on localhost.
     const { addresses } = await assertSafeUrl('http://minio.local:9000/bucket');
     assert.deepEqual(addresses, ['127.0.0.1']);
   } finally {
@@ -133,7 +133,7 @@ test('assertSafeUrl: explicit allowPrivate:false is NOT relaxed by the env opt-i
 });
 
 // ---------------------------------------------------------------------------
-// guardedFetch — redirect re-validation
+// guardedFetch - redirect re-validation
 // ---------------------------------------------------------------------------
 
 test('guardedFetch: allows a public target and returns the response', async () => {
@@ -213,7 +213,7 @@ test('guardedFetch: caps redirect chains', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// isPrivateOrLoopbackIp — IPv4-mapped IPv6 unwrap (new edge case)
+// isPrivateOrLoopbackIp - IPv4-mapped IPv6 unwrap (new edge case)
 // ---------------------------------------------------------------------------
 
 test('isPrivateOrLoopbackIp: unwraps IPv4-mapped IPv6 and blocks embedded private', () => {

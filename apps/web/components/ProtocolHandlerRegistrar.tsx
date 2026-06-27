@@ -27,7 +27,7 @@
  *   - The browser throws a SecurityError (e.g. the page is not HTTPS in
  *     Firefox, or the scheme is already registered with the same URL).
  *
- * Renders no DOM — purely a side-effect component.
+ * Renders no DOM - purely a side-effect component.
  */
 
 import { useEffect } from 'react';
@@ -45,7 +45,7 @@ export function ProtocolHandlerRegistrar() {
         `${window.location.origin}/share/?url=%s`,
       );
     } catch {
-      // Non-fatal — SecurityError or NotSupportedError from the browser.
+      // Non-fatal - SecurityError or NotSupportedError from the browser.
       // The protocol handler is an enhancement; the app works without it.
     }
   }, []);

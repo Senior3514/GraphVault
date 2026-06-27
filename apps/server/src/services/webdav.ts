@@ -16,9 +16,9 @@
  *     contacts the WebDAV server directly (avoids CORS, keeps creds off client).
  *
  * Proxy scope:
- *   - GET  /v1/storage/webdav/proxy/*path  — download a file from WebDAV
- *   - PUT  /v1/storage/webdav/proxy/*path  — upload a file to WebDAV
- *   - DELETE /v1/storage/webdav/proxy/*path — delete a file from WebDAV
+ *   - GET  /v1/storage/webdav/proxy/*path  - download a file from WebDAV
+ *   - PUT  /v1/storage/webdav/proxy/*path  - upload a file to WebDAV
+ *   - DELETE /v1/storage/webdav/proxy/*path - delete a file from WebDAV
  *   - PROPFIND (via special GET ?propfind=1) is NOT proxied; the adapter stores
  *     notes as a flat JSON document at a single well-known path to keep the
  *     proxy minimal and auditable.
@@ -115,7 +115,7 @@ function containsTraversal(s: string): boolean {
       decoded = decodeURIComponent(decoded);
     }
   } catch {
-    return true; // malformed percent sequence — reject for safety
+    return true; // malformed percent sequence - reject for safety
   }
   return decoded.includes('..');
 }
@@ -172,7 +172,7 @@ export class WebDavService {
 
   /**
    * Return the non-secret config info for the user. Returns null if not
-   * configured — callers should convert this to a 404.
+   * configured - callers should convert this to a 404.
    */
   async getConfigInfo(userId: string): Promise<WebDavConfigInfo | null> {
     const record = await this.storage.getWebDavConfig(userId);
@@ -283,7 +283,7 @@ export class WebDavService {
       throw badRequest(`WebDAV DELETE failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 204 = deleted, 404 = already gone — both acceptable.
+    // 204 = deleted, 404 = already gone - both acceptable.
     if (!res.ok && res.status !== 404) {
       throw badRequest(`WebDAV DELETE returned ${res.status}`);
     }

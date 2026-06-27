@@ -169,7 +169,7 @@ export interface AiConfigRecord {
  */
 export interface AiSpendWindowRecord {
   userId: string;
-  /** "YYYY-MM-DD" UTC — the active window. */
+  /** "YYYY-MM-DD" UTC - the active window. */
   windowDate: string;
   /** Requests committed in this window. */
   requests: number;
@@ -292,7 +292,7 @@ export interface Storage {
   /**
    * The user's current spend window, or null if none has been committed yet.
    * Callers must treat a window whose `windowDate !== today` as empty (lazy
-   * reset) — the stored row is only rolled over on the next {@link commitAiSpend}.
+   * reset) - the stored row is only rolled over on the next {@link commitAiSpend}.
    */
   getAiSpendWindow(userId: string): Promise<AiSpendWindowRecord | null>;
   /**

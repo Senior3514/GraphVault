@@ -328,7 +328,7 @@ test('POST /v1/storage/s3/config accepts optional endpoint and prefix', async ()
   });
   assert.equal(res.statusCode, 201, res.body);
 
-  // GET config — prefix should be returned (it's non-secret).
+  // GET config - prefix should be returned (it's non-secret).
   const getRes = await app.inject({
     method: 'GET',
     url: '/v1/storage/s3/config',

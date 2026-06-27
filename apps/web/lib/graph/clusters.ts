@@ -3,17 +3,17 @@
  *
  * Two algorithms, both O(V + E):
  *
- * 1. `computeConnectedComponents` — strict connected-components (nodes with no
+ * 1. `computeConnectedComponents` - strict connected-components (nodes with no
  *    edges each get their own singleton component). Fast, deterministic, and
  *    enough to give the graph clear structural grouping.
  *
- * 2. `assignClusterColors` — maps the component IDs computed above onto the
+ * 2. `assignClusterColors` - maps the component IDs computed above onto the
  *    graph palette so every node in the same cluster shares a colour. The
  *    palette wraps around for large graphs; large singletons are always shown
  *    in neutral grey to keep the visual clean.
  *
  * These are intentionally side-effect-free: they accept plain objects and
- * return new objects — no canvas, no React, no DOM.
+ * return new objects - no canvas, no React, no DOM.
  */
 
 import { GRAPH_NEUTRAL, GRAPH_PALETTE } from './model';
@@ -56,7 +56,7 @@ export interface ClusterResult {
  * Compute connected components of an undirected interpretation of the graph
  * (edges treated as bidirectional, regardless of `source`/`target` direction).
  *
- * Pure — no mutations to input objects, no global state.
+ * Pure - no mutations to input objects, no global state.
  */
 export function computeConnectedComponents(
   nodes: readonly ClusterNode[],

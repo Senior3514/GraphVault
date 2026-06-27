@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * /embed — Shareable, read-only, chromeless graph view.
+ * /embed - Shareable, read-only, chromeless graph view.
  *
  * Purpose (Roadmap M20):
  *   A user copies a `/embed?s=<snapshot>` URL (or pastes the accompanying
  *   <iframe> snippet) to share a static view of their knowledge graph.
- *   No note bodies are ever included — only titles and link topology.
+ *   No note bodies are ever included - only titles and link topology.
  *
  * How it works:
  *   1. The URL carries a compact, base64url-encoded snapshot (see
@@ -22,7 +22,7 @@
  *
  * Interaction:
  *   - Pan, zoom, and hover labels are enabled.
- *   - No editing, no sidebar, no AI, no sync — this is purely a visual read.
+ *   - No editing, no sidebar, no AI, no sync - this is purely a visual read.
  *   - Node click selects and shows a minimal tooltip; double-click does nothing.
  *
  * CSP / framing note:
@@ -30,11 +30,11 @@
  *   third-party sites from embedding this page in an <iframe>. To allow
  *   embedding on external sites, the site operator must relax that directive
  *   (e.g. `frame-ancestors *` or specific origins). The snapshot URL itself
- *   is unconditionally shareable — anyone with the link can open it directly.
+ *   is unconditionally shareable - anyone with the link can open it directly.
  *   See `apps/web/vercel.json` and `apps/web/app/layout.tsx` for CSP config.
  *
  * The page uses `position: fixed; inset: 0; z-index: 9999` to cover the app
- * shell (sidebar, header) so it appears full-bleed — suitable for an iframe.
+ * shell (sidebar, header) so it appears full-bleed - suitable for an iframe.
  * This avoids editing any shared layout component.
  */
 
@@ -73,7 +73,7 @@ const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraph
 
 /**
  * Convert a decoded `EmbedSnapshot` back to the GraphNode/GraphEdge arrays
- * that `buildRenderModel` consumes. Nodes have no tags, folder, or timestamps —
+ * that `buildRenderModel` consumes. Nodes have no tags, folder, or timestamps -
  * only id, path (same as id) and title.
  */
 function snapshotToGraphShapes(snapshot: EmbedSnapshot): {
@@ -156,7 +156,7 @@ function EmbedInner() {
         } else {
           // Fallback: current local vault (preview mode for the owner).
           if (!vault.ready) {
-            // Vault not yet loaded — wait.
+            // Vault not yet loaded - wait.
             setLoading(true);
             return;
           }
@@ -218,7 +218,7 @@ function EmbedInner() {
       className="fixed inset-0 z-50 flex flex-col bg-neutral-950"
       aria-label="Embedded knowledge graph"
     >
-      {/* Minimal status bar — just the node count and a "GraphVault" wordmark */}
+      {/* Minimal status bar - just the node count and a "GraphVault" wordmark */}
       <div className="flex shrink-0 items-center justify-between border-b border-neutral-900 px-3 py-1.5">
         <span className="text-[11px] font-medium tracking-wider text-neutral-600 select-none">
           GraphVault
@@ -270,7 +270,7 @@ function EmbedInner() {
 }
 
 // ---------------------------------------------------------------------------
-// Root export — wrapped in Suspense for useSearchParams (static export requirement)
+// Root export - wrapped in Suspense for useSearchParams (static export requirement)
 // ---------------------------------------------------------------------------
 
 export default function EmbedPage() {

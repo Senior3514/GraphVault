@@ -11,20 +11,20 @@
  *     non-secret AiConfigInfo (keySet + gateway + model + updatedAt).
  *   - All outbound AI requests are made server-side, so the browser never
  *     contacts the AI provider directly. The HKDF info string is
- *     `graphvault-ai-cred-v1` — distinct from WebDAV (`-webdav-`) and S3
+ *     `graphvault-ai-cred-v1` - distinct from WebDAV (`-webdav-`) and S3
  *     (`-s3-`) so even if two users share the same userId the derived keys
  *     for each credential type are independent.
  *
- * Rate limiting (durable, per-user/day — see docs/ai-bff.md §4):
+ * Rate limiting (durable, per-user/day - see docs/ai-bff.md §4):
  *   - Two independent caps share one UTC-day window, persisted in the Storage
  *     layer (AiSpendWindowRecord) so they survive a restart:
- *       • request count — per-user `dailyRequestCap` (config) or the server's
+ *       • request count - per-user `dailyRequestCap` (config) or the server's
  *         GRAPHVAULT_AI_DAILY_CAP env default (200); 0 = unlimited.
- *       • monetary spend — per-user `spendCapUsd` (config); unset/0 = no $ cap.
+ *       • monetary spend - per-user `spendCapUsd` (config); unset/0 = no $ cap.
  *   - Caps are "soft": the cost is unknown until generation completes, so one
  *     in-flight call may cross the cap; the next call is then refused (429).
  *   - The committed cost is the provider-reported dollar amount; when the gateway
- *     reports none we record costUsd 0 and rely on the request cap — never guess.
+ *     reports none we record costUsd 0 and rely on the request cap - never guess.
  *   - On top of this the global @fastify/rate-limit cap applies (shared with all
  *     other routes) to protect against burst abuse.
  *
@@ -38,7 +38,7 @@
  *   - The API key is NEVER logged, returned, or included in error messages
  *     (belt-and-suspenders redaction on both buffered and SSE error paths).
  *   - The client receives the completion text, the upstream model string, and
- *     token/cost usage (so it can render a budget meter) — never upstream headers
+ *     token/cost usage (so it can render a budget meter) - never upstream headers
  *     or the raw provider JSON. Prompts and responses are NOT persisted; only the
  *     request count and dollar cost go into the durable spend window.
  *   - No telemetry; the server makes no other outbound calls.
@@ -132,7 +132,7 @@ function isOpenAICompatResponse(r: unknown): r is OpenAICompatResponse {
 
 /**
  * Translate an upstream usage block into our provider-agnostic {@link AiUsage}.
- * `costUsd` is included ONLY when the gateway reported a real dollar cost — we
+ * `costUsd` is included ONLY when the gateway reported a real dollar cost - we
  * never estimate (a guess could over- or under-charge the user's own budget).
  * When no cost is reported the request-count cap remains the backstop.
  */
@@ -145,7 +145,7 @@ function toAiUsage(raw: OpenAICompatUsage | undefined): AiUsage | undefined {
   return Object.keys(usage).length > 0 ? usage : undefined;
 }
 
-/** The dollar cost to commit (0 when the gateway reported none — never guessed). */
+/** The dollar cost to commit (0 when the gateway reported none - never guessed). */
 function costToCommit(usage: AiUsage | undefined): number {
   return typeof usage?.costUsd === 'number' && Number.isFinite(usage.costUsd) ? usage.costUsd : 0;
 }
@@ -215,7 +215,7 @@ export class AiService {
 
   /**
    * Return the non-secret config info for the user. Returns null if not
-   * configured — callers should convert this to a 404. Includes the live spend
+   * configured - callers should convert this to a 404. Includes the live spend
    * window status (budget meter + send-button gate) but NEVER the key.
    */
   async getConfigInfo(userId: string): Promise<AiConfigInfo | null> {
@@ -316,7 +316,7 @@ export class AiService {
   /**
    * Load + decrypt the config and resolve the outbound endpoint/model/headers.
    * The plaintext key lives only in the returned `headers` object (and the
-   * returned `apiKey`, used solely for redaction) — never stored or logged.
+   * returned `apiKey`, used solely for redaction) - never stored or logged.
    *
    * @throws 404 if AI is not configured for this user.
    */
@@ -361,7 +361,7 @@ export class AiService {
    * Forward an OpenAI-compatible chat completion request to the upstream
    * gateway using the stored (decrypted) API key.
    *
-   * Returns `{ content, model, usage }` — never the raw key or upstream headers.
+   * Returns `{ content, model, usage }` - never the raw key or upstream headers.
    *
    * @throws 404 if AI is not configured for this user.
    * @throws 400 if the upstream returns a non-200 or malformed response.
@@ -403,7 +403,7 @@ export class AiService {
       });
     } catch (err) {
       const raw = err instanceof Error ? err.message : 'Network error';
-      throw badRequest(`AI proxy: upstream unreachable — ${raw.replace(apiKey, '[REDACTED]')}`);
+      throw badRequest(`AI proxy: upstream unreachable - ${raw.replace(apiKey, '[REDACTED]')}`);
     }
 
     if (!res.ok) {
@@ -415,7 +415,7 @@ export class AiService {
       }
       // Replace key in error body (defensive; providers may echo auth errors).
       const safe = body.replace(apiKey, '[REDACTED]').slice(0, 400);
-      throw badRequest(`AI proxy: upstream returned ${res.status} — ${safe}`);
+      throw badRequest(`AI proxy: upstream returned ${res.status} - ${safe}`);
     }
 
     let json: unknown;
@@ -504,7 +504,7 @@ export class AiService {
       yield {
         type: 'error',
         code: 'BAD_REQUEST',
-        message: `AI proxy: upstream unreachable — ${redact(raw)}`,
+        message: `AI proxy: upstream unreachable - ${redact(raw)}`,
       };
       return;
     }
@@ -520,7 +520,7 @@ export class AiService {
       yield {
         type: 'error',
         code: 'BAD_REQUEST',
-        message: `AI proxy: upstream returned ${res.status}${safe ? ` — ${safe}` : ''}`,
+        message: `AI proxy: upstream returned ${res.status}${safe ? ` - ${safe}` : ''}`,
       };
       return;
     }
@@ -539,7 +539,7 @@ export class AiService {
         try {
           chunk = await reader.read();
         } catch {
-          // Aborted (client disconnect) or socket error — stop relaying.
+          // Aborted (client disconnect) or socket error - stop relaying.
           break;
         }
         if (chunk.done) break;
@@ -553,7 +553,7 @@ export class AiService {
           const { events, model: frameModel } = this.parseUpstreamFrame(frame, redact);
           if (frameModel) finalModel = frameModel;
           for (const ev of events) {
-            // `usage` and `done` are terminal — capture, don't relay inline, so
+            // `usage` and `done` are terminal - capture, don't relay inline, so
             // exactly one canonical `usage` + one `done` close the stream below.
             if (ev.type === 'done') continue;
             if (ev.type === 'usage') {
@@ -612,7 +612,7 @@ export class AiService {
       try {
         json = JSON.parse(payload);
       } catch {
-        continue; // not JSON — never relay raw
+        continue; // not JSON - never relay raw
       }
       if (typeof json !== 'object' || json === null) continue;
       const obj = json as {

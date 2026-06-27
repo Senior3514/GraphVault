@@ -1,7 +1,7 @@
 # GraphVault Quickstart
 
 This guide takes you from zero to a working vault in five minutes. No account,
-no server, and no folder picker required for the first steps — just open the
+no server, and no folder picker required for the first steps - just open the
 app and start writing.
 
 ## 1. Open the app
@@ -11,7 +11,7 @@ The landing page loads immediately. Click **Open the app** or go directly to
 `/vault`.
 
 The vault opens with a set of sample notes pre-loaded. You do not need to
-choose a folder or grant any file-system permissions — the vault is stored in
+choose a folder or grant any file-system permissions - the vault is stored in
 your browser.
 
 > If you are running the app locally for the first time, follow the
@@ -110,7 +110,7 @@ Go to **Settings** → **Import & export**.
 
 - **Export .zip (Markdown)** downloads a standard `.zip` archive of all your
   `.md` files with folder structure preserved. Unzip it and the notes are
-  plain text — readable in any editor, importable into any Markdown app.
+  plain text - readable in any editor, importable into any Markdown app.
 - **Export JSON** downloads a single versioned backup file.
 
 Both exports run entirely in the browser; nothing is uploaded anywhere.

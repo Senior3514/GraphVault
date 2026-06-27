@@ -1,16 +1,16 @@
 /**
  * Privacy-first AI provider abstraction.
  *
- * Three-tier privacy spectrum — OFF by default:
+ * Three-tier privacy spectrum - OFF by default:
  *
- *   off    — no AI, no network, ever. DEFAULT.
- *   local  — OpenAI-compatible endpoint on localhost (e.g. Ollama). Notes never
+ *   off    - no AI, no network, ever. DEFAULT.
+ *   local  - OpenAI-compatible endpoint on localhost (e.g. Ollama). Notes never
  *            leave the machine. Key-free.
- *   server — BYO-key via the user's self-hosted GraphVault server (BFF proxy).
+ *   server - BYO-key via the user's self-hosted GraphVault server (BFF proxy).
  *            The browser sends the prompt to POST /v1/ai/chat on the GV server;
  *            the server adds the encrypted API key and forwards to the gateway
  *            (OpenRouter default, or a custom base URL). The API key NEVER
- *            touches the browser — it lives on the server, encrypted at rest
+ *            touches the browser - it lives on the server, encrypted at rest
  *            with AES-256-GCM + per-user HKDF. Requires a signed-in session.
  *
  * Key security rules enforced throughout this module:
@@ -25,8 +25,8 @@
 export type AIProviderKind = 'off' | 'local' | 'server';
 
 /**
- * Serialisable AI settings — stored in sessionStorage (cleared when the tab or
- * browser closes). No API keys are ever stored here — for `server` mode the key
+ * Serialisable AI settings - stored in sessionStorage (cleared when the tab or
+ * browser closes). No API keys are ever stored here - for `server` mode the key
  * lives on the GV server encrypted at rest.
  */
 export interface AISettings {
@@ -63,7 +63,7 @@ export function redactKey(key: string): string {
 
 /**
  * A single message in the conversation (OpenAI/Anthropic format).
- * We use a minimal shared interface — just role + content.
+ * We use a minimal shared interface - just role + content.
  */
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';

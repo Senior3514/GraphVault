@@ -28,7 +28,7 @@ export function isThemeMode(value: unknown): value is ThemeMode {
 
 /**
  * Resolve a mode + the current system preference into a concrete theme.
- * Pure — the single source of truth for the `system` mapping. Unit-tested.
+ * Pure - the single source of truth for the `system` mapping. Unit-tested.
  */
 export function resolveTheme(mode: ThemeMode, systemPrefersDark: boolean): ResolvedTheme {
   if (mode === 'light') return 'light';

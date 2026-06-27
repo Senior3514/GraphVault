@@ -1,11 +1,11 @@
-# @graphvault/desktop — Tauri shell (Milestone 16)
+# @graphvault/desktop - Tauri shell (Milestone 16)
 
 GraphVault as a native desktop application. A lightweight Tauri 2 shell wraps
 the existing Next.js web client so the full editor and graph view work
-identically — no UI rewrite required.
+identically - no UI rewrite required.
 
 > **Status: M16 scaffold.** The desktop app currently runs purely as the **web
-> shell** (same storage adapters as the browser — localStorage / File System
+> shell** (same storage adapters as the browser - localStorage / File System
 > Access). The native `.md`-on-disk path described below (`tauriStorageAdapter`,
 > the Rust `pick_vault_folder` IPC, and the `fs`-plugin scope) is **scaffolded
 > but NOT yet wired**: the adapter is not registered, and native fs scoping is
@@ -45,7 +45,7 @@ export (`apps/web/out`); in development it proxies to the Next.js dev server on
 | Tauri CLI        | 2.x             | `cargo install tauri-cli --version "^2"`     |
 | Node.js          | 20              | <https://nodejs.org>                         |
 | pnpm             | 9+              | `npm i -g pnpm`                              |
-| System libraries | —               | See <https://tauri.app/start/prerequisites/> |
+| System libraries | -               | See <https://tauri.app/start/prerequisites/> |
 
 On **Linux** you additionally need `webkit2gtk-4.1`, `libappindicator3-1`,
 `librsvg2-dev`, and `libssl-dev` (Debian/Ubuntu) or the equivalents for your
@@ -61,7 +61,7 @@ Microsoft Edge WebView2 (pre-installed from Win11) or the installer from
 # 1. Install JS dependencies (run once, from the repo root)
 pnpm install
 
-# 2. Start the Tauri dev build — this also starts the Next.js dev server.
+# 2. Start the Tauri dev build - this also starts the Next.js dev server.
 #    The first run compiles Rust dependencies (~2-5 min); subsequent runs are fast.
 pnpm --filter @graphvault/desktop dev
 # or, from apps/desktop/:
@@ -82,7 +82,7 @@ Internally `pnpm dev` runs `tauri dev`, which:
 ## Building for distribution
 
 ```bash
-# From the repo root — builds web client to apps/web/out, then compiles Tauri.
+# From the repo root - builds web client to apps/web/out, then compiles Tauri.
 pnpm --filter @graphvault/desktop build
 # or, from apps/desktop/:
 pnpm build
@@ -104,7 +104,7 @@ apps/desktop/src-tauri/target/release/bundle/
 
 ---
 
-## The `.md`-on-disk storage path (scaffold — not yet wired)
+## The `.md`-on-disk storage path (scaffold - not yet wired)
 
 > **Not yet active.** Everything in this section describes the _planned_ native
 > storage path. As of M16 the adapter below is **not registered** and native fs
@@ -118,12 +118,12 @@ implementation (`src/tauriStorageAdapter.ts`) that is _intended_ to:
 
 1. Invoke the Rust `pick_vault_folder` IPC command to show the OS folder picker.
 2. Use `@tauri-apps/plugin-fs` to read/write real `.md` files in the chosen
-   directory — one file per note, vault-relative paths preserved.
+   directory - one file per note, vault-relative paths preserved.
 3. Export `tauriStorageAdapter` as a singleton that the web layer registers into
    the adapter registry when it detects `window.__TAURI__`:
 
 ```ts
-// Example wiring in apps/web/lib/vault/storage bootstrap (NOT yet added — M17):
+// Example wiring in apps/web/lib/vault/storage bootstrap (NOT yet added - M17):
 if (typeof window !== 'undefined' && '__TAURI__' in window) {
   const { tauriStorageAdapter } = await import(
     // Path must be adjusted once the desktop package is wired as a dep
@@ -157,7 +157,7 @@ needed** in the editor, vault page, or Settings to switch to native disk I/O.
   chosen path **without** granting fs scope to it. As a result, any
   `@tauri-apps/plugin-fs` call from `tauriStorageAdapter` would be **denied at
   runtime today**. Dynamic scope-granting from the picked folder is **deferred
-  work** — do not rely on "scoped to the chosen vault" as an implemented
+  work** - do not rely on "scoped to the chosen vault" as an implemented
   guarantee. (Because the adapter is not registered in this scaffold, no
   fs-plugin calls are actually made.)
 - **CSP**: configured in `tauri.conf.json`; scripts limited to `'self'`;
@@ -167,12 +167,12 @@ needed** in the editor, vault page, or Settings to switch to native disk I/O.
 
 ---
 
-## Native file watching (planned — Milestone 17)
+## Native file watching (planned - Milestone 17)
 
 Once the storage adapter is wired end-to-end, the next step is native file
 watching via `tauri-plugin-fs`'s `watch` API. This lets an external editor
 (VS Code, etc.) modify notes on disk and have GraphVault pick up the changes
-without a manual reload — replacing the current "poll on focus" approach.
+without a manual reload - replacing the current "poll on focus" approach.
 
 ---
 

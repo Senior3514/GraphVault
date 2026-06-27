@@ -34,7 +34,7 @@ storage/
 !.vscode/extensions.json
 Thumbs.db
 
-# Claude Code local state (worktrees, caches, local settings) — but TRACK the
+# Claude Code local state (worktrees, caches, local settings) - but TRACK the
 # committed GraphVault agent company definitions under .claude/agents/.
 .claude/*
 !.claude/agents/

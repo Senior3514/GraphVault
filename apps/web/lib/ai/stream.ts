@@ -11,17 +11,17 @@
  * This module is split into two layers so the parsing logic is unit-testable
  * without any network:
  *
- *   1. `parseSseRecords` — a pure generator that turns a raw SSE text buffer
+ *   1. `parseSseRecords` - a pure generator that turns a raw SSE text buffer
  *      into discrete `{ event, data }` records, handling multi-line `data:`
  *      fields, `:comment` heartbeats, and partial trailing records.
- *   2. `readAiStream` — wires a `ReadableStream<Uint8Array>` (from `fetch`) and
+ *   2. `readAiStream` - wires a `ReadableStream<Uint8Array>` (from `fetch`) and
  *      a `TextDecoder` into the parser, validates every payload against
  *      `aiStreamEventSchema`, and invokes typed callbacks.
  *
  * Security / privacy invariants (carried from the rest of the AI feature):
  *   - No payload is ever logged; the caller decides what to render.
  *   - `error` frames are surfaced as `AiStreamEvent` and never re-thrown with an
- *     unsanitised body — the server has already redacted the key (`docs/ai-bff.md`
+ *     unsanitised body - the server has already redacted the key (`docs/ai-bff.md`
  *     §6/§7). We pass the server's `{code,message}` through verbatim.
  */
 
@@ -59,7 +59,7 @@ export function parseSseRecords(buffer: string): { records: SseRecord[]; rest: s
     let event = 'message';
     const dataLines: string[] = [];
     for (const rawLine of block.split('\n')) {
-      // Heartbeat / comment line — ignore.
+      // Heartbeat / comment line - ignore.
       if (rawLine.startsWith(':')) continue;
       const colon = rawLine.indexOf(':');
       const field = colon === -1 ? rawLine : rawLine.slice(0, colon);
@@ -71,7 +71,7 @@ export function parseSseRecords(buffer: string): { records: SseRecord[]; rest: s
       } else if (field === 'data') {
         dataLines.push(value);
       }
-      // `id` / `retry` fields are not used by this protocol — ignore.
+      // `id` / `retry` fields are not used by this protocol - ignore.
     }
     records.push({ event, data: dataLines.join('\n') });
   }
@@ -83,7 +83,7 @@ export function parseSseRecords(buffer: string): { records: SseRecord[]; rest: s
  *
  * Returns `null` for records that carry no usable payload (e.g. an empty data
  * line or `[DONE]` sentinel). Throws if the JSON is malformed or fails schema
- * validation — the caller treats that as a stream protocol error.
+ * validation - the caller treats that as a stream protocol error.
  */
 export function parseAiStreamRecord(record: SseRecord): AiStreamEvent | null {
   const data = record.data.trim();
@@ -111,9 +111,9 @@ export function parseAiStreamRecord(record: SseRecord): AiStreamEvent | null {
 
 /** Callbacks invoked as the stream is consumed. All are optional. */
 export interface AiStreamHandlers {
-  /** Incremental text chunk — append to the rendered output. */
+  /** Incremental text chunk - append to the rendered output. */
   onDelta?: (content: string) => void;
-  /** Terminal token/cost accounting — update the budget meter. */
+  /** Terminal token/cost accounting - update the budget meter. */
   onUsage?: (usage: Extract<AiStreamEvent, { type: 'usage' }>['usage']) => void;
   /** Generation finished cleanly; carries the resolved model string. */
   onDone?: (model?: string) => void;
@@ -126,7 +126,7 @@ export interface AiStreamHandlers {
  * against the shared schema and dispatching to typed handlers.
  *
  * Honours an `AbortSignal` so a closing panel (or a "Stop" button) tears the
- * stream down promptly — important so a closed view does not keep the upstream
+ * stream down promptly - important so a closed view does not keep the upstream
  * generation (and the user's budget) running.
  *
  * @param body  The `ReadableStream<Uint8Array>` from `response.body`.
@@ -168,7 +168,7 @@ export async function readAiStream(
         if (!event) continue;
         dispatch(event, handlers);
         if (event.type === 'done' || event.type === 'error') {
-          // Terminal frame — stop reading. Cancel releases the socket.
+          // Terminal frame - stop reading. Cancel releases the socket.
           await reader.cancel().catch(() => undefined);
           return;
         }

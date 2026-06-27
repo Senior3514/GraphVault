@@ -18,7 +18,7 @@ const SHELL_URL = '/';
 
 // Assets to pre-cache on install (app shell + manifest + icons).
 // Next.js static export places HTML at the root; JS/CSS land in /_next/static/.
-// We don't enumerate those here — they are cached on first fetch.
+// We don't enumerate those here - they are cached on first fetch.
 const PRECACHE_URLS = [
   '/',
   '/manifest.webmanifest',
@@ -28,7 +28,7 @@ const PRECACHE_URLS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Install — pre-cache the app shell
+// Install - pre-cache the app shell
 // ─────────────────────────────────────────────────────────────────────────────
 
 self.addEventListener('install', (event) => {
@@ -41,7 +41,7 @@ self.addEventListener('install', (event) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Activate — claim clients and delete old caches
+// Activate - claim clients and delete old caches
 // ─────────────────────────────────────────────────────────────────────────────
 
 self.addEventListener('activate', (event) => {
@@ -56,7 +56,7 @@ self.addEventListener('activate', (event) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fetch — cache-first for same-origin GET requests
+// Fetch - cache-first for same-origin GET requests
 // ─────────────────────────────────────────────────────────────────────────────
 
 self.addEventListener('fetch', (event) => {
@@ -78,13 +78,13 @@ async function handleFetch(request) {
   const cached = await cache.match(request);
   if (cached) return cached;
 
-  // 2. Not cached — try the network.
+  // 2. Not cached - try the network.
   try {
     const response = await fetch(request);
 
     // Cache successful same-origin responses (status 200, basic type).
     if (response && response.status === 200 && response.type === 'basic') {
-      // Clone before consuming — one copy for the cache, one for the browser.
+      // Clone before consuming - one copy for the cache, one for the browser.
       cache.put(request, response.clone());
     }
 

@@ -1,6 +1,6 @@
 /**
  * Unit tests for the Obsidian importer.
- * Pure functions — no browser APIs needed (all regex-based).
+ * Pure functions - no browser APIs needed (all regex-based).
  */
 
 import assert from 'node:assert/strict';

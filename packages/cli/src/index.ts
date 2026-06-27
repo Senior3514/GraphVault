@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * graphvault CLI — entry point.
+ * graphvault CLI - entry point.
  *
  * Commands:
  *   graphvault list
@@ -24,7 +24,7 @@ import { DEFAULT_HOST, DEFAULT_PORT, serveCommand } from './server.js';
 const VERSION = '0.1.0';
 
 const HELP = `
-graphvault — GraphVault CLI (v${VERSION})
+graphvault - GraphVault CLI (v${VERSION})
 
 Usage:
   graphvault <command> [options]
@@ -53,7 +53,7 @@ Examples:
 
 Note: "serve" exposes a READ-ONLY (GET-only) HTTP API and binds to
 ${DEFAULT_HOST} (localhost) by default. Binding to a non-loopback --host
-exposes your vault to the network with no authentication — opt-in only.
+exposes your vault to the network with no authentication - opt-in only.
 `.trim();
 
 function die(msg: string): never {
@@ -98,7 +98,7 @@ function main(): void {
     if (typeof values.port === 'string') {
       port = Number(values.port);
       if (!Number.isInteger(port) || port < 0 || port > 65535) {
-        die(`Invalid --port "${values.port}" (expected an integer 0–65535)`);
+        die(`Invalid --port "${values.port}" (expected an integer 0-65535)`);
       }
     }
     try {

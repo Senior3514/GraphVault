@@ -9,19 +9,19 @@
  *     specific info string `graphvault-azure-cred-v1` so Azure sub-keys are
  *     independent of WebDAV/S3/GCS sub-keys for the same user.
  *   - If no server encryption key is configured, a process-lifetime random key
- *     is used (credentials are lost on restart — same trade-off as S3/WebDAV).
+ *     is used (credentials are lost on restart - same trade-off as S3/WebDAV).
  *   - Credentials are NEVER returned to the client. The client receives only the
  *     non-secret AzureConfigInfo (account + container + endpoint + updatedAt).
  *   - All outbound Azure requests are authenticated with the Shared Key scheme,
  *     a SHA-256 HMAC keyed on the base64-decoded account key, implemented in pure
- *     Node `node:crypto` — zero new dependencies.
+ *     Node `node:crypto` - zero new dependencies.
  *   - The browser never contacts Azure directly (avoids CORS, keeps creds off
  *     the client).
  *
  * Proxy scope (single-object vault blob):
- *   - GET    /v1/storage/azure/object/graphvault-vault.json — download
- *   - PUT    /v1/storage/azure/object/graphvault-vault.json — upload
- *   - DELETE /v1/storage/azure/object/graphvault-vault.json — delete
+ *   - GET    /v1/storage/azure/object/graphvault-vault.json - download
+ *   - PUT    /v1/storage/azure/object/graphvault-vault.json - upload
+ *   - DELETE /v1/storage/azure/object/graphvault-vault.json - delete
  *
  * Shared Key signing:
  *   Authorization: SharedKey <account>:<base64(HMAC-SHA256(StringToSign))>
@@ -38,7 +38,7 @@ import { guardedFetch } from './ssrf.js';
 import type { AzureConfigRecord, Storage } from '../store/types.js';
 
 // ---------------------------------------------------------------------------
-// Public config shapes (defined here — shared package is not modifiable in this
+// Public config shapes (defined here - shared package is not modifiable in this
 // wave; mirrors the S3ConfigRequest / S3ConfigInfo split exactly).
 // ---------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ export interface AzureConfigRequest {
   account: string;
   /** Blob container name. */
   container: string;
-  /** Account key (base64). The secret — encrypted at rest, never returned. */
+  /** Account key (base64). The secret - encrypted at rest, never returned. */
   accountKey: string;
   /**
    * Optional endpoint override (no trailing slash), e.g.
@@ -114,7 +114,7 @@ function decryptSecret(ciphertext: string, userId: string, serverKey?: Buffer): 
 }
 
 // ---------------------------------------------------------------------------
-// Azure Shared Key signing (pure node:crypto — no @azure/* deps)
+// Azure Shared Key signing (pure node:crypto - no @azure/* deps)
 // ---------------------------------------------------------------------------
 
 /** Format a Date as an RFC-1123 string for x-ms-date, e.g. "Mon, 15 Jun 2026 12:00:00 GMT". */
@@ -141,7 +141,7 @@ export interface AzureSignParams {
 export interface AzureSignedRequest {
   url: string;
   headers: Record<string, string>;
-  /** The exact StringToSign — exposed for deterministic tests. */
+  /** The exact StringToSign - exposed for deterministic tests. */
   stringToSign: string;
 }
 
@@ -178,7 +178,7 @@ function canonicalizedHeaders(msHeaders: Record<string, string>): string {
 /**
  * Produce a signed Azure Blob request (URL + headers). The `host` header is part
  * of the URL (not the StringToSign for Shared Key) and is NOT placed in the
- * returned headers — `fetch` sets it automatically from the URL.
+ * returned headers - `fetch` sets it automatically from the URL.
  */
 export function signAzureRequest(
   params: AzureSignParams,
@@ -395,7 +395,7 @@ export class AzureService {
     } catch (err) {
       throw badRequest(`Azure DELETE failed: ${err instanceof Error ? err.message : String(err)}`);
     }
-    // 202 = accepted, 404 = already gone — both acceptable.
+    // 202 = accepted, 404 = already gone - both acceptable.
     if (!res.ok && res.status !== 404) {
       throw badRequest(`Azure DELETE returned ${res.status}`);
     }
