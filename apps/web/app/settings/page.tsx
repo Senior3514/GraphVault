@@ -45,6 +45,8 @@ import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
 import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/exportToDirectory';
 import { useAISettings } from '../../components/assistant/useAISettings';
 import type { AISettings } from '../../lib/ai/types';
+import { buildBudgetMeter } from '../../lib/ai/budget';
+import type { AiConfigInfo } from '@graphvault/shared';
 import { LOCAL_IMPORT_CONNECTORS } from '../../lib/connectors/registry';
 import { emailConnector } from '../../lib/connectors/email';
 import { rssOpmlConnector } from '../../lib/connectors/rssOpml';
@@ -2997,6 +2999,76 @@ function VaultRegistrationSection({
  *  - The key is cleared from the form on submit; it never lives in state longer
  *    than needed, and is never written to sessionStorage or localStorage.
  */
+/**
+ * Budget / spend meter for the AI server proxy. Renders the live spend window
+ * (accrued $ + request count for the current UTC day) as a coloured progress
+ * bar. Driven entirely by `spendCapState` from GET /v1/ai/config — the client
+ * never computes spend itself.
+ */
+function BudgetMeter({
+  state,
+  spendCapUsd,
+}: {
+  state: NonNullable<AiConfigInfo['spendCapState']>;
+  spendCapUsd: number | undefined;
+}) {
+  const meter = buildBudgetMeter(state, spendCapUsd);
+  const barColor =
+    meter.state === 'exceeded'
+      ? 'bg-red-500'
+      : meter.state === 'warning'
+        ? 'bg-amber-500'
+        : 'bg-emerald-500';
+  const resetsAt = (() => {
+    const d = new Date(state.windowResetsAt);
+    return Number.isNaN(d.getTime()) ? state.windowResetsAt : d.toLocaleString();
+  })();
+  return (
+    <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900/40 p-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium text-neutral-300">Today&apos;s usage</span>
+        <span
+          className={[
+            'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+            meter.state === 'exceeded'
+              ? 'bg-red-950 text-red-300'
+              : meter.state === 'warning'
+                ? 'bg-amber-950 text-amber-300'
+                : 'bg-emerald-950 text-emerald-300',
+          ].join(' ')}
+        >
+          {meter.state}
+        </span>
+      </div>
+      <div
+        className="mt-2 h-2 w-full overflow-hidden rounded-full bg-neutral-800"
+        role="progressbar"
+        aria-valuenow={Math.round(meter.percent)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="AI daily spend budget used"
+      >
+        <div
+          className={['h-full rounded-full transition-all', barColor].join(' ')}
+          style={{ width: `${meter.percent}%` }}
+        />
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-neutral-400">
+        <dt>Spend</dt>
+        <dd className="text-right text-neutral-200">{meter.spendLabel}</dd>
+        <dt>Requests</dt>
+        <dd className="text-right text-neutral-200">{meter.requestLabel}</dd>
+      </dl>
+      {meter.exhausted && (
+        <p className="mt-2 text-xs text-red-300">
+          Daily cap reached — further requests are refused until the window resets ({resetsAt}).
+          Raise the cap above or wait for the reset.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AIAssistantSection() {
   const { settings, update } = useAISettings();
   const auth = useAuth();
@@ -3008,13 +3080,10 @@ function AIAssistantSection() {
   const [gateway, setGateway] = useState<'openrouter' | 'custom'>('openrouter');
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [serverAiModel, setServerAiModel] = useState('');
+  const [spendCapInput, setSpendCapInput] = useState('');
+  const [dailyCapInput, setDailyCapInput] = useState('');
   const [showKeyForm, setShowKeyForm] = useState(false);
-  const [keyConfigInfo, setKeyConfigInfo] = useState<{
-    keySet: boolean;
-    gateway: string;
-    model?: string;
-    updatedAt: string;
-  } | null>(null);
+  const [keyConfigInfo, setKeyConfigInfo] = useState<AiConfigInfo | null>(null);
   const [loadingKeyConfig, setLoadingKeyConfig] = useState(false);
   const [keyMsg, setKeyMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [keyBusy, setKeyBusy] = useState(false);
@@ -3065,6 +3134,25 @@ function AIAssistantSection() {
     } else {
       setKeyErrors({});
     }
+    // Parse the optional caps. Empty = leave unset (no cap of that kind).
+    let spendCapUsd: number | undefined;
+    if (spendCapInput.trim()) {
+      const n = Number(spendCapInput.trim());
+      if (!Number.isFinite(n) || n < 0) {
+        setKeyMsg({ kind: 'err', text: 'Spend cap must be a non-negative number.' });
+        return;
+      }
+      spendCapUsd = n;
+    }
+    let dailyRequestCap: number | undefined;
+    if (dailyCapInput.trim()) {
+      const n = Number(dailyCapInput.trim());
+      if (!Number.isInteger(n) || n < 0) {
+        setKeyMsg({ kind: 'err', text: 'Daily request cap must be a non-negative whole number.' });
+        return;
+      }
+      dailyRequestCap = n;
+    }
     setKeyBusy(true);
     setKeyMsg(null);
     try {
@@ -3075,6 +3163,8 @@ function AIAssistantSection() {
         gateway,
         baseUrl: gateway === 'custom' ? customBaseUrl.trim() : undefined,
         model: serverAiModel.trim() || undefined,
+        spendCapUsd,
+        dailyRequestCap,
       });
       setKeyMsg({
         kind: 'ok',
@@ -3233,8 +3323,11 @@ function AIAssistantSection() {
           <div className="rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
             <strong>Your key stays on your server.</strong> The API key you enter below is sent once
             over TLS to your GraphVault server and stored encrypted with AES-256-GCM. It is never
-            returned to this browser, never stored in the browser, and never logged. The browser
-            sends only chat prompts — your server adds the key for outbound calls.
+            returned to this browser, never stored in the browser, and never logged. When you run
+            the assistant, your prompt (which includes note content) goes to{' '}
+            <em>your server → your chosen gateway</em>; your server adds the key for the outbound
+            call. The server records only request counts and cost for the spend cap — never your
+            prompts or the responses.
           </div>
 
           {/* Optional model override for local panel */}
@@ -3304,6 +3397,20 @@ function AIAssistantSection() {
                   </dd>
                 </dl>
               ) : (
+                <></>
+              )}
+
+              {/* Budget / spend meter — driven by the live spendCapState from
+                  GET /v1/ai/config. Shows accrued spend + request count for the
+                  current UTC day and a coloured progress bar. */}
+              {keyConfigInfo?.spendCapState && (
+                <BudgetMeter
+                  state={keyConfigInfo.spendCapState}
+                  spendCapUsd={keyConfigInfo.spendCapUsd}
+                />
+              )}
+
+              {!keyConfigInfo && (
                 <p className="text-xs text-neutral-500">
                   No AI key configured on the server yet. Add one below.
                 </p>
@@ -3314,7 +3421,23 @@ function AIAssistantSection() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowKeyForm((s) => !s);
+                    setShowKeyForm((s) => {
+                      const next = !s;
+                      if (next && keyConfigInfo) {
+                        // Pre-fill non-secret fields from the stored config so an
+                        // "Update" preserves them. The key itself is NEVER
+                        // pre-filled — it is write-only and never returned.
+                        setGateway(keyConfigInfo.gateway);
+                        setCustomBaseUrl(keyConfigInfo.baseUrl ?? '');
+                        setServerAiModel(keyConfigInfo.model ?? '');
+                        setSpendCapInput(
+                          keyConfigInfo.spendCapUsd != null
+                            ? String(keyConfigInfo.spendCapUsd)
+                            : '',
+                        );
+                      }
+                      return next;
+                    });
                     setKeyMsg(null);
                     setKeyInput('');
                   }}
@@ -3412,6 +3535,53 @@ function AIAssistantSection() {
                       placeholder={gateway === 'openrouter' ? 'openai/gpt-4o-mini' : 'gpt-4o-mini'}
                       className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                     />
+                  </div>
+
+                  {/* Spend / request caps — durable, per-user/day, reset at UTC
+                      midnight. Empty = no cap of that kind. See docs/ai-bff.md §4. */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        className="mb-1 block text-xs font-medium text-neutral-400"
+                        htmlFor="ai-spend-cap"
+                      >
+                        Daily spend cap (USD)
+                      </label>
+                      <input
+                        id="ai-spend-cap"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={spendCapInput}
+                        onChange={(e) => setSpendCapInput(e.target.value)}
+                        disabled={keyBusy}
+                        placeholder="e.g. 5.00"
+                        className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                      />
+                      <p className="mt-1 text-xs text-neutral-600">Blank = no $ cap.</p>
+                    </div>
+                    <div>
+                      <label
+                        className="mb-1 block text-xs font-medium text-neutral-400"
+                        htmlFor="ai-daily-cap"
+                      >
+                        Daily request cap
+                      </label>
+                      <input
+                        id="ai-daily-cap"
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        value={dailyCapInput}
+                        onChange={(e) => setDailyCapInput(e.target.value)}
+                        disabled={keyBusy}
+                        placeholder="server default"
+                        className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                      />
+                      <p className="mt-1 text-xs text-neutral-600">Blank = server default.</p>
+                    </div>
                   </div>
 
                   <div>

@@ -126,6 +126,40 @@ stop repeating mistakes. Newest at the top within each section.
 
 ## Web / Next.js
 
+### Consume SSE with a pure parser layer split from the network layer
+
+- **Symptom:** SSE consumption code that reads `fetch().body` directly is
+  impossible to unit-test without mocking the whole stream/decoder stack, and
+  frames that split across TCP chunks (e.g. `data: {"ty` + `pe":...}`) get
+  silently dropped.
+- **Fix / rule:** split it in two — a **pure** `parseSseRecords(buffer)` that
+  returns `{records, rest}` (carry `rest` into the next chunk to reassemble
+  split frames) + a thin `readAiStream(body, handlers, signal)` that wires a
+  `ReadableStream` reader + `TextDecoder` to the parser. The pure half gets full
+  `node:test` coverage (multi-line `data:`, `:heartbeat` comments, CRLF, partial
+  trailing record, `[DONE]` sentinel) with zero network. Validate every frame
+  against the shared zod schema (`aiStreamEventSchema`) — never trust the wire.
+
+### Abort the stream on panel close / unmount (stop burning budget)
+
+- **Rule:** for a streaming AI proxy, pass an `AbortController.signal` into both
+  `fetch` and the reader, and abort it in a close/unmount effect. A closed tab
+  must tear down the upstream generation or it keeps spending the user's budget.
+  Also stop reading on the terminal `done`/`error` frame and `reader.cancel()`.
+
+### Write-only secrets: never pre-fill the key input on "Update"
+
+- **Rule:** when an "Update key" form pre-fills non-secret fields (gateway,
+  model, caps) from the GET config-info response, the API key field must stay
+  blank — the key is write-only over the wire and the GET never returns it
+  (only `{keySet}`). Pre-filling it would imply the browser holds the secret.
+
+### Hide opt-in AI surfaces entirely when mode is `off`
+
+- **Rule:** when the privacy dial is `off`, return `null` from BOTH the toggle
+  button and the panel itself (not just disable them) — zero network, and no
+  hint of a feature the user has not opted into. Default stays `off`.
+
 ### Browser-only widgets need `ssr: false`
 
 - **Rule:** canvas/WebGL components (e.g. force-graph renderers) must be loaded

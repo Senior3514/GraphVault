@@ -21,15 +21,15 @@ The privacy spectrum (CLAUDE.md, M21) is a **dial the user controls**:
 
 The BFF is an **additional rung**, not a replacement for the others:
 
-| Rung          | Where the key lives          | Where the request originates | Network when OFF |
-| ------------- | ---------------------------- | ---------------------------- | ---------------- |
-| `off`         | nowhere                      | nowhere                      | **zero**         |
-| `local`       | nowhere (no key needed)      | browser → `localhost` Ollama | zero outbound    |
-| `byo` (browser) | browser `sessionStorage`   | browser → provider directly  | only on use      |
-| **`server` (BFF)** | **your server, AES-256-GCM at rest** | **server → gateway** | only on use |
+| Rung               | Where the key lives                  | Where the request originates | Network when OFF |
+| ------------------ | ------------------------------------ | ---------------------------- | ---------------- |
+| `off`              | nowhere                              | nowhere                      | **zero**         |
+| `local`            | nowhere (no key needed)              | browser → `localhost` Ollama | zero outbound    |
+| `byo` (browser)    | browser `sessionStorage`             | browser → provider directly  | only on use      |
+| **`server` (BFF)** | **your server, AES-256-GCM at rest** | **server → gateway**         | only on use      |
 
 **The research-backed rationale for the BFF rung:** a key stored in the browser
-(`byo`) is *extractable* — by XSS, by a malicious extension, by anyone with
+(`byo`) is _extractable_ — by XSS, by a malicious extension, by anyone with
 devtools on a shared machine, and it travels to every device that signs in. The
 BFF moves the secret to the one machine the user already trusts with their notes
 (their self-hosted server), encrypts it at rest, and **never returns it to any
@@ -64,14 +64,17 @@ Request body — `aiConfigRequestSchema`:
 ```ts
 // packages/shared/src/ai.ts  (SHIPPED — with spend-cap additions sketched in §4)
 export const aiConfigRequestSchema = z.object({
-  apiKey: z.string().min(1).max(1024),          // sent once over TLS, then encrypted
+  apiKey: z.string().min(1).max(1024), // sent once over TLS, then encrypted
   gateway: z.enum(['openrouter', 'custom']).default('openrouter'),
-  baseUrl: z.string().url().max(2048)           // required iff gateway === 'custom'
+  baseUrl: z
+    .string()
+    .url()
+    .max(2048) // required iff gateway === 'custom'
     .refine((u) => /^https?:\/\//i.test(u), 'baseUrl must use http or https')
     .optional(),
   model: z.string().min(1).max(256).optional(), // default model when chat omits one
   // --- NEW (spend caps, §4) ---
-  spendCapUsd: z.number().min(0).max(100_000).optional(),     // 0 / undefined = no $ cap
+  spendCapUsd: z.number().min(0).max(100_000).optional(), // 0 / undefined = no $ cap
   dailyRequestCap: z.number().int().min(0).max(1_000_000).optional(),
 });
 ```
@@ -91,18 +94,19 @@ Response — `aiConfigInfoSchema`:
 
 ```ts
 export const aiConfigInfoSchema = z.object({
-  keySet: z.boolean(),                                // true if a key is stored
+  keySet: z.boolean(), // true if a key is stored
   gateway: z.enum(['openrouter', 'custom']),
-  baseUrl: z.string().optional(),                     // only when gateway === 'custom'
+  baseUrl: z.string().optional(), // only when gateway === 'custom'
   model: z.string().optional(),
-  updatedAt: z.string(),                              // ISO-8601
+  updatedAt: z.string(), // ISO-8601
   // --- NEW (spend caps, §4) ---
-  spendCapUsd: z.number().optional(),                 // the configured cap (not a secret)
-  spendCapState: z.object({                           // current window status
-    state: z.enum(['ok', 'warning', 'exceeded']),     // <80% / >=80% / >=100%
-    windowSpentUsd: z.number(),                        // accrued this window
-    windowRequests: z.number().int(),                  // requests this window
-    windowResetsAt: z.string(),                         // ISO-8601 (next UTC midnight)
+  spendCapUsd: z.number().optional(), // the configured cap (not a secret)
+  spendCapState: z.object({
+    // current window status
+    state: z.enum(['ok', 'warning', 'exceeded']), // <80% / >=80% / >=100%
+    windowSpentUsd: z.number(), // accrued this window
+    windowRequests: z.number().int(), // requests this window
+    windowResetsAt: z.string(), // ISO-8601 (next UTC midnight)
   }),
 });
 ```
@@ -112,7 +116,7 @@ export const aiConfigInfoSchema = z.object({
   this is how the web client decides whether to show the "Add a key" CTA.
 
 > **Design note — why `spendCapState` here:** the client needs to render a
-> budget meter and disable the send button when `state === 'exceeded'` *without*
+> budget meter and disable the send button when `state === 'exceeded'` _without_
 > making a doomed chat call. Surfacing it on the config GET keeps the chat
 > request path lean and lets the Settings UI show a live budget bar.
 
@@ -127,10 +131,10 @@ Request — `aiChatRequestSchema`:
 
 ```ts
 export const aiChatRequestSchema = z.object({
-  messages: z.array(aiChatMessageSchema).min(1).max(100),  // role + content, content<=64k
-  model: z.string().min(1).max(256).optional(),            // one-off override
+  messages: z.array(aiChatMessageSchema).min(1).max(100), // role + content, content<=64k
+  model: z.string().min(1).max(256).optional(), // one-off override
   // --- NEW (opt into streaming, §3) ---
-  stream: z.boolean().optional(),                          // default false
+  stream: z.boolean().optional(), // default false
 });
 ```
 
@@ -139,13 +143,15 @@ Response — `aiChatResponseSchema`:
 ```ts
 export const aiChatResponseSchema = z.object({
   content: z.string(),
-  model: z.string().optional(),       // model the upstream reports
+  model: z.string().optional(), // model the upstream reports
   // --- NEW (spend caps, §4) — echoed so the client can update its meter ---
-  usage: z.object({
-    promptTokens: z.number().int().optional(),
-    completionTokens: z.number().int().optional(),
-    costUsd: z.number().optional(),
-  }).optional(),
+  usage: z
+    .object({
+      promptTokens: z.number().int().optional(),
+      completionTokens: z.number().int().optional(),
+      costUsd: z.number().optional(),
+    })
+    .optional(),
 });
 ```
 
@@ -232,14 +238,14 @@ browser                         BFF (/v1/ai/chat stream)              gateway (O
 
 ## 3. Streaming summary
 
-| Concern              | Decision                                                            |
-| -------------------- | ------------------------------------------------------------------ |
-| Opt-in               | `stream: true` on `POST /v1/ai/chat`; default stays non-streaming. |
-| Client transport     | SSE (`text/event-stream`) with named events `delta/usage/done/error`. |
-| Upstream transport   | OpenAI-compat SSE; BFF parses and **re-emits a clean shape**.       |
-| Proxy buffering      | `X-Accel-Buffering: no` + `no-transform` for nginx/Caddy in front. |
-| Disconnect           | client close → abort upstream (stop spend).                        |
-| Metering             | read terminal `usage` chunk; commit real cost.                     |
+| Concern            | Decision                                                              |
+| ------------------ | --------------------------------------------------------------------- |
+| Opt-in             | `stream: true` on `POST /v1/ai/chat`; default stays non-streaming.    |
+| Client transport   | SSE (`text/event-stream`) with named events `delta/usage/done/error`. |
+| Upstream transport | OpenAI-compat SSE; BFF parses and **re-emits a clean shape**.         |
+| Proxy buffering    | `X-Accel-Buffering: no` + `no-transform` for nginx/Caddy in front.    |
+| Disconnect         | client close → abort upstream (stop spend).                           |
+| Metering           | read terminal `usage` chunk; commit real cost.                        |
 
 ## 4. Per-key spend caps
 
@@ -249,10 +255,10 @@ unlimited). This design **keeps that** and adds a **monetary** cap on top.
 
 ### 4.1 Two independent caps, same window
 
-| Cap                | Source                               | Default | Cleared at |
-| ------------------ | ------------------------------------ | ------- | ---------- |
-| Daily **request**  | `dailyRequestCap` (config) or `GRAPHVAULT_AI_DAILY_CAP` env | 200 | UTC midnight |
-| Daily **spend $**  | `spendCapUsd` (config)               | unset (no $ cap) | UTC midnight |
+| Cap               | Source                                                      | Default          | Cleared at   |
+| ----------------- | ----------------------------------------------------------- | ---------------- | ------------ |
+| Daily **request** | `dailyRequestCap` (config) or `GRAPHVAULT_AI_DAILY_CAP` env | 200              | UTC midnight |
+| Daily **spend $** | `spendCapUsd` (config)                                      | unset (no $ cap) | UTC midnight |
 
 Per-user config overrides the env default; `0` / unset means "no cap of that
 kind". Both are checked; whichever trips first throws 429.
@@ -261,8 +267,8 @@ kind". Both are checked; whichever trips first throws 429.
 
 The shipped counter is a process-local `Map<userId, {date, count}>` — **fine for
 a single-process self-hosted server, but it is wiped on restart and does not
-survive the postgres durability work** (lessons: "Don't advertise *encrypted at
-rest* while storing config in process memory"). The spend cap must be
+survive the postgres durability work** (lessons: "Don't advertise _encrypted at
+rest_ while storing config in process memory"). The spend cap must be
 **durable**, so:
 
 - **Persist the window counter alongside the AI config**, in the `Storage` layer
@@ -272,10 +278,10 @@ rest* while storing config in process memory"). The spend cap must be
 // apps/server/src/store/types.ts  (NEW — server slice)
 export interface AiSpendWindowRecord {
   userId: string;
-  windowDate: string;     // "YYYY-MM-DD" UTC — the active window
-  requests: number;       // requests committed this window
-  spentUsd: number;       // cost accrued this window (provider-reported)
-  updatedAt: string;      // ISO-8601
+  windowDate: string; // "YYYY-MM-DD" UTC — the active window
+  requests: number; // requests committed this window
+  spentUsd: number; // cost accrued this window (provider-reported)
+  updatedAt: string; // ISO-8601
 }
 // Storage gains: getAiSpendWindow / commitAiSpend(userId, addUsd, addRequests, today)
 ```
@@ -297,8 +303,8 @@ this is a self-hosted single-tenant-ish workload, not a billing system.
       commitAiSpend(userId, costUsd, +1 request, today)
 ```
 
-- **Pre-check uses the *previous* window's accrued spend** — a single call can
-  cross the cap (we cannot know the cost until after generation), but the *next*
+- **Pre-check uses the _previous_ window's accrued spend** — a single call can
+  cross the cap (we cannot know the cost until after generation), but the _next_
   call is then refused. This is the standard, simple "soft cap" behaviour; it
   cannot be made a hard pre-spend cap without per-token pre-authorization, which
   no gateway offers. Documented as such.
@@ -315,14 +321,17 @@ Reuse the shipped 429 exactly (lessons: "AI cap is rate-limiting → 429, not
 400"):
 
 ```ts
-throw new AppError(429, 'RATE_LIMITED',
-  `AI daily spend cap ($${cap}) reached. Resets at UTC midnight or raise it in Settings.`);
+throw new AppError(
+  429,
+  'RATE_LIMITED',
+  `AI daily spend cap ($${cap}) reached. Resets at UTC midnight or raise it in Settings.`,
+);
 ```
 
 For streaming requests the 429 is delivered as a single
 `event: error data: {"code":"RATE_LIMITED","message":"…"}` then the stream
 closes (an SSE response has already committed `200` headers, so we cannot send an
-HTTP 429 status mid-stream — the *pre-check* therefore runs before any SSE
+HTTP 429 status mid-stream — the _pre-check_ therefore runs before any SSE
 headers are written, allowing a real `429` status for the common case, and the
 `event: error` path is the fallback for a cap tripped after headers).
 
@@ -362,7 +371,7 @@ The exact helper to reuse already exists inside
 
 - **AES-256-GCM** (`aes-256-gcm`, 12-byte nonce, 16-byte tag), key material =
   `HKDF-SHA256(ikm = GRAPHVAULT_ENCRYPTION_KEY, salt = userId, info =
-  "graphvault-ai-cred-v1", 32 bytes)` — the same per-user HKDF scheme as
+"graphvault-ai-cred-v1", 32 bytes)` — the same per-user HKDF scheme as
   `webdav.ts` / `s3.ts` / `azure.ts` / `gcs.ts`, with the **distinct, versioned
   info string** `graphvault-ai-cred-v1` (lessons: "HKDF info strings must be
   unique per credential type"). When `GRAPHVAULT_ENCRYPTION_KEY` is unset a
@@ -373,7 +382,7 @@ The exact helper to reuse already exists inside
   variable during one outbound call** and is never assigned to a field,
   returned, or logged.
 - **Redaction is belt-and-suspenders:** the shipped service `.replace(apiKey,
-  '[REDACTED]')` on both the network-error message and the upstream error body
+'[REDACTED]')` on both the network-error message and the upstream error body
   (truncated to 400 chars). The streaming path must apply the same redaction to
   any `event: error` payload it relays.
 
@@ -437,7 +446,7 @@ Reviewed against the threat list in the brief:
   bodies; only counts + cost go into the spend window). Make this explicit in the
   privacy copy.
 - **Spend cap as a safety control:** the durable spend counter also limits the
-  blast radius of a stolen *bearer token* (not the AI key) — an attacker who
+  blast radius of a stolen _bearer token_ (not the AI key) — an attacker who
   steals a session can still only burn up to the daily cap before being 429'd.
 
 ## 8. Implementation slices (ownership-disjoint)
@@ -468,7 +477,7 @@ ownership matrix.
   `services/ssrf.ts` (coordinate — security-owned file) without touching the
   buffered/validate path; (3) durable `AiSpendWindowRecord` + `commitAiSpend` in
   Storage, replacing the in-process daily `Map`; (4) two-cap enforcement (request
-  + spend) with the 429 envelope; (5) `spendCapState` in `getConfigInfo`.
+  - spend) with the 429 envelope; (5) `spendCapState` in `getConfigInfo`.
 - **Depends on:** Slice A (imports new schemas).
 - **DoD:** new tests for streaming happy-path, mid-stream key-redaction, spend
   pre-check 429, durable counter survives a simulated restart (in-memory store
@@ -477,7 +486,7 @@ ownership matrix.
 ### Slice C — web settings + assistant (`gv-web-engineer`)
 
 - **Paths:** `apps/web/**` AI settings panel + assistant panel + the AI client
-  helper (e.g. `apps/web/lib/ai/*`). **No `packages/**` edits** (lessons: use the
+  helper (e.g. `apps/web/lib/ai/*`). **No `packages/**` edits\*\* (lessons: use the
   shared schemas; if a field is route-local, validate server-side).
 - **Work:** (1) add the `server`/BFF rung to the privacy-mode picker; (2) Settings
   form to POST the key + caps and render `spendCapState` as a budget meter; (3)
@@ -503,8 +512,8 @@ A (shared-types)  ──►  B (server)  ──►  C (web)         [strict orde
 - Disjoint paths → cherry-pick each feature commit (not lessons commits).
 - One central `pnpm install`; agents must not stage `pnpm-lock.yaml`.
 - Full gauntlet (`pnpm -r build/typecheck/test`, `pnpm lint`, `pnpm format:check`)
-  + a runtime smoke test: set config → stream a chat → observe deltas → hit the
-  spend cap → 429.
+  - a runtime smoke test: set config → stream a chat → observe deltas → hit the
+    spend cap → 429.
 - Security sign-off on the redaction assertion test and the SSRF streaming pin.
 
 ## 9. Open questions (for the owner / future slices)
@@ -522,4 +531,7 @@ A (shared-types)  ──►  B (server)  ──►  C (web)         [strict orde
 - **Promote route-local wire types to `@graphvault/shared`** if the web slice
   needs config-CRUD types it currently re-declares (follow the storage-adapter
   precedent in lessons).
+
+```
+
 ```
