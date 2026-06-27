@@ -18,6 +18,64 @@
 export type Platform = 'ios' | 'android' | 'desktop' | 'unknown';
 
 /**
+ * Operating-system classification for the download experience.
+ *
+ * Distinct from {@link Platform} (which only cares about install affordances):
+ * the download page needs to tell Windows from macOS from Linux to offer the
+ * right native installer, and to route mobile (iOS/Android) users to the
+ * web/PWA path since there is no native mobile binary.
+ */
+export type Os = 'windows' | 'macos' | 'linux' | 'ios' | 'android' | 'unknown';
+
+/**
+ * Classify the operating system from a user-agent string. Pure: same input →
+ * same output, no DOM access, so it is fully unit-testable in Node.
+ *
+ * Order matters: mobile tokens (`iphone`/`ipad`/`android`) are checked before
+ * the desktop tokens, because Android UAs also contain `linux` and iOS UAs
+ * contain `mac os x`. Chrome OS (`cros`) is reported as `linux` (the AppImage /
+ * .deb are the closest native fit, though most Chromebook users will use the
+ * web/PWA path).
+ *
+ * NOTE: iPadOS 13+ reports a desktop-Safari UA (`Macintosh`) with no `ipad`
+ * token, so it is classified as `macos` here. Callers with access to the live
+ * navigator should use {@link detectIosFromNavigator} to correct that before
+ * presenting download options.
+ */
+export function detectOs(userAgent: string): Os {
+  const ua = userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  if (/windows|win32|win64/.test(ua)) return 'windows';
+  if (/macintosh|mac os x/.test(ua)) return 'macos';
+  if (/linux|cros|x11/.test(ua)) return 'linux';
+  return 'unknown';
+}
+
+/** Human-readable label for an {@link Os}, for button copy ("Download for X"). */
+export function osLabel(os: Os): string {
+  switch (os) {
+    case 'windows':
+      return 'Windows';
+    case 'macos':
+      return 'macOS';
+    case 'linux':
+      return 'Linux';
+    case 'ios':
+      return 'iOS';
+    case 'android':
+      return 'Android';
+    default:
+      return 'your device';
+  }
+}
+
+/** True when the OS has no native GraphVault binary (mobile → web/PWA only). */
+export function isMobileOs(os: Os): boolean {
+  return os === 'ios' || os === 'android';
+}
+
+/**
  * Which install affordance to present.
  *
  * - `prompt`      — a programmatic `beforeinstallprompt` is available; show an
