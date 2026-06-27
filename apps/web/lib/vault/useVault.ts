@@ -96,6 +96,27 @@ export interface UseVault {
   renameNote(from: NotePath, to: string): NotePath;
   deleteNote(path: NotePath): void;
   importNotes(incoming: readonly ImportNote[]): ImportSummary;
+  /**
+   * Write pending draft edits directly to the active storage adapter WITHOUT
+   * going through the React state → useEffect → adapter.save pipeline.
+   *
+   * This is the safe path for beforeunload / visibilitychange=hidden handlers:
+   * React's useEffect is async and may not fire before the browser unloads the
+   * page. Calling `updateContent` (which dispatches `setRawNotes`) is therefore
+   * NOT safe from a beforeunload handler — the last keystrokes would be lost.
+   *
+   * `directFlush` applies the patches to the current in-memory notes, calls
+   * `adapter.save()` immediately (so the write races to complete before unload),
+   * and ALSO dispatches a `setRawNotes` update to keep React state consistent
+   * for the case where the tab is NOT closed (e.g. visibilitychange=hidden on
+   * mobile where the app can resume later).
+   *
+   * @param updates  Array of `{ path, content }` pairs — the pending draft
+   *   content for each tab that has unsaved edits. Unknown paths are silently
+   *   skipped (the note may have been deleted between capturing the draft and
+   *   the flush firing).
+   */
+  directFlush(updates: ReadonlyArray<{ path: NotePath; content: string }>): Promise<void>;
   resetVault(): Promise<void>;
   /**
    * Non-destructively reload notes from the active storage adapter into React
@@ -363,6 +384,37 @@ export function useVault(): UseVault {
     return summary;
   }, []);
 
+  const directFlush = useCallback(
+    async (updates: ReadonlyArray<{ path: NotePath; content: string }>): Promise<void> => {
+      if (updates.length === 0) return;
+
+      // Apply patches to the CURRENT rawNotes synchronously using the functional
+      // updater pattern — we need the patched array both for the immediate
+      // storage write AND for the React state update.
+      let patched = latestNotesRef.current;
+      for (const { path, content } of updates) {
+        try {
+          patched = updateNoteContentOp(patched, path, content);
+        } catch {
+          // Note deleted between draft capture and flush — skip, don't abort.
+        }
+      }
+
+      // Write DIRECTLY to storage. This races to complete before the browser
+      // unloads the page — unlike setRawNotes which defers through useEffect.
+      if (encryptedStore.current) {
+        await encryptedStore.current.save(patched);
+      } else {
+        await store.save(patched);
+      }
+
+      // Also update React state so the UI stays consistent if the tab isn't
+      // actually closing (e.g. visibilitychange=hidden on mobile, resume later).
+      setRawNotes(patched);
+    },
+    [],
+  );
+
   const resetVault = useCallback(async () => {
     if (encryptedStore.current) {
       encryptedStore.current.clear();
@@ -419,6 +471,7 @@ export function useVault(): UseVault {
     renameNote,
     deleteNote,
     importNotes,
+    directFlush,
     resetVault,
     reload,
     restoreFromSnapshot,

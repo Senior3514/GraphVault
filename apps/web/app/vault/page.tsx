@@ -57,6 +57,8 @@ export default function VaultPage() {
   const loadedTabId = useRef<string | null>(null);
 
   // Flush all pending saves (call before tab switch / unmount).
+  // Uses vault.updateContent — safe for in-session flushes where React's
+  // async effect pipeline is still running (tab switch, unmount, etc.).
   const flushAll = useCallback(() => {
     for (const [tabId, timer] of Object.entries(saveTimers.current)) {
       clearTimeout(timer);
@@ -70,6 +72,25 @@ export default function VaultPage() {
         }
       }
     }
+  }, [layout.tabs, vault]);
+
+  // Flush all pending saves directly to storage — used by beforeunload and
+  // visibilitychange=hidden where React's useEffect may not fire before the
+  // page unloads.  vault.directFlush bypasses the setRawNotes→useEffect chain
+  // and writes synchronously to the adapter.
+  const flushAllDirect = useCallback(() => {
+    const updates: Array<{ path: NotePath; content: string }> = [];
+    for (const [tabId, timer] of Object.entries(saveTimers.current)) {
+      clearTimeout(timer);
+      delete saveTimers.current[tabId];
+      const tab = layout.tabs.find((t) => t.id === tabId);
+      if (tab?.notePath) {
+        updates.push({ path: tab.notePath as NotePath, content: getDraft(tabId) });
+      }
+    }
+    // directFlush returns a Promise but localStorage.setItem (the underlying
+    // adapter write) is synchronous, so the write completes before unload.
+    void vault.directFlush(updates);
   }, [layout.tabs, vault]);
 
   // ---- Initial tab bootstrap ------------------------------------------------
@@ -178,10 +199,11 @@ export default function VaultPage() {
   }, [flushAll]);
 
   // Flush on hard tab close / navigation away and on the tab being backgrounded
-  // (mobile). Without this, the pending autosave timer (up to AUTOSAVE_MS) is
-  // dropped and the last keystrokes never reach `vault.updateContent` — silent
-  // data loss. Core promise: never lose user data.
-  useEffect(() => registerFlushOnExit(flushAll), [flushAll]);
+  // (mobile). Uses flushAllDirect (not flushAll) because beforeunload /
+  // visibilitychange handlers must write to storage NOW — React's useEffect
+  // pipeline is async and may not fire before the browser unloads the page.
+  // vault.directFlush writes directly to the adapter, bypassing setRawNotes.
+  useEffect(() => registerFlushOnExit(flushAllDirect), [flushAllDirect]);
 
   // ---- Tab actions ----------------------------------------------------------
   const switchTab = useCallback(
