@@ -27,8 +27,8 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
 1. **One-click native installers, hosted** - end users download a Windows
    `.exe` / macOS `.dmg` / Linux `.AppImage` from `/download`. Pipeline is built;
    it lights up the moment the owner enables GitHub Actions (or builds locally).
-2. **Connect to everything (privacy-graded)** - URL / web-clip via the server
-   proxy, then live email (IMAP / Gmail / Outlook OAuth, creds server-side).
+2. **Connect to everything (privacy-graded)** - web-clip via the server proxy is
+   done; next is live email (IMAP / Gmail / Outlook OAuth, creds server-side).
 3. **Cloud drives** - Google Drive + OneDrive (OAuth app-folder, tokens
    server-side) so a vault of `.md` lives anywhere the user already keeps files.
 4. **Effortless capture & navigation** - keep sharpening the `+` / quick-capture,
@@ -198,7 +198,10 @@ connector shows its privacy posture.
 - ✅ RSS / Atom / OPML import (phase 1, `local` - paste/upload, parsed on-device)
 - ✅ Email import (`.eml` / `.mbox`, client-side, phase 1)
 - ⬜ Live email (IMAP / Gmail / Outlook OAuth) → server-side creds, phase 2
-- ⬜ URL-fetch / web-clip via server proxy (avoids CORS, keeps creds off the browser)
+- ✅ URL-fetch / web-clip via server proxy (avoids CORS, keeps creds off the
+  browser) - `POST /v1/clip` (SSRF-guarded server fetch + HTML→Markdown), shared
+  zod contract, API client `clipUrl`, and a Settings WebClipPanel that lands the
+  page as a collision-safe `connectors/webclip/…` note with frontmatter
 - ✅ Generic webhook / "connect anything" + per-connector audit log - per-user
   inbox tokens (hashed, vault-scoped, owner-minted) → `POST /v1/inbox/:token`
   lands content as a non-clobbering `Inbox/…` note via the tested blob/sync path;
