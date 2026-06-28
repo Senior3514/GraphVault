@@ -62,12 +62,18 @@ A change ships only when ALL pass, run from the repo root:
 
 ```bash
 pnpm install
-pnpm -r build
-pnpm -r typecheck
+pnpm typecheck
 pnpm lint
 pnpm format:check
-pnpm -r test
+pnpm test
+pnpm run build:web
 ```
+
+> The web static export (`build:web`) is the build that gates merges and mirrors
+> `ci.yml`. Do NOT use `pnpm -r build`: it invokes the Tauri desktop `tauri build`,
+> which needs the native Linux/macOS/Windows GUI toolchain and only runs in the
+> OS-matrixed `desktop-release.yml` workflow. A `pnpm -r build` failure in a plain
+> dev environment is environmental (missing native libs), not a product defect.
 
 Plus, when relevant, a **runtime smoke test** (e.g. boot the server and exercise
 register → vault → blob → push → changes). The QA/Reviewer signs off. New

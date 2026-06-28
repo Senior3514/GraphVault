@@ -96,7 +96,8 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
   insecure prod), graceful shutdown, connection/timeout limits, split JSON vs
   blob body caps, hardened Dockerfile/compose (non-root, cap_drop, read-only +
   tmpfs, healthcheck), `docs/hardening.md` (nginx TLS, UFW, fail2ban, systemd)
-- ⬜ Lazy-load graph; CSP Trusted Types (CSP shipped)
+- ✅ Lazy-load graph (force-graph lib code-split via `next/dynamic` + accessible
+  loading skeleton; kept out of First Load JS) · ⬜ CSP Trusted Types (CSP shipped)
 
 ## Milestone 14b - Graph v2 extras ✅
 
