@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AddButton } from '../../components/AddButton';
+import { TOGGLE_PREVIEW_EVENT } from '../../components/CommandPalette';
 import { BacklinksPanel } from '../../components/BacklinksPanel';
 import { MarkdownEditor } from '../../components/MarkdownEditor';
 import { MarkdownPreview } from '../../components/MarkdownPreview';
@@ -357,16 +358,26 @@ export default function VaultPage() {
     closeTab(activeTab.id);
   };
 
-  // ---- Keyboard shortcut (Cmd/Ctrl+E) ---------------------------------------
+  // ---- Toggle preview (Cmd/Ctrl+E and the command palette) -------------------
+  // Both the keyboard shortcut and the "Toggle preview" command-palette action
+  // (which broadcasts TOGGLE_PREVIEW_EVENT) flip the editor-preview split. The
+  // palette path previously had no listener, so the command was a silent no-op.
   useEffect(() => {
+    const togglePreview = () => {
+      actions.setSplitMode(layout.splitMode === 'editor-preview' ? 'none' : 'editor-preview');
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
         e.preventDefault();
-        actions.setSplitMode(layout.splitMode === 'editor-preview' ? 'none' : 'editor-preview');
+        togglePreview();
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener(TOGGLE_PREVIEW_EVENT, togglePreview);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener(TOGGLE_PREVIEW_EVENT, togglePreview);
+    };
   }, [layout.splitMode, actions]);
 
   // ---- Derived values -------------------------------------------------------
