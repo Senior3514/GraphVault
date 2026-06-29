@@ -53,6 +53,41 @@ const config: Config = {
           'monospace',
         ],
       },
+      /**
+       * Refined type scale with paired line-heights + optical letter-spacing.
+       * Display sizes get progressively tighter tracking (negative em values)
+       * so large headings read crisp and confident, while body sizes keep a
+       * comfortable measure. This overrides only the listed steps; every other
+       * Tailwind size remains the stock default.
+       */
+      fontSize: {
+        xs: ['0.75rem', { lineHeight: '1.1rem', letterSpacing: '0' }],
+        sm: ['0.875rem', { lineHeight: '1.35rem', letterSpacing: '-0.006em' }],
+        base: ['1rem', { lineHeight: '1.6rem', letterSpacing: '-0.011em' }],
+        lg: ['1.125rem', { lineHeight: '1.75rem', letterSpacing: '-0.014em' }],
+        xl: ['1.25rem', { lineHeight: '1.85rem', letterSpacing: '-0.017em' }],
+        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.02em' }],
+        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.022em' }],
+        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.025em' }],
+        '5xl': ['3rem', { lineHeight: '1.08', letterSpacing: '-0.028em' }],
+        '6xl': ['3.75rem', { lineHeight: '1.05', letterSpacing: '-0.03em' }],
+        '7xl': ['4.5rem', { lineHeight: '1.03', letterSpacing: '-0.032em' }],
+      },
+      /**
+       * Theme-aware elevation tokens (resolved from CSS variables in globals.css)
+       * so `shadow-elevation-*` stays subtle in dark and reads as soft ambient
+       * occlusion in light - no hardcoded `shadow-black/NN`.
+       */
+      boxShadow: {
+        'elevation-sm': 'var(--shadow-sm)',
+        'elevation-md': 'var(--shadow-md)',
+        'elevation-lg': 'var(--shadow-lg)',
+        'elevation-xl': 'var(--shadow-xl)',
+      },
+      transitionTimingFunction: {
+        // A gentle, slightly-overshooting ease used for entrances / panels.
+        smooth: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
       keyframes: {
         'fade-in': {
           from: { opacity: '0' },
