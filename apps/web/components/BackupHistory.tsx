@@ -252,7 +252,7 @@ export function BackupHistory() {
             type="button"
             onClick={close}
             aria-label="Close version history"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
           >
             <CloseIcon />
           </button>
@@ -265,7 +265,7 @@ export function BackupHistory() {
           aria-atomic="true"
           className={
             feedback
-              ? 'border-b border-neutral-800 bg-sky-900/20 px-5 py-2.5 text-xs text-sky-300'
+              ? 'border-b border-neutral-800 bg-accent-900/20 px-5 py-2.5 text-xs text-accent-300'
               : 'sr-only'
           }
         >
@@ -304,7 +304,7 @@ export function BackupHistory() {
                           {formatDate(snap.takenAt)}
                         </span>
                         {snap.label && (
-                          <span className="shrink-0 rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-300">
+                          <span className="shrink-0 rounded bg-accent-500/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-300">
                             {snap.label}
                           </span>
                         )}
@@ -324,7 +324,7 @@ export function BackupHistory() {
                         disabled={busy}
                         onClick={() => void handleRestore(snap.id)}
                         aria-label={`Restore snapshot from ${formatDate(snap.takenAt)}`}
-                        className="rounded-md border border-sky-700/50 bg-sky-600/10 px-2.5 py-1 text-xs font-medium text-sky-300 hover:bg-sky-600/20 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-sky-500"
+                        className="rounded-md border border-accent-700/50 bg-accent-600/10 px-2.5 py-1 text-xs font-medium text-accent-300 hover:bg-accent-600/20 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent-500"
                       >
                         {isRestoring ? 'Restoring…' : 'Restore'}
                       </button>
@@ -333,7 +333,7 @@ export function BackupHistory() {
                         disabled={busy}
                         onClick={() => void handleDelete(snap.id)}
                         aria-label={`Delete snapshot from ${formatDate(snap.takenAt)}`}
-                        className="rounded-md border border-neutral-700/50 bg-neutral-800/40 px-2.5 py-1 text-xs font-medium text-neutral-400 hover:bg-red-900/20 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-sky-500"
+                        className="rounded-md border border-neutral-700/50 bg-neutral-800/40 px-2.5 py-1 text-xs font-medium text-neutral-400 hover:bg-red-900/20 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-accent-500"
                       >
                         {isDeleting ? 'Deleting…' : 'Delete'}
                       </button>
@@ -354,7 +354,7 @@ export function BackupHistory() {
           <button
             type="button"
             onClick={close}
-            className="text-neutral-500 hover:text-neutral-300 focus-visible:ring-2 focus-visible:ring-sky-500"
+            className="text-neutral-500 hover:text-neutral-300 focus-visible:ring-2 focus-visible:ring-accent-500"
           >
             Close
           </button>

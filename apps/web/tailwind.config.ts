@@ -16,9 +16,32 @@ const config: Config = {
        * adapt per theme automatically - no per-component rewrite. Dark uses the
        * stock Tailwind triples; light uses an inverted ramp so semantics hold
        * (`neutral-950` is always "page background", `neutral-50` "strongest
-       * text"). Accents (sky/amber/red) are unchanged - they read on both.
+       * text"). The brand `accent` (cyan) is likewise CSS-var-driven and
+       * theme-aware; amber/red stay stock - they read on both.
        */
       colors: {
+        /**
+         * Brand accent - a swappable token backed by CSS variables (defined per
+         * theme in globals.css). This is the ONE-PLACE switch for the brand
+         * colour: `bg-accent-500`, `text-accent-400`, `ring-accent-500`,
+         * `border-accent-500`, etc. all resolve to the themed cyan and flip
+         * automatically between light and dark. `accent-fg` is the foreground
+         * (white) to place on an accent-500/600 fill (AA in both themes).
+         */
+        accent: {
+          50: 'rgb(var(--accent-50) / <alpha-value>)',
+          100: 'rgb(var(--accent-100) / <alpha-value>)',
+          200: 'rgb(var(--accent-200) / <alpha-value>)',
+          300: 'rgb(var(--accent-300) / <alpha-value>)',
+          400: 'rgb(var(--accent-400) / <alpha-value>)',
+          500: 'rgb(var(--accent-500) / <alpha-value>)',
+          600: 'rgb(var(--accent-600) / <alpha-value>)',
+          700: 'rgb(var(--accent-700) / <alpha-value>)',
+          800: 'rgb(var(--accent-800) / <alpha-value>)',
+          900: 'rgb(var(--accent-900) / <alpha-value>)',
+          950: 'rgb(var(--accent-950) / <alpha-value>)',
+          fg: 'rgb(var(--accent-fg) / <alpha-value>)',
+        },
         neutral: {
           50: 'rgb(var(--n-50) / <alpha-value>)',
           100: 'rgb(var(--n-100) / <alpha-value>)',

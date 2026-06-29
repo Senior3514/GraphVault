@@ -337,7 +337,7 @@ export function Tour() {
       {spotlight && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-[61] rounded-xl ring-2 ring-sky-400/60 motion-safe:animate-pulse"
+          className="pointer-events-none fixed z-[61] rounded-xl ring-2 ring-accent-400/60 motion-safe:animate-pulse"
           style={{
             top: spotlight.top,
             left: spotlight.left,
@@ -413,7 +413,7 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
       <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
         <div className="flex items-center gap-2">
           <InfoIcon />
-          <span className="text-xs font-semibold uppercase tracking-wide text-sky-400">
+          <span className="text-xs font-semibold uppercase tracking-wide text-accent-400">
             Tour {stepIndex + 1} / {totalSteps}
           </span>
         </div>
@@ -421,7 +421,7 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
           type="button"
           onClick={onDismiss}
           aria-label="Close tour"
-          className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-sky-500"
+          className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-accent-500"
         >
           <CloseIcon />
         </button>
@@ -452,9 +452,9 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
               className={[
                 'h-1.5 rounded-full transition-all duration-200',
                 i === stepIndex
-                  ? 'w-4 bg-sky-400'
+                  ? 'w-4 bg-accent-400'
                   : i < stepIndex
-                    ? 'w-1.5 bg-sky-700'
+                    ? 'w-1.5 bg-accent-700'
                     : 'w-1.5 bg-neutral-700',
               ].join(' ')}
             />
@@ -467,7 +467,7 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
             <button
               type="button"
               onClick={onPrev}
-              className="rounded-md px-2.5 py-1.5 text-xs text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-sky-500"
+              className="rounded-md px-2.5 py-1.5 text-xs text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-accent-500"
             >
               Back
             </button>
@@ -475,7 +475,7 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
           <button
             type="button"
             onClick={onNext}
-            className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sky-500 focus-visible:ring-1 focus-visible:ring-sky-400 focus-visible:ring-offset-1 focus-visible:ring-offset-neutral-900"
+            className="rounded-md bg-accent-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-500 focus-visible:ring-1 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-neutral-900"
           >
             {isLast ? 'Done' : 'Next'}
           </button>
@@ -494,7 +494,7 @@ function InfoIcon() {
     <svg
       viewBox="0 0 16 16"
       fill="currentColor"
-      className="h-3.5 w-3.5 text-sky-400"
+      className="h-3.5 w-3.5 text-accent-400"
       aria-hidden="true"
     >
       <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Z" />

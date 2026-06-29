@@ -1034,7 +1034,7 @@ function WebDavSection({
       </p>
 
       {/* Security notice */}
-      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-3 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Credentials stay on the server.</strong> Your WebDAV URL and password are encrypted
         at rest on your GraphVault server and are never sent to the browser. The client uses only
         its normal GraphVault bearer token to proxy through.
@@ -1357,7 +1357,7 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
       </p>
 
       {/* Security notice */}
-      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-3 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Credentials stay on the server.</strong> Your S3 access key and secret are encrypted
         at rest on your GraphVault server using AES-256-GCM. AWS SigV4 request signing happens
         server-side - the browser handles only its normal GraphVault bearer token.
@@ -1818,7 +1818,7 @@ function AzureSection({
       </p>
 
       {/* Security notice */}
-      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-3 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Credentials stay on the server.</strong> Your Azure account key is encrypted at rest
         on your GraphVault server using AES-256-GCM. Request signing happens server-side - the
         browser handles only its normal GraphVault bearer token.
@@ -2154,7 +2154,7 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
       </p>
 
       {/* Security notice */}
-      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-3 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Credentials stay on the server.</strong> Your GCS HMAC secret is encrypted at rest
         on your GraphVault server using AES-256-GCM. Request signing happens server-side - the
         browser handles only its normal GraphVault bearer token.
@@ -3264,7 +3264,7 @@ function AIAssistantSection() {
                 value={kind}
                 checked={settings.kind === kind}
                 onChange={() => handleKindChange(kind)}
-                className="mt-0.5 accent-sky-500"
+                className="mt-0.5 accent-accent-500"
               />
               <span>
                 <span className="font-medium">{label}</span>
@@ -3320,7 +3320,7 @@ function AIAssistantSection() {
       {settings.kind === 'server' && (
         <div className="mt-4 space-y-3">
           {/* Security notice - unmissable */}
-          <div className="rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+          <div className="rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
             <strong>Your key stays on your server.</strong> The API key you enter below is sent once
             over TLS to your GraphVault server and stored encrypted with AES-256-GCM. It is never
             returned to this browser, never stored in the browser, and never logged. When you run
@@ -3483,7 +3483,7 @@ function AIAssistantSection() {
                             value={value}
                             checked={gateway === value}
                             onChange={() => setGateway(value)}
-                            className="accent-sky-500"
+                            className="accent-accent-500"
                           />
                           {label}
                         </label>
@@ -3664,7 +3664,7 @@ function AIAssistantSection() {
               ? 'bg-neutral-800 text-neutral-500'
               : settings.kind === 'local'
                 ? 'bg-emerald-950 text-emerald-300'
-                : 'bg-sky-950 text-sky-300',
+                : 'bg-accent-950 text-accent-300',
           ].join(' ')}
         >
           {settings.kind === 'off'
@@ -4121,7 +4121,7 @@ function WebClipPanel({
       </p>
 
       {/* Security notice */}
-      <div className="rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Via your server.</strong> The HTTP request goes through your self-hosted GraphVault
         server, not the browser. Private and loopback addresses (10.x, 192.168.x, 127.x,
         169.254.169.254) are blocked server-side. The URL is fetched once and is not stored
@@ -4198,7 +4198,7 @@ function ConnectorsSection({
       <h2 className="text-sm font-semibold text-neutral-200">Connectors</h2>
 
       {/* Privacy preamble */}
-      <div className="mt-2 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-2 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Privacy model:</strong> connectors are opt-in and off by default. Each connector
         shows its privacy posture before it runs. Phase 1 connectors are{' '}
         <strong>on-device only</strong> - no network calls, no credentials. Phase 2 connectors route
@@ -4392,7 +4392,7 @@ function AppImporterSection({ vault }: { vault: ReturnType<typeof useVaultContex
                   setSelectedId(imp.id);
                   setMsg(null);
                 }}
-                className="mt-0.5 accent-sky-500"
+                className="mt-0.5 accent-accent-500"
               />
               <span>
                 <span className="font-medium">{imp.name}</span>

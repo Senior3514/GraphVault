@@ -234,7 +234,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           aria-pressed={true}
           aria-label="Exit focus mode"
           title="Exit focus mode (Esc)"
-          className="fixed right-3 top-3 z-50 flex items-center gap-2 rounded-full border border-neutral-700/80 bg-neutral-900/80 px-3 py-1.5 text-xs text-neutral-300 shadow-lg backdrop-blur transition-colors hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 motion-reduce:transition-none"
+          className="fixed right-3 top-3 z-50 flex items-center gap-2 rounded-full border border-neutral-700/80 bg-neutral-900/80 px-3 py-1.5 text-xs text-neutral-300 shadow-lg backdrop-blur transition-colors hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 motion-reduce:transition-none"
           style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
         >
           <FocusExitIcon />
@@ -296,7 +296,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
           type="button"
           onClick={onMenuOpen}
           aria-label="Open navigation menu"
-          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           <HamburgerIcon />
         </button>
@@ -305,7 +305,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
           onClick={() => window.history.back()}
           aria-label="Go back"
           title="Back"
-          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           <BackIcon />
         </button>
@@ -326,7 +326,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
           href="/"
           aria-label="Home"
           title="Home"
-          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           <NavIcon glyph="home" className="h-5 w-5" />
         </Link>
@@ -334,7 +334,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
           type="button"
           onClick={open}
           aria-label="Open command palette"
-          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           <SearchIcon />
         </button>

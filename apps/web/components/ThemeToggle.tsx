@@ -4,7 +4,7 @@
  * ThemeToggle - a compact segmented control for Light / Dark / System.
  *
  * Styling mirrors the Sidebar's interactive surfaces (neutral-on-neutral with a
- * sky active accent) so it sits naturally in the icon-rail footer. It flips
+ * cyan active accent) so it sits naturally in the icon-rail footer. It flips
  * automatically in light mode because those `neutral-*` utilities are driven by
  * CSS variables (see globals.css).
  *
@@ -48,7 +48,7 @@ export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
           SEGMENTS.find((s) => s.mode === next)?.label
         }.`}
         title={`Theme: ${current.label} (click to cycle)`}
-        className="flex min-h-[44px] w-full items-center justify-center rounded-md p-2 text-neutral-500 transition-colors hover:bg-neutral-900 hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+        className="flex min-h-[44px] w-full items-center justify-center rounded-md p-2 text-neutral-500 transition-colors hover:bg-neutral-900 hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
       >
         <ThemeIcon mode={mode} className="h-5 w-5" />
       </button>
@@ -73,7 +73,7 @@ export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
             title={seg.hint}
             className={[
               'flex min-h-[32px] flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
               active
                 ? 'bg-neutral-800 text-neutral-100'
                 : 'text-neutral-500 hover:bg-neutral-800/60 hover:text-neutral-300',
@@ -81,7 +81,7 @@ export function ThemeToggle({ collapsed = false }: { collapsed?: boolean }) {
           >
             <ThemeIcon
               mode={seg.mode}
-              className={['h-4 w-4 shrink-0', active ? 'text-sky-400' : ''].join(' ')}
+              className={['h-4 w-4 shrink-0', active ? 'text-accent-400' : ''].join(' ')}
             />
             <span>{seg.label}</span>
           </button>

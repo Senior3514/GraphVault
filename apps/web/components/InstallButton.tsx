@@ -105,7 +105,7 @@ export function InstallButton() {
       <button
         onClick={handleInstall}
         type="button"
-        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-5 py-2.5 font-medium text-sky-300 transition-all hover:border-sky-500/60 hover:bg-sky-500/15 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-accent-500/40 bg-accent-500/10 px-5 py-2.5 font-medium text-accent-300 transition-all hover:border-accent-500/60 hover:bg-accent-500/15 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
       >
         <DownloadIcon className="h-4 w-4" />
         Install app
@@ -121,7 +121,7 @@ export function InstallButton() {
         aria-label="How to install on iPhone or iPad"
         className="inline-flex max-w-xs items-start gap-2.5 rounded-lg border border-neutral-800 bg-neutral-900/70 px-3.5 py-2.5 text-xs text-neutral-300"
       >
-        <ShareIcon className="mt-px h-4 w-4 shrink-0 text-sky-400" />
+        <ShareIcon className="mt-px h-4 w-4 shrink-0 text-accent-400" />
         <span className="leading-relaxed">
           To install: tap <span className="font-semibold text-neutral-100">Share</span>, then{' '}
           <span className="font-semibold text-neutral-100">Add to Home Screen</span>.
@@ -130,7 +130,7 @@ export function InstallButton() {
           type="button"
           onClick={() => setIosHintDismissed(true)}
           aria-label="Dismiss install hint"
-          className="-mr-1 -mt-1 ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-400"
+          className="-mr-1 -mt-1 ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-400"
         >
           <CloseIcon className="h-3.5 w-3.5" />
         </button>

@@ -430,7 +430,7 @@ export function CommandPalette() {
                     onClick={() => runItem(item)}
                     className={[
                       'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors motion-reduce:transition-none',
-                      active ? 'bg-sky-500/15 text-neutral-100' : 'text-neutral-300',
+                      active ? 'bg-accent-500/15 text-neutral-100' : 'text-neutral-300',
                     ].join(' ')}
                   >
                     <span
@@ -438,7 +438,7 @@ export function CommandPalette() {
                       className={[
                         'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-xs',
                         active
-                          ? 'border-sky-400/40 bg-sky-500/10 text-sky-300'
+                          ? 'border-accent-400/40 bg-accent-500/10 text-accent-300'
                           : 'border-neutral-700 bg-neutral-800/60 text-neutral-400',
                       ].join(' ')}
                     >
