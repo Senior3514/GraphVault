@@ -12,7 +12,7 @@ import { InstallButton } from '../components/InstallButton';
  *  - Tasteful motion gated behind `motion-safe:` so prefers-reduced-motion is
  *    always honoured.
  *  - Social-proof strip + "star us on GitHub" CTA.
- *  - Dark-first with DESIGN.md's sky-400/neutral palette.
+ *  - Dark-first with DESIGN.md's accent-400/neutral palette.
  */
 
 export default function LandingPage() {
@@ -25,7 +25,7 @@ export default function LandingPage() {
       {/* Top aurora glow */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(70rem_50rem_at_50%_-15%,theme(colors.sky.500/18),transparent)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(70rem_50rem_at_50%_-15%,theme(colors.accent.500/18),transparent)]"
       />
       {/* Secondary accent - lower right */}
       <div
@@ -48,7 +48,7 @@ export default function LandingPage() {
               href="/"
               className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-neutral-100 transition-opacity hover:opacity-80"
             >
-              <GraphMark className="h-6 w-6 text-sky-400" />
+              <GraphMark className="h-6 w-6 text-accent-400" />
               <span>GraphVault</span>
             </Link>
 
@@ -83,7 +83,7 @@ export default function LandingPage() {
               {/* Tap target ≥ 44px via min-h-[44px] */}
               <Link
                 href="/vault"
-                className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                className="inline-flex min-h-[44px] items-center rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-accent-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-400 hover:shadow-lg hover:shadow-accent-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
                 Open GraphVault
               </Link>
@@ -109,12 +109,12 @@ export default function LandingPage() {
             <h1 className="text-balance text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl sm:text-6xl xl:text-7xl">
               Notes that live{' '}
               <span className="relative whitespace-nowrap">
-                <span className="relative z-10 text-sky-400">on your terms</span>
+                <span className="relative z-10 text-accent-400">on your terms</span>
                 {/* Underline accent */}
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 300 12"
-                  className="absolute -bottom-1 left-0 w-full fill-sky-500/25"
+                  className="absolute -bottom-1 left-0 w-full fill-accent-500/25"
                   preserveAspectRatio="none"
                 >
                   <path d="M0 9 Q150 0 300 9" />
@@ -154,7 +154,7 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/vault"
-                className="group inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 font-semibold text-white shadow-lg shadow-sky-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-sky-400 hover:shadow-xl hover:shadow-sky-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                className="group inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 font-semibold text-white shadow-lg shadow-accent-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-400 hover:shadow-xl hover:shadow-accent-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
                 Open GraphVault
                 <ArrowRightIcon className="h-4 w-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
@@ -162,7 +162,7 @@ export default function LandingPage() {
               {/* Download the native app - routes to the OS-aware download page. */}
               <Link
                 href="/download"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-sky-500/40 bg-sky-500/10 px-5 py-2.5 font-medium text-sky-300 transition-all duration-150 ease-out hover:border-sky-500/60 hover:bg-sky-500/15 hover:text-sky-200 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-accent-500/40 bg-accent-500/10 px-5 py-2.5 font-medium text-accent-300 transition-all duration-150 ease-out hover:border-accent-500/60 hover:bg-accent-500/15 hover:text-accent-200 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
                 <DownloadIcon className="h-4 w-4" />
                 Download the app
@@ -174,7 +174,7 @@ export default function LandingPage() {
                 href="https://github.com/Senior3514/GraphVault"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/60 px-5 py-2.5 font-medium text-neutral-200 transition-all duration-150 ease-out hover:border-neutral-700 hover:bg-neutral-900 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/60 px-5 py-2.5 font-medium text-neutral-200 transition-all duration-150 ease-out hover:border-neutral-700 hover:bg-neutral-900 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
                 <GitHubIcon className="h-4 w-4 text-neutral-400" />
                 Star on GitHub
@@ -232,7 +232,7 @@ export default function LandingPage() {
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <PromiseCard
               icon={<FileIcon />}
-              accent="sky"
+              accent="brand"
               title="Local-first, no lock-in"
               description="Your vault is plain Markdown. Unzip the export and you have readable .md files - no proprietary database, no import step."
             />
@@ -377,7 +377,7 @@ export default function LandingPage() {
               <div className="hidden grid-cols-3 border-b border-neutral-800 text-xs font-semibold uppercase tracking-wide sm:grid">
                 <div className="px-5 py-3 text-neutral-500">Feature</div>
                 <div className="border-l border-neutral-800 px-5 py-3 text-neutral-500">Others</div>
-                <div className="border-l border-neutral-800 bg-sky-500/5 px-5 py-3 text-sky-400">
+                <div className="border-l border-neutral-800 bg-accent-500/5 px-5 py-3 text-accent-400">
                   GraphVault
                 </div>
               </div>
@@ -397,7 +397,7 @@ export default function LandingPage() {
                     <div className="border-l border-neutral-800 px-5 py-3.5 text-neutral-600">
                       {them}
                     </div>
-                    <div className="border-l border-neutral-800 bg-sky-500/5 px-5 py-3.5 font-medium text-neutral-200">
+                    <div className="border-l border-neutral-800 bg-accent-500/5 px-5 py-3.5 font-medium text-neutral-200">
                       {us}
                     </div>
                   </div>
@@ -414,7 +414,7 @@ export default function LandingPage() {
                         <span className="text-neutral-600">{them}</span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <span className="mt-0.5 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-sky-400 w-16">
+                        <span className="mt-0.5 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-accent-400 w-16">
                           GV
                         </span>
                         <span className="font-medium text-neutral-200">{us}</span>
@@ -435,7 +435,7 @@ export default function LandingPage() {
             {/* Decorative glow */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_20rem_at_50%_-10%,theme(colors.sky.500/12),transparent)]"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_20rem_at_50%_-10%,theme(colors.accent.500/12),transparent)]"
             />
 
             <div className="relative">
@@ -499,7 +499,7 @@ export default function LandingPage() {
             <div className="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center">
               <div>
                 <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
-                  <GraphMark className="h-5 w-5 text-sky-400" />
+                  <GraphMark className="h-5 w-5 text-accent-400" />
                   GraphVault
                 </Link>
                 <p className="mt-1.5 text-xs text-neutral-600">
@@ -556,7 +556,7 @@ function ProductPreview() {
       {/* Outer shadow / glow */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 -m-4 rounded-3xl bg-[radial-gradient(50%_50%_at_50%_50%,theme(colors.sky.500/15),transparent)] blur-2xl"
+        className="absolute inset-0 -m-4 rounded-3xl bg-[radial-gradient(50%_50%_at_50%_50%,theme(colors.accent.500/15),transparent)] blur-2xl"
       />
 
       <div className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl shadow-black/60 ring-1 ring-white/[0.06] motion-safe:animate-float">
@@ -602,13 +602,13 @@ function ProductPreview() {
             <div className="space-y-1.5 font-mono text-[11px] leading-relaxed">
               <div className="font-semibold text-neutral-100"># Ideas</div>
               <div className="text-neutral-500">
-                See <span className="rounded bg-sky-950/60 px-1 text-sky-300">[[Sync]]</span>
+                See <span className="rounded bg-accent-950/60 px-1 text-accent-300">[[Sync]]</span>
                 {' and '}
-                <span className="rounded bg-sky-950/60 px-1 text-sky-300">[[Graph]]</span>
+                <span className="rounded bg-accent-950/60 px-1 text-accent-300">[[Graph]]</span>
               </div>
               <div className="text-neutral-500">
-                <span className="rounded bg-sky-950/40 px-1 text-sky-400">#project</span>{' '}
-                <span className="rounded bg-sky-950/40 px-1 text-sky-400">#v0</span>
+                <span className="rounded bg-accent-950/40 px-1 text-accent-400">#project</span>{' '}
+                <span className="rounded bg-accent-950/40 px-1 text-accent-400">#v0</span>
               </div>
               <div className="h-3" />
               <div className="text-neutral-600">## Notes so far</div>
@@ -617,7 +617,7 @@ function ProductPreview() {
               {/* Blinking cursor */}
               <div className="flex items-center text-neutral-600">
                 <span>- </span>
-                <span className="ml-px h-3 w-0.5 bg-sky-400 motion-safe:animate-pulse" />
+                <span className="ml-px h-3 w-0.5 bg-accent-400 motion-safe:animate-pulse" />
               </div>
             </div>
           </div>
@@ -737,20 +737,20 @@ function VaultPreview() {
         <div className="min-w-0 flex-1 border-r border-neutral-800 p-4 font-mono">
           <div className="text-neutral-100">## Q3 Planning</div>
           <div className="mt-1 text-neutral-500">
-            Goals: finish <span className="text-sky-300">[[Graph]]</span> v2
+            Goals: finish <span className="text-accent-300">[[Graph]]</span> v2
           </div>
           <div className="text-neutral-500">
-            and wire up <span className="text-sky-300">[[Sync]]</span>.
+            and wire up <span className="text-accent-300">[[Sync]]</span>.
           </div>
           <div className="mt-2 text-neutral-500">
-            <span className="text-sky-400">#milestone</span>{' '}
-            <span className="text-sky-400">#planning</span>
+            <span className="text-accent-400">#milestone</span>{' '}
+            <span className="text-accent-400">#planning</span>
           </div>
           <div className="mt-2 text-neutral-600">- [ ] Ship export flow</div>
           <div className="text-neutral-600">- [x] Auth complete</div>
           <div className="flex items-center text-neutral-600">
             <span>- [ ] </span>
-            <span className="ml-px h-2.5 w-0.5 bg-sky-400 motion-safe:animate-pulse" />
+            <span className="ml-px h-2.5 w-0.5 bg-accent-400 motion-safe:animate-pulse" />
           </div>
         </div>
 
@@ -758,12 +758,15 @@ function VaultPreview() {
         <div className="min-w-0 flex-1 p-4">
           <div className="text-base font-semibold text-neutral-100">Q3 Planning</div>
           <div className="mt-1.5 leading-relaxed text-neutral-400">
-            Goals: finish <span className="rounded bg-sky-950/50 px-0.5 text-sky-300">Graph</span>{' '}
-            v2 and wire up <span className="rounded bg-sky-950/50 px-0.5 text-sky-300">Sync</span>.
+            Goals: finish{' '}
+            <span className="rounded bg-accent-950/50 px-0.5 text-accent-300">Graph</span> v2 and
+            wire up <span className="rounded bg-accent-950/50 px-0.5 text-accent-300">Sync</span>.
           </div>
           <div className="mt-2 flex gap-1">
-            <span className="rounded bg-sky-950/40 px-1 text-xs text-sky-400">#milestone</span>
-            <span className="rounded bg-sky-950/40 px-1 text-xs text-sky-400">#planning</span>
+            <span className="rounded bg-accent-950/40 px-1 text-xs text-accent-400">
+              #milestone
+            </span>
+            <span className="rounded bg-accent-950/40 px-1 text-xs text-accent-400">#planning</span>
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-neutral-400">
             <span className="flex h-3 w-3 items-center justify-center rounded-sm border border-neutral-600">
@@ -802,7 +805,7 @@ function GraphSVGPreview() {
             Global graph
           </span>
           <span className="ml-auto flex items-center gap-1.5 rounded-full border border-neutral-800 px-2 py-0.5 text-[10px] text-neutral-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+            <span className="h-1.5 w-1.5 rounded-full bg-accent-400" />
             note
             <span className="ml-1 h-1.5 w-1.5 rounded-full bg-violet-400" />
             tag
@@ -946,7 +949,7 @@ function GraphSVGPreview() {
 function SectionLabel({ children, centered }: { children: React.ReactNode; centered?: boolean }) {
   return (
     <p
-      className={`text-xs font-semibold uppercase tracking-widest text-sky-400 ${centered ? 'text-center' : ''}`}
+      className={`text-xs font-semibold uppercase tracking-widest text-accent-400 ${centered ? 'text-center' : ''}`}
     >
       {children}
     </p>
@@ -969,12 +972,12 @@ function PromiseCard({
   description,
 }: {
   icon: React.ReactNode;
-  accent: 'sky' | 'violet' | 'emerald' | 'amber';
+  accent: 'brand' | 'violet' | 'emerald' | 'amber';
   title: string;
   description: string;
 }) {
   const accentMap = {
-    sky: 'border-sky-400/20 bg-sky-500/10 text-sky-300',
+    brand: 'border-accent-400/20 bg-accent-500/10 text-accent-300',
     violet: 'border-violet-400/20 bg-violet-500/10 text-violet-300',
     emerald: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
     amber: 'border-amber-400/20 bg-amber-500/10 text-amber-300',
@@ -997,8 +1000,8 @@ function PromiseCard({
 function FeatureLine({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-4">
-      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-sky-400/20 bg-sky-500/10">
-        <CheckIcon className="h-3.5 w-3.5 text-sky-400" />
+      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-accent-400/20 bg-accent-500/10">
+        <CheckIcon className="h-3.5 w-3.5 text-accent-400" />
       </div>
       <div>
         <h3 className="text-sm font-semibold text-neutral-100">{title}</h3>

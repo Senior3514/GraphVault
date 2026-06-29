@@ -39,9 +39,9 @@ export const PRIVACY_POSTURE_COLORS: Record<
     border: 'border-emerald-900/60',
   },
   server: {
-    bg: 'bg-sky-950',
-    text: 'text-sky-300',
-    border: 'border-sky-900/60',
+    bg: 'bg-accent-950',
+    text: 'text-accent-300',
+    border: 'border-accent-900/60',
   },
   byo: {
     bg: 'bg-amber-950',

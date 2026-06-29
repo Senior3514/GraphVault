@@ -684,6 +684,38 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   change). Add `suppressHydrationWarning` to `<html>` since the attribute is set
   pre-hydration.
 
+### Tokenize the brand accent as a CSS-var Tailwind colour (one-place rebrand)
+
+- **Rule:** make the brand accent a swappable token the same way the `neutral`
+  ramp is: define `colors.accent.{50..950,fg}` in `tailwind.config.ts` as
+  `rgb(var(--accent-XXX) / <alpha-value>)`, back it with `--accent-*` triples in
+  BOTH `:root` (dark) and `:root[data-theme='light']` in globals.css, then
+  migrate component classes from the hardcoded palette (`sky-*`) to `accent-*`.
+  A bulk `sed 's/sky-/accent-/g'` over the matched files is safe when EVERY use
+  of that palette is brand/accent (verify first with grep). After: rebranding is
+  editing ~24 triples, zero component diffs.
+- **Gotcha (missed by `sed`):** arbitrary-value utilities reference the palette
+  by DOT path, not dash - `bg-[radial-gradient(...,theme(colors.sky.500/18),...)]`.
+  Grep `colors\.sky\.` separately and migrate those too. Unlike raw-CSS-prop
+  `theme()` use, `theme(colors.accent.500/18)` (with an explicit `/opacity`)
+  DOES resolve the `<alpha-value>` placeholder correctly to
+  `rgb(var(--accent-500)/.18)` - the unresolved-placeholder bug only bites
+  `theme(...)` with NO opacity in a non-utility context (e.g. `scrollbar-color`).
+- **AA, the load-bearing part:** the accent-500 FILL must clear AA against the
+  white text it carries (primary CTAs). Pure cyan-400/500 is far too bright
+  (cyan ~`#22d3ee` vs white ≈ 1.5:1). For a premium deep cyan, accent-500 had to
+  go to `rgb(1 127 153)` (`#017f99`) → 4.67:1 vs white (AA normal text); 600 =
+  `#016c83` → 6.04:1 (hover). For accent-AS-TEXT, the light theme needs DEEPER
+  values than dark (light page is near-white): light accent-400 = `#02697e`
+  (6.10:1 on paper) while dark accent-400 = `#1fafc6` (7.41:1 on near-black).
+  Keep 500/600 (the fills) IDENTICAL across themes so CTAs are one consistent
+  cyan; only the text/tint steps diverge per theme. Add an `--accent-fg` token
+  (white) for "what sits on the fill" so future rebrands don't re-derive it.
+- **Verify in the EMITTED CSS, not source:** confirm both `--accent-500:1 127 153`
+  (dark) and the light value appear, that `.bg-accent-500{...rgb(var(--accent-500)...)}`
+  is generated, that primary CTAs in `out/index.html` carry `bg-accent-500`, and
+  that `grep -c sky <built.css>` is 0.
+
 ### Toolchain: corepack does not put a bare `pnpm` on PATH
 
 - **Symptom:** the root `build:web` script (and any nested bare `pnpm --filter …`)

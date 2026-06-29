@@ -395,7 +395,7 @@ export function AssistantPanel() {
                   ? 'bg-neutral-800 text-neutral-500'
                   : settings.kind === 'local'
                     ? 'bg-emerald-950 text-emerald-400'
-                    : 'bg-sky-950 text-sky-400',
+                    : 'bg-accent-950 text-accent-400',
               ].join(' ')}
             >
               {isOff ? 'Off' : settings.kind === 'local' ? 'Local' : 'Server proxy'}
@@ -405,7 +405,7 @@ export function AssistantPanel() {
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close AI assistant"
-            className="flex h-8 w-8 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+            className="flex h-8 w-8 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
           >
             <CloseIcon />
           </button>
@@ -460,7 +460,7 @@ export function AssistantPanel() {
                         value={action.id}
                         checked={selectedAction === action.id}
                         onChange={() => handleActionChange(action.id)}
-                        className="mt-0.5 accent-sky-500"
+                        className="mt-0.5 accent-accent-500"
                         disabled={isOff || status === 'loading'}
                       />
                       <span>
@@ -501,7 +501,7 @@ export function AssistantPanel() {
                   type="button"
                   onClick={handleSendClick}
                   disabled={!canSend}
-                  className="w-full rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-sky-400"
+                  className="w-full rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-accent-400"
                 >
                   Run
                 </button>
@@ -523,7 +523,7 @@ export function AssistantPanel() {
                     <button
                       type="button"
                       onClick={() => void handleConfirm()}
-                      className="flex-1 rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400"
+                      className="flex-1 rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-500 focus-visible:ring-2 focus-visible:ring-accent-400"
                     >
                       Send
                     </button>
@@ -650,7 +650,7 @@ function SparkleIcon() {
     <svg
       viewBox="0 0 20 20"
       fill="currentColor"
-      className="h-4 w-4 text-sky-400"
+      className="h-4 w-4 text-accent-400"
       aria-hidden="true"
     >
       <path
@@ -680,7 +680,7 @@ function CloseIcon() {
 function SpinnerIcon() {
   return (
     <svg
-      className="h-4 w-4 animate-spin text-sky-400 motion-reduce:hidden"
+      className="h-4 w-4 animate-spin text-accent-400 motion-reduce:hidden"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"

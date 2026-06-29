@@ -63,7 +63,7 @@ export function OnboardingHint() {
       <div className="pointer-events-auto rounded-xl border border-neutral-700/60 bg-neutral-900/95 shadow-2xl shadow-black/60 ring-1 ring-white/5 backdrop-blur-sm">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-2.5">
-          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-sky-400">
+          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-accent-400">
             <SparkleIcon />
             Quick start
           </span>
@@ -71,7 +71,7 @@ export function OnboardingHint() {
             type="button"
             onClick={dismiss}
             aria-label="Dismiss quick-start tips"
-            className="flex h-5 w-5 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-sky-500"
+            className="flex h-5 w-5 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-accent-500"
           >
             <CloseIcon />
           </button>

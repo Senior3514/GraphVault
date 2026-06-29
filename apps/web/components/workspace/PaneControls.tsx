@@ -80,7 +80,7 @@ function ControlButton({
       title={title}
       aria-label={ariaLabel}
       aria-pressed={ariaPressed}
-      className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-700 hover:text-neutral-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-500"
+      className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-700 hover:text-neutral-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
     >
       {children}
     </button>

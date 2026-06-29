@@ -99,8 +99,8 @@ export function ResizeDivider({
       className={[
         'group relative z-10 shrink-0 select-none focus:outline-none',
         isHoriz
-          ? 'w-1 cursor-col-resize hover:bg-neutral-700/60 focus:bg-sky-600/40 active:bg-sky-600/60'
-          : 'h-1 cursor-row-resize hover:bg-neutral-700/60 focus:bg-sky-600/40 active:bg-sky-600/60',
+          ? 'w-1 cursor-col-resize hover:bg-neutral-700/60 focus:bg-accent-600/40 active:bg-accent-600/60'
+          : 'h-1 cursor-row-resize hover:bg-neutral-700/60 focus:bg-accent-600/40 active:bg-accent-600/60',
         'bg-neutral-800 transition-colors duration-100',
       ].join(' ')}
     >

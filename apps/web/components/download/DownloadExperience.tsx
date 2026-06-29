@@ -56,7 +56,7 @@ export function DownloadExperience() {
       {/* Ambient backdrop - pure CSS, no images, matches the landing page. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(70rem_50rem_at_50%_-15%,theme(colors.sky.500/18),transparent)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(70rem_50rem_at_50%_-15%,theme(colors.accent.500/18),transparent)]"
       />
       <div
         aria-hidden="true"
@@ -68,7 +68,7 @@ export function DownloadExperience() {
 
         <section className="mx-auto max-w-3xl px-4 pb-20 pt-12 text-center sm:px-6 sm:pt-20">
           <div className="motion-safe:animate-slide-up">
-            <p className="text-xs font-semibold uppercase tracking-widest text-sky-400">
+            <p className="text-xs font-semibold uppercase tracking-widest text-accent-400">
               Download GraphVault
             </p>
             <h1 className="mt-3 text-balance text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl">
@@ -138,7 +138,7 @@ function NativeDownload({ release, os }: { release: ReleaseState; os: Os | null 
           href={RELEASES_PAGE}
           target="_blank"
           rel="noreferrer"
-          className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 font-medium text-neutral-100 transition-colors hover:border-neutral-600 hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 font-medium text-neutral-100 transition-colors hover:border-neutral-600 hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           Browse all releases on GitHub
           <ExternalIcon className="h-4 w-4" />
@@ -196,7 +196,7 @@ function NativeDownload({ release, os }: { release: ReleaseState; os: Os | null 
             <a
               key={alt.filename}
               href={alt.url}
-              className="underline decoration-neutral-700 underline-offset-2 transition-colors hover:text-neutral-200 hover:decoration-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              className="underline decoration-neutral-700 underline-offset-2 transition-colors hover:text-neutral-200 hover:decoration-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
             >
               {alt.format}
             </a>
@@ -209,7 +209,7 @@ function NativeDownload({ release, os }: { release: ReleaseState; os: Os | null 
 
 function ComingSoon() {
   return (
-    <div className="mx-auto max-w-md rounded-xl border border-sky-500/20 bg-sky-500/[0.06] p-5 text-sm text-neutral-300">
+    <div className="mx-auto max-w-md rounded-xl border border-accent-500/20 bg-accent-500/[0.06] p-5 text-sm text-neutral-300">
       <p className="font-medium text-neutral-100">Native installers are on the way.</p>
       <p className="mt-1.5 text-neutral-400">
         Desktop builds for Windows, macOS, and Linux are coming soon. In the meantime, GraphVault
@@ -235,7 +235,7 @@ function PrimaryDownloadLink({
       // `download` is advisory for cross-origin; GitHub serves the binary with
       // Content-Disposition, so the browser downloads it either way.
       className={[
-        'inline-flex items-center justify-center gap-2.5 rounded-xl bg-sky-500 font-semibold text-white shadow-lg shadow-sky-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-sky-400 hover:shadow-xl hover:shadow-sky-400/30 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0',
+        'inline-flex items-center justify-center gap-2.5 rounded-xl bg-accent-500 font-semibold text-white shadow-lg shadow-accent-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-400 hover:shadow-xl hover:shadow-accent-400/30 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0',
         lg ? 'min-h-[52px] px-7 py-3 text-base' : 'min-h-[44px] px-5 py-2.5 text-sm',
       ].join(' ')}
     >
@@ -254,16 +254,16 @@ function InstantPaths({ emphasised }: { emphasised: boolean }) {
   return (
     <div className={emphasised ? 'mt-10' : 'mt-12'}>
       {emphasised && (
-        <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-sky-400">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-accent-400">
           Use it now - zero install
         </p>
       )}
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/vault"
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900/70 px-5 py-2.5 font-medium text-neutral-100 transition-all hover:border-neutral-700 hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900/70 px-5 py-2.5 font-medium text-neutral-100 transition-all hover:border-neutral-700 hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
         >
-          <BrowserIcon className="h-4 w-4 text-sky-400" />
+          <BrowserIcon className="h-4 w-4 text-accent-400" />
           Open in your browser
         </Link>
         {/* PWA install affordance - platform-aware; renders nothing when
@@ -317,7 +317,7 @@ function OtherPlatformCard({
       <div className="text-sm font-medium text-neutral-200">{osLabel(os)}</div>
       <a
         href={primary.url}
-        className="mt-2 inline-flex min-h-[40px] items-center gap-1.5 text-sm text-sky-400 transition-colors hover:text-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+        className="mt-2 inline-flex min-h-[40px] items-center gap-1.5 text-sm text-accent-400 transition-colors hover:text-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
       >
         <DownloadIcon className="h-4 w-4" />
         {primary.format}
@@ -328,7 +328,7 @@ function OtherPlatformCard({
             <a
               key={alt.filename}
               href={alt.url}
-              className="underline decoration-neutral-700 underline-offset-2 hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              className="underline decoration-neutral-700 underline-offset-2 hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
             >
               {alt.format}
             </a>
@@ -370,7 +370,7 @@ function SiteNav() {
           href="/"
           className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-neutral-100 transition-opacity hover:opacity-80"
         >
-          <GraphMark className="h-6 w-6 text-sky-400" />
+          <GraphMark className="h-6 w-6 text-accent-400" />
           <span>GraphVault</span>
         </Link>
         <div className="flex items-center gap-3 text-sm sm:gap-5">
@@ -384,7 +384,7 @@ function SiteNav() {
           </a>
           <Link
             href="/vault"
-            className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/25 transition-all duration-150 ease-out hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+            className="inline-flex min-h-[44px] items-center rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-accent-500/25 transition-all duration-150 ease-out hover:bg-accent-400 hover:shadow-lg hover:shadow-accent-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
           >
             Open GraphVault
           </Link>

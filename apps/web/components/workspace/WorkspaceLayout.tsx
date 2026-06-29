@@ -220,7 +220,7 @@ export function WorkspaceLayout({
                 aria-current={mobilePane === id ? 'true' : undefined}
                 className={[
                   'flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
-                  mobilePane === id ? 'text-sky-400' : 'text-neutral-500 hover:text-neutral-300',
+                  mobilePane === id ? 'text-accent-400' : 'text-neutral-500 hover:text-neutral-300',
                 ].join(' ')}
               >
                 {icon}
@@ -304,7 +304,7 @@ function CollapsedTab({
         onClick={onClick}
         title={`Show ${label}`}
         aria-label={`Show ${label} panel`}
-        className="flex h-full w-6 items-center justify-center text-neutral-600 hover:bg-neutral-800 hover:text-neutral-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-sky-500"
+        className="flex h-full w-6 items-center justify-center text-neutral-600 hover:bg-neutral-800 hover:text-neutral-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-500"
       >
         <span
           className="text-[10px] font-semibold uppercase tracking-widest"

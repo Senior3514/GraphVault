@@ -47,8 +47,8 @@ export function AssistantButton() {
       className={[
         'fixed bottom-6 right-6 z-20',
         'flex h-10 w-10 items-center justify-center rounded-full',
-        'bg-sky-600 text-white shadow-lg',
-        'hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950',
+        'bg-accent-600 text-white shadow-lg',
+        'hover:bg-accent-500 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950',
         'transition-colors',
       ].join(' ')}
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}

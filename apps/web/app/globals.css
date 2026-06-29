@@ -46,6 +46,34 @@
   --shadow-xl: 0 24px 64px -12px rgb(0 0 0 / 0.7), 0 8px 24px -8px rgb(0 0 0 / 0.5);
   /* Hairline ring used on raised glass surfaces for a crisp top edge. */
   --ring-edge: rgb(255 255 255 / 0.06);
+
+  /* --------------------------------------------------------------------------
+     Brand accent - a premium, deep CYAN (not neon). Driven by CSS variables so
+     the brand colour is a ONE-PLACE switch: `colors.accent.*` in
+     tailwind.config.ts resolves to `rgb(var(--accent-XXX) / <alpha-value>)`, so
+     every `bg-accent-500 / text-accent-400 / ring-accent-500 / border-accent-500`
+     utility flips per theme automatically. To rebrand later, edit ONLY these
+     triples (and the light block below) - no component changes.
+
+     DARK ramp (here): tuned for the near-black page (--n-950 = 11 13 17). The
+     mid steps stay rich so the cyan reads as confident, not washed out.
+     AA contrast (verified): accent-500 fill vs white text = 4.67:1 (primary
+     CTAs - AA for normal text); accent-600 vs white = 6.04:1 (hover); accent-400
+     as text on the dark page = 7.41:1; accent-300 on the page = 10.6:1.
+     `--accent-fg` is the foreground placed ON an accent-500/600 fill (white,
+     which clears AA on both 500 and 600 in both themes). */
+  --accent-50: 236 254 255;
+  --accent-100: 201 241 249;
+  --accent-200: 151 226 239;
+  --accent-300: 91 207 226;
+  --accent-400: 31 175 198;
+  --accent-500: 1 127 153;
+  --accent-600: 1 108 131;
+  --accent-700: 10 88 108;
+  --accent-800: 15 72 89;
+  --accent-900: 18 60 75;
+  --accent-950: 7 39 50;
+  --accent-fg: 255 255 255;
 }
 
 :root[data-theme='light'] {
@@ -71,6 +99,26 @@
   --shadow-lg: 0 12px 32px -8px rgb(16 19 26 / 0.12), 0 4px 12px -4px rgb(16 19 26 / 0.08);
   --shadow-xl: 0 24px 64px -12px rgb(16 19 26 / 0.16), 0 8px 24px -8px rgb(16 19 26 / 0.1);
   --ring-edge: rgb(16 19 26 / 0.05);
+
+  /* Brand accent - LIGHT theme. Hand-tuned (not a raw inversion) so accent text
+     reads on the off-white paper (--n-950 = 250 251 253) at AA, while the FILL
+     steps (500/600) stay identical to dark so primary CTAs are one consistent
+     cyan with white text in both themes. The high steps (700-950) brighten so
+     accent-tinted backgrounds (badges, callouts) read correctly on light.
+     AA (verified): accent-400 as text on the light page = 6.10:1; accent-300 =
+     7.73:1; accent-500 fill vs white = 4.67:1; accent-600 vs white = 6.04:1. */
+  --accent-50: 7 39 50;
+  --accent-100: 10 51 64;
+  --accent-200: 14 66 84;
+  --accent-300: 10 88 108;
+  --accent-400: 2 105 126;
+  --accent-500: 1 127 153;
+  --accent-600: 1 108 131;
+  --accent-700: 91 207 226;
+  --accent-800: 151 226 239;
+  --accent-900: 201 241 249;
+  --accent-950: 236 254 255;
+  --accent-fg: 255 255 255;
 }
 
 body {
@@ -127,11 +175,11 @@ button,
   @apply bg-neutral-600;
 }
 
-/* Crisp focus rings for keyboard users; pointer focus stays quiet. A 2px sky
-   ring on a 2px page-coloured offset reads clearly on every surface in both
-   themes (the offset colour is the theme-aware page background). */
+/* Crisp focus rings for keyboard users; pointer focus stays quiet. A 2px accent
+   (cyan) ring on a 2px page-coloured offset reads clearly on every surface in
+   both themes (the offset colour is the theme-aware page background). */
 :focus-visible {
-  @apply outline-none ring-2 ring-sky-500/70 ring-offset-2 ring-offset-neutral-950;
+  @apply outline-none ring-2 ring-accent-500/70 ring-offset-2 ring-offset-neutral-950;
 }
 
 /* ============================================================================
@@ -141,10 +189,11 @@ button,
    ============================================================================ */
 .skip-link {
   @apply sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200];
-  /* text-white (not text-neutral-950) so the label stays legible on the sky
-     fill in BOTH themes - neutral-950 flips to near-white in light mode. */
-  @apply focus:rounded-md focus:bg-sky-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white;
-  @apply focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-sky-500;
+  /* text-white (not text-neutral-950) so the label stays legible on the accent
+     (cyan) fill in BOTH themes - neutral-950 flips to near-white in light mode,
+     and white clears AA on the accent-500 fill in both themes. */
+  @apply focus:rounded-md focus:bg-accent-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white;
+  @apply focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-accent-500;
 }
 
 /* ============================================================================
@@ -254,20 +303,20 @@ button,
   @apply my-3 list-decimal space-y-1 pl-6;
 }
 .markdown-preview a {
-  @apply text-sky-400 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-300;
+  @apply text-accent-400 underline decoration-accent-400/40 underline-offset-2 hover:text-accent-300;
 }
 .markdown-preview a.wikilink {
   @apply cursor-pointer rounded-sm px-0.5 no-underline;
 }
 .markdown-preview a.wikilink--resolved {
-  @apply bg-sky-950/40 text-sky-300 hover:bg-sky-900/40;
+  @apply bg-accent-950/40 text-accent-300 hover:bg-accent-900/40;
 }
 .markdown-preview a.wikilink--unresolved {
   @apply text-amber-400/80 hover:text-amber-300;
 }
 .markdown-preview a.hashtag {
-  @apply cursor-pointer rounded px-1 text-xs font-medium text-sky-300/90 no-underline;
-  @apply bg-sky-950/40 hover:bg-sky-900/50 hover:text-sky-200;
+  @apply cursor-pointer rounded px-1 text-xs font-medium text-accent-300/90 no-underline;
+  @apply bg-accent-950/40 hover:bg-accent-900/50 hover:text-accent-200;
 }
 .markdown-preview code {
   @apply rounded bg-neutral-800 px-1 py-0.5 font-mono text-[0.85em] text-neutral-200;

@@ -41,7 +41,7 @@ export function BacklinksPanel({
                 title={onTag ? `Filter by #${tag}` : undefined}
                 className={[
                   'rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300 transition-colors',
-                  onTag ? 'hover:bg-sky-500/20 hover:text-sky-200' : 'cursor-default',
+                  onTag ? 'hover:bg-accent-500/20 hover:text-accent-200' : 'cursor-default',
                 ].join(' ')}
               >
                 #{tag}

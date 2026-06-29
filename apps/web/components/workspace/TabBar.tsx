@@ -108,14 +108,14 @@ export function TabBar({
               <button
                 type="button"
                 onClick={() => onActivate(tab.id)}
-                className="flex min-w-0 items-center gap-1.5 py-2 pl-3 pr-1 text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-sky-500"
+                className="flex min-w-0 items-center gap-1.5 py-2 pl-3 pr-1 text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-500"
                 title={tab.notePath ?? 'Untitled'}
                 aria-label={`${tab.title || 'Untitled'}${tab.dirty ? ', unsaved changes' : ''}`}
               >
                 {/* Dirty dot */}
                 {tab.dirty && (
                   <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400"
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400"
                     aria-label="Unsaved changes"
                   />
                 )}
@@ -136,7 +136,7 @@ export function TabBar({
                 }}
                 title="Close tab"
                 aria-label={`Close ${tab.title}`}
-                className="mr-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-neutral-600 opacity-0 transition-opacity hover:bg-neutral-700 hover:text-neutral-300 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-500"
+                className="mr-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-neutral-600 opacity-0 transition-opacity hover:bg-neutral-700 hover:text-neutral-300 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
               >
                 <CloseIcon />
               </button>
@@ -150,7 +150,7 @@ export function TabBar({
           onClick={onNew}
           title="Open new tab"
           aria-label="Open new tab"
-          className="flex h-full shrink-0 items-center px-2 text-neutral-600 hover:bg-neutral-800/60 hover:text-neutral-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-sky-500"
+          className="flex h-full shrink-0 items-center px-2 text-neutral-600 hover:bg-neutral-800/60 hover:text-neutral-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-500"
         >
           <PlusIcon />
         </button>
@@ -216,7 +216,7 @@ function SplitButton({
       aria-label={ariaLabel}
       aria-pressed={active}
       className={[
-        'flex h-6 w-6 items-center justify-center rounded text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-500',
+        'flex h-6 w-6 items-center justify-center rounded text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-500',
         active
           ? 'bg-neutral-700 text-neutral-100'
           : 'text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300',
