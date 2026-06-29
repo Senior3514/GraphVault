@@ -29,8 +29,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    // Matched to the refined cool-neutral --n-950 page backgrounds (globals.css):
+    // dark rgb(11 13 17) → #0b0d11, light rgb(250 251 253) → #fafbfd.
+    { media: '(prefers-color-scheme: dark)', color: '#0b0d11' },
+    { media: '(prefers-color-scheme: light)', color: '#fafbfd' },
   ],
 };
 

@@ -235,13 +235,13 @@ function PrimaryDownloadLink({
       // `download` is advisory for cross-origin; GitHub serves the binary with
       // Content-Disposition, so the browser downloads it either way.
       className={[
-        'inline-flex items-center justify-center gap-2.5 rounded-xl bg-sky-500 font-semibold text-neutral-950 shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950',
+        'inline-flex items-center justify-center gap-2.5 rounded-xl bg-sky-500 font-semibold text-white shadow-lg shadow-sky-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-sky-400 hover:shadow-xl hover:shadow-sky-400/30 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0',
         lg ? 'min-h-[52px] px-7 py-3 text-base' : 'min-h-[44px] px-5 py-2.5 text-sm',
       ].join(' ')}
     >
       <DownloadIcon className={lg ? 'h-5 w-5' : 'h-4 w-4'} />
       Download for {osLabel(os)}
-      <span className="font-normal text-neutral-900/70">({link.format})</span>
+      <span className="font-normal text-white/75">({link.format})</span>
     </a>
   );
 }
@@ -384,7 +384,7 @@ function SiteNav() {
           </a>
           <Link
             href="/vault"
-            className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-neutral-950 shadow-md shadow-sky-500/25 transition-all hover:bg-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+            className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/25 transition-all duration-150 ease-out hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
           >
             Open GraphVault
           </Link>

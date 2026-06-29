@@ -1150,3 +1150,48 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   will occupy (no layout shift), gate animation behind `motion-safe:` (respect
   `prefers-reduced-motion`), drive colours from the CSS-var `neutral` ramp
   (auto light/dark), and wrap it in an `aria-live="polite"` `role="status"` region.
+
+## Wave 21 - design elevation (token-and-polish pass)
+
+### Theme-flipping `text-neutral-950` on a FIXED accent fill breaks light mode
+
+- **Symptom:** primary buttons used `bg-sky-500 text-neutral-950`. In dark mode
+  `neutral-950` is near-black (good contrast on the sky fill); but because the
+  ramp is CSS-var-driven, `neutral-950` flips to near-WHITE in light mode -> the
+  label became near-invisible on the unchanged sky-500 button.
+- **Root cause:** the button background is a fixed accent (`sky-500`, identical in
+  both themes), but the text colour was a theme-aware neutral token. They must
+  either both be fixed or both flip together.
+- **Fix / rule:** when a control has a FIXED accent background that does not flip
+  per theme (sky/emerald/amber buttons, the skip-link, the download CTA), set its
+  foreground to a FIXED colour too (`text-white`, `text-white/75` for sub-labels),
+  never a theme-flipping `text-neutral-9xx`. Grep `bg-(sky|emerald|amber|red|
+violet)-[456]00.*text-neutral-9[0-5]0` after any ramp change. (A
+  `bg-neutral-100 text-neutral-950` pairing IS safe - both flip together.)
+
+### Refine the ramp by editing only the CSS-var triples; zero blast radius
+
+- **Rule (reaffirmed):** elevating the whole app's colour was a pure edit to the
+  `--n-50..950` triples in `globals.css` (cool-neutral dark + hand-tuned light,
+  not a math inversion) - thousands of `bg-neutral-*`/`text-neutral-*` utilities
+  updated with no per-component changes. Keep the light ramp HAND-TUNED (a real
+  off-white paper feel with AA text) rather than the dark ramp inverted; a literal
+  inversion gives a flat, glaring light mode. Update the `viewport.themeColor`
+  hexes to match the new `--n-950` values in both schemes.
+
+### Theme-aware elevation belongs in tokens, not hardcoded `shadow-black/NN`
+
+- **Rule:** define `--shadow-{sm,md,lg,xl}` per theme (dark = soft low-alpha black;
+  light = cool-neutral-tinted, NOT pure black, so it reads as ambient occlusion)
+  and expose them as Tailwind `boxShadow` tokens (`shadow-elevation-*`) + plain
+  `.elevation-*` utility classes. Raised glass surfaces (palette/popovers) also
+  get a `ring-1 ring-white/[0.06]` hairline top edge. This keeps dark subtle and
+  light gentle from one place instead of per-component `shadow-black/30`.
+
+### Type scale + optical tracking as Tailwind `fontSize` tuples
+
+- **Note:** overriding `theme.extend.fontSize` with `[size, { lineHeight,
+letterSpacing }]` tuples gives a cohesive scale with progressively tighter
+  negative tracking on display sizes (-0.02 -> -0.032em) - confident headings,
+  comfortable body - without touching any component class. Only override the steps
+  you tune; the rest fall back to Tailwind defaults.

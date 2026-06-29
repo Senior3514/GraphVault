@@ -42,7 +42,7 @@ export default function LandingPage() {
         {/* ================================================================ */}
         {/* NAV                                                               */}
         {/* ================================================================ */}
-        <header className="sticky top-0 z-40 border-b border-neutral-900/80 bg-neutral-950/80 backdrop-blur-md">
+        <header className="sticky top-0 z-40 border-b border-neutral-800/60 bg-neutral-950/70 backdrop-blur-xl">
           <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
             <Link
               href="/"
@@ -83,7 +83,7 @@ export default function LandingPage() {
               {/* Tap target ≥ 44px via min-h-[44px] */}
               <Link
                 href="/vault"
-                className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-neutral-950 shadow-md shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
                 Open GraphVault
               </Link>
@@ -98,8 +98,11 @@ export default function LandingPage() {
           {/* Left - copy */}
           <div className="motion-safe:animate-slide-up">
             {/* Badge */}
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-3.5 py-1.5 text-xs text-neutral-400 shadow-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse" />
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-3.5 py-1.5 text-xs font-medium tracking-tight text-neutral-300 shadow-elevation-sm ring-1 ring-inset ring-white/[0.03]">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400/60 motion-safe:animate-ping" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              </span>
               Local-first · No account needed · No telemetry, ever
             </div>
 
@@ -151,15 +154,15 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/vault"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 font-semibold text-neutral-950 shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="group inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 font-semibold text-white shadow-lg shadow-sky-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-sky-400 hover:shadow-xl hover:shadow-sky-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
                 Open GraphVault
-                <ArrowRightIcon className="h-4 w-4" />
+                <ArrowRightIcon className="h-4 w-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
               </Link>
               {/* Download the native app - routes to the OS-aware download page. */}
               <Link
                 href="/download"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/10 px-5 py-2.5 font-medium text-sky-300 transition-all hover:border-sky-500/60 hover:bg-sky-500/15 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-sky-500/40 bg-sky-500/10 px-5 py-2.5 font-medium text-sky-300 transition-all duration-150 ease-out hover:border-sky-500/60 hover:bg-sky-500/15 hover:text-sky-200 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
                 <DownloadIcon className="h-4 w-4" />
                 Download the app
@@ -171,7 +174,7 @@ export default function LandingPage() {
                 href="https://github.com/Senior3514/GraphVault"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900/60 px-5 py-2.5 font-medium text-neutral-200 transition-all hover:border-neutral-700 hover:bg-neutral-900 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/60 px-5 py-2.5 font-medium text-neutral-200 transition-all duration-150 ease-out hover:border-neutral-700 hover:bg-neutral-900 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
                 <GitHubIcon className="h-4 w-4 text-neutral-400" />
                 Star on GitHub
