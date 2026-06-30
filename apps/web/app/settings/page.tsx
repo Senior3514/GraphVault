@@ -514,7 +514,16 @@ function StorageSection() {
   // localStorage and looking like data loss.
   const [folderDisconnected, setFolderDisconnected] = useState(false);
 
-  const fsApiAvailable = FileSystemAdapter.isApiAvailable();
+  // Compute the File System Access API availability AFTER mount. Calling it
+  // during render produces different markup on the server (no `window`, so
+  // false) vs the client (true on supporting browsers), which is a React
+  // hydration mismatch (#418) and crashes /settings with a client-side
+  // exception. Starting false (matching the server) and updating in an effect
+  // keeps the first client render identical to the server-rendered HTML.
+  const [fsApiAvailable, setFsApiAvailable] = useState(false);
+  useEffect(() => {
+    setFsApiAvailable(FileSystemAdapter.isApiAvailable());
+  }, []);
   const adapters = listAdapters();
   const vault = useVaultContext();
 

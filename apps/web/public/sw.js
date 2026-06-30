@@ -1,24 +1,31 @@
 /**
  * GraphVault Service Worker
  *
- * Strategy: cache-first for same-origin static assets, with a network
- * fallback to keep content fresh when online. Serves the app-shell
- * (index.html) as the offline fallback for any navigation request.
+ * Strategy:
+ *   - Navigations / HTML  -> NETWORK-FIRST (fall back to cache only when offline).
+ *     This guarantees a returning user always gets the current `index.html`,
+ *     which references the current hashed JS/CSS chunks. A cache-first shell is
+ *     dangerous: after a new deploy the old cached HTML points at hashed chunks
+ *     that no longer exist on the server, so they 404 and the app throws a
+ *     client-side exception. Network-first avoids that entirely.
+ *   - Content-hashed static assets (`/_next/static/...`) -> CACHE-FIRST. These
+ *     URLs change whenever their content changes, so a cached copy is never
+ *     stale and is safe (and fast) to serve offline.
+ *   - Everything else same-origin -> network-first with a cache fallback.
  *
- * Cache versioning: bump CACHE_VERSION when deploying a new build so stale
- * assets are evicted on activate.
+ * Cache versioning: bump CACHE_VERSION on any SW behavior change. The activate
+ * handler deletes every cache that is not the current version, so bumping also
+ * evicts a previously poisoned cache and recovers stuck clients.
  *
- * CSP: this file is served from the same origin (/sw.js) and registered
- * with a same-origin scope, so it operates fully within the existing
- * `default-src 'self'` policy. No eval, no external fetches.
+ * CSP: same-origin (/sw.js), same-origin scope, no eval, no external fetches -
+ * fully within `default-src 'self'`.
  */
 
-const CACHE_VERSION = 'gv-v1';
+const CACHE_VERSION = 'gv-v2';
 const SHELL_URL = '/';
 
-// Assets to pre-cache on install (app shell + manifest + icons).
-// Next.js static export places HTML at the root; JS/CSS land in /_next/static/.
-// We don't enumerate those here - they are cached on first fetch.
+// Pre-cache the app shell + manifest + icons so a fresh install works offline.
+// Hashed JS/CSS are cached on first fetch (cache-first below).
 const PRECACHE_URLS = [
   '/',
   '/manifest.webmanifest',
@@ -28,20 +35,22 @@ const PRECACHE_URLS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Install - pre-cache the app shell
+// Install - pre-cache the app shell, then take over immediately.
 // ─────────────────────────────────────────────────────────────────────────────
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_VERSION)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      // Tolerate a missing precache entry (e.g. an icon path drift) so a single
+      // 404 never aborts the whole install and leaves the SW broken.
+      .then((cache) => Promise.allSettled(PRECACHE_URLS.map((u) => cache.add(u))))
       .then(() => self.skipWaiting()),
   );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Activate - claim clients and delete old caches
+// Activate - delete old caches (recovers poisoned clients) and claim pages.
 // ─────────────────────────────────────────────────────────────────────────────
 
 self.addEventListener('activate', (event) => {
@@ -56,47 +65,76 @@ self.addEventListener('activate', (event) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fetch - cache-first for same-origin GET requests
+// Fetch
 // ─────────────────────────────────────────────────────────────────────────────
+
+function isHashedStatic(url) {
+  // Next.js content-hashed, immutable assets.
+  return url.pathname.startsWith('/_next/static/');
+}
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-
-  // Only handle GET requests to same origin.
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  event.respondWith(handleFetch(request));
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirstNavigation(request));
+    return;
+  }
+  if (isHashedStatic(url)) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+  event.respondWith(networkFirst(request));
 });
 
-async function handleFetch(request) {
+async function cacheFirst(request) {
   const cache = await caches.open(CACHE_VERSION);
-
-  // 1. Try the cache first.
   const cached = await cache.match(request);
   if (cached) return cached;
-
-  // 2. Not cached - try the network.
   try {
     const response = await fetch(request);
-
-    // Cache successful same-origin responses (status 200, basic type).
     if (response && response.status === 200 && response.type === 'basic') {
-      // Clone before consuming - one copy for the cache, one for the browser.
       cache.put(request, response.clone());
     }
-
     return response;
   } catch {
-    // 3. Network failed (offline). For navigation requests, serve the shell.
-    if (request.mode === 'navigate') {
-      const shell = await cache.match(SHELL_URL);
-      if (shell) return shell;
-    }
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
 
-    // For other requests, return a minimal offline response.
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_VERSION);
+  try {
+    const response = await fetch(request);
+    if (response && response.status === 200 && response.type === 'basic') {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
+
+async function networkFirstNavigation(request) {
+  const cache = await caches.open(CACHE_VERSION);
+  try {
+    const response = await fetch(request);
+    // Cache a fresh copy of the navigated page and refresh the shell fallback.
+    if (response && response.status === 200 && response.type === 'basic') {
+      cache.put(request, response.clone());
+      cache.put(SHELL_URL, response.clone());
+    }
+    return response;
+  } catch {
+    // Offline: prefer the exact page, then the app shell.
+    const cached = (await cache.match(request)) || (await cache.match(SHELL_URL));
+    if (cached) return cached;
     return new Response('Offline', {
       status: 503,
       statusText: 'Service Unavailable',
