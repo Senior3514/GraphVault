@@ -55,12 +55,26 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))),
-      )
-      .then(() => self.clients.claim()),
+    (async () => {
+      const keys = await caches.keys();
+      // If a previous cache version exists, this is an UPGRADE (the user may be
+      // holding a poisoned cache-first shell). Delete the old caches, then force
+      // a one-time reload of open tabs so they pick up the fresh, network-first
+      // shell and recover automatically - no manual reload required.
+      const hadOldCache = keys.some((k) => k !== CACHE_VERSION);
+      await Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)));
+      await self.clients.claim();
+      if (hadOldCache) {
+        const wins = await self.clients.matchAll({ type: 'window' });
+        for (const c of wins) {
+          try {
+            c.navigate(c.url);
+          } catch {
+            // best-effort self-heal; ignore clients that can't be navigated
+          }
+        }
+      }
+    })(),
   );
 });
 
