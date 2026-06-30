@@ -45,3 +45,6 @@ apps/desktop/src-tauri/target/
 # Test coverage
 coverage/
 !.claude/skills/
+
+# Transient agent screenshot/verification helpers
+scripts/_*
