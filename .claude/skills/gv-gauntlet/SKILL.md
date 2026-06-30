@@ -27,7 +27,14 @@ pnpm lint                        # eslint .
 pnpm format:check                # prettier --check .
 pnpm test                        # pnpm -r run test (every workspace)
 pnpm run build:web               # Next.js static export
+pnpm run smoke:web               # load every route in headless Chromium
 ```
+
+`smoke:web` is the safety net that unit tests + build miss: it loads every
+exported route in a real browser and fails on ANY client-side exception
+(hydration mismatch, stale-chunk crash, etc.) - the exact class of bug that
+once white-screened production. It needs `build:web` to have run first, and
+skips gracefully when no Chromium is available.
 
 Or use the bundled script, which runs all of them and stops at the first failure:
 

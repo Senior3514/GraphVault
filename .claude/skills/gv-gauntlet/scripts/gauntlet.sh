@@ -21,5 +21,6 @@ step "lint"         pnpm lint
 step "format:check" pnpm format:check
 step "tests"        pnpm test
 step "build:web"    pnpm run build:web
+step "smoke:web"    pnpm run smoke:web
 
 printf '\nGAUNTLET GREEN - safe to ship.\n'
