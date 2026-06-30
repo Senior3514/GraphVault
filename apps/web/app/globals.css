@@ -122,9 +122,13 @@
 }
 
 body {
-  @apply bg-neutral-950 text-neutral-100 antialiased;
-  /* cv11: single-storey a/g; ss01: stylistic alternates; cv05: lowercase l with
-     a tail (disambiguates from 1/I). 'liga'/'calt': contextual ligatures on. */
+  /* font-sans = self-hosted Inter (app/fonts.ts), set on <html> in layout.tsx.
+     The @apply re-states it so the body face is explicit even if a parent
+     class is ever removed. */
+  @apply bg-neutral-950 font-sans text-neutral-100 antialiased;
+  /* Inter OpenType features: cv11 single-storey a/g; ss01 stylistic alternates;
+     cv05 lowercase l with a tail (disambiguates from 1/I). Harmless no-ops on
+     the system fallback before the woff2 swaps in. */
   font-feature-settings: 'cv11', 'ss01', 'cv05';
   font-synthesis-weight: none;
   text-rendering: optimizeLegibility;
@@ -133,11 +137,17 @@ body {
   letter-spacing: -0.011em;
 }
 
-/* Headings: tighter optical tracking for a confident, modern hierarchy. */
+/* Headings use the display face (Geist) - a refined geometric grotesque - with
+   tighter optical tracking for a confident, modern hierarchy. Setting it here
+   means every <h1>-<h4> gets the display face app-wide without per-element
+   classes; the heading utilities (text-3xl/4xl/...) supply the size + tracking.
+   Marketing surfaces additionally opt into Geist on big numerals/wordmarks via
+   the `font-display` utility. */
 h1,
 h2,
 h3,
 h4 {
+  font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   letter-spacing: -0.02em;
 }
 

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { fontDisplay, fontMono, fontSans } from './fonts';
 import { AppFrame } from '../components/AppFrame';
 import { ServiceWorkerRegistrar } from '../components/ServiceWorkerRegistrar';
 import { ThemeProvider } from '../components/ThemeProvider';
@@ -75,7 +76,9 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   // Only same-origin images; data: covers canvas toDataURL() and SVG data URIs.
   "img-src 'self' data:",
-  // No external font CDNs - all typography is system / Tailwind stack.
+  // No external font CDNs. All typography (Geist / Inter / JetBrains Mono) is
+  // self-hosted via next/font/local and served same-origin from
+  // /_next/static/media/*.woff2, so 'self' is sufficient - no remote allowance.
   "font-src 'self'",
   // Fetch/XHR may go to the user-configured self-hosted sync server, typically a
   // different origin (a VPS, or 127.0.0.1 in dev). It can't be enumerated at
@@ -102,7 +105,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // <html> before React hydrates, so the server-rendered <html> (no attr)
     // and the client DOM (attr present) differ by design. This silences the
     // expected attribute mismatch warning without affecting children.
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      // Self-hosted font CSS variables (see app/fonts.ts). `--font-sans` is the
+      // body/UI face (Inter), `--font-display` the heading face (Geist), and
+      // `--font-mono` the editor face (JetBrains Mono). Tailwind's fontFamily
+      // tokens read these vars so `font-sans` / `font-display` / `font-mono`
+      // resolve app-wide in both themes. `font-sans` here sets the document
+      // default so the cascade picks up Inter without a per-element class.
+      className={`${fontSans.variable} ${fontDisplay.variable} ${fontMono.variable} font-sans`}
+    >
       <head>
         {/*
          * No-flash theme boot: set `data-theme` from persisted mode (default

@@ -63,16 +63,22 @@ export function Sidebar({ collapsed, onToggle, mobileDrawerClose }: SidebarProps
         <Link
           href="/vault"
           className="flex min-w-0 items-center gap-2"
-          title="GraphVault"
+          title="GraphVault - your private vault"
           onClick={mobileDrawerClose}
         >
           <NavIcon glyph="graph" className="h-6 w-6 shrink-0 text-accent-400" />
           {!collapsed && (
             <span className="min-w-0">
-              <span className="block truncate text-base font-semibold tracking-tight text-neutral-100">
+              <span className="block truncate font-display text-base font-semibold tracking-tight text-neutral-100">
                 GraphVault
               </span>
-              <span className="block text-xs text-neutral-500">Local-first notes</span>
+              {/* Workspace identity: this is the private app shell, not the
+                  public product page. The lock + "Private vault" reads as a
+                  personal workspace and reinforces the on-device promise. */}
+              <span className="flex items-center gap-1 text-xs text-neutral-500">
+                <LockIcon className="h-3 w-3 shrink-0 text-accent-400/70" />
+                <span className="truncate">Private vault</span>
+              </span>
             </span>
           )}
         </Link>
@@ -185,6 +191,18 @@ function CommandHint({ collapsed }: { collapsed: boolean }) {
         </>
       )}
     </button>
+  );
+}
+
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        d="M10 1a4 4 0 00-4 4v2H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-1V5a4 4 0 00-4-4zm2 6V5a2 2 0 10-4 0v2h4z"
+        clipRule="evenodd"
+      />
+    </svg>
   );
 }
 

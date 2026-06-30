@@ -243,6 +243,60 @@ stop repeating mistakes. Newest at the top within each section.
   lands in the static export (`out/download/index.html`), not just `next build`'s
   route table.
 
+### Self-host fonts with `next/font/local` for the zero-telemetry / offline promise
+
+- **Symptom/risk:** the codebase already set Inter-specific OpenType features
+  (`font-feature-settings: 'cv11','ss01','cv05'`) but loaded NO actual font - so
+  the features were inert no-ops and the UI rendered in plain system-ui. Reaching
+  for `next/font/google` to fix it would have added a build-time fetch to
+  fonts.googleapis.com, breaking the local-first / zero-telemetry / fully-offline
+  promise and the `font-src 'self'` CSP.
+- **Fix / rule:** bundle the `.woff2` files locally under `apps/web/app/fonts/`
+  and load them with `next/font/local` (NOT `next/font/google`). The build emits
+  them to same-origin `/_next/static/media/*.woff2` with self-scoped `@font-face`,
+  so the existing `font-src 'self'` CSP needs no change and there is zero external
+  request. Wire each face's `variable` (`--font-sans` etc.) through Tailwind
+  `fontFamily` tokens (`'var(--font-sans)', ...fallbacks`) and set the variable
+  classes + a default `font-sans` on `<html>` so it applies app-wide in both
+  themes. Variable fonts (Geist) take a weight RANGE (`weight: '300 700'`); static
+  faces (Inter 400/600, JetBrains Mono 400) take a single weight per `src` entry.
+- **Where to find woff2 offline:** Next.js ships Geist + Geist Mono woff2 in its
+  own devtools assets, and the `prisma` package ships full Inter + JetBrains Mono
+  woff2 sets - usable as bundled sources without any download. Pairing used:
+  Geist (display/headings) + Inter (body, matches the cv11/ss01 features) +
+  JetBrains Mono (editor).
+- **Verify in the EMITTED output, not source:** confirm `ls out/_next/static/
+media/*.woff2` count matches your `src` entries, that `@font-face` `src:url(...)`
+  in the built CSS references ONLY `/_next/static/media/`, and that a grep for
+  `fonts.googleapis|fonts.gstatic|typekit|cdn...font` across `out/` returns
+  nothing. `preload: true` faces also appear as `<link rel="preload" as="font">`
+  in each page's HTML; set `preload: false` for the mono (rarely above the fold).
+
+### Marketing vs private-vault separation is copy + chrome, not new routes
+
+- **Symptom:** user feedback "it's unclear what separates our landing (public)
+  page from a user's own private notebook." The landing and the app shell shared
+  the same wordmark/styling, so the boundary read as ambiguous.
+- **Fix / rule:** make the boundary explicit on BOTH sides without restructuring
+  routing. On the public page: a "Product" pill in the nav, a hero line "This
+  page is public; your vault is private", and a primary CTA labelled "Open your
+  private vault". On the private side: a one-time, focus-trapped first-entry
+  modal ("This space is yours alone - lives only on this device") gated by a
+  localStorage `seen` flag (re-openable via a custom event, never auto-reshown),
+  plus a persistent "Private vault" + lock identity in the sidebar header. This
+  is presentational only - no data/sync/storage logic touched.
+
+### Decorative hero animation: pure CSS/SVG, server component, motion-safe
+
+- **Rule:** a premium animated landing backdrop does NOT need a canvas/WebGL dep.
+  An inline-SVG constellation (nodes + edges in brand cyan) animated purely with
+  Tailwind keyframes (`stroke-dashoffset` draw-in via `pathLength={1}`, node
+  `twinkle`, gradient `aurora-drift`) renders as a SERVER component - zero client
+  JS, keeping the landing route tiny (stayed ~1.9 kB). Gate every animation
+  behind `motion-safe:` (the global `prefers-reduced-motion` rule then freezes
+  them) and mark the layer `aria-hidden`. Inline `style={{animationDelay}}` for
+  per-node stagger is fine under the static-export `style-src 'unsafe-inline'`.
+
 ### Download-page GitHub fetch is privacy-safe - read-only, `credentials: 'omit'`
 
 - **Rule:** the only allowed network call on the download page is
