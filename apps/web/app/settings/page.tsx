@@ -138,6 +138,13 @@ export default function SettingsPage() {
   const [ioMsg, setIoMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [exportingDir, setExportingDir] = useState(false);
+  // SSR-stable: isDirectoryExportSupported() probes the browser-only File System
+  // Access API (false on the server, true on the client), so gating JSX on it
+  // directly is a React #418 hydration mismatch. Resolve after mount.
+  const [dirExportSupported, setDirExportSupported] = useState(false);
+  useEffect(() => {
+    setDirExportSupported(isDirectoryExportSupported());
+  }, []);
 
   const exportZip = () => {
     const zip = buildVaultZip(vault.notes);
@@ -348,7 +355,7 @@ export default function SettingsPage() {
             Export JSON
           </button>
           {/* Export to folder - only shown when the File System Access API is available */}
-          {isDirectoryExportSupported() && (
+          {dirExportSupported && (
             <button
               type="button"
               onClick={() => void exportToFolder()}
@@ -611,13 +618,19 @@ function ChevronIcon({ className }: { className?: string }) {
 // ---------------------------------------------------------------------------
 
 function StorageSection() {
-  const [activeId, setActiveId] = useState<string>(() => {
+  // Initialize to an SSR-stable constant so the server-rendered HTML and the
+  // client's first render agree. getActiveAdapter() probes browser-only
+  // `isAvailable()` APIs, so calling it in the useState initializer yields a
+  // different adapter on the server (no window) vs the client - a React #418
+  // hydration mismatch. Resolve the real active adapter after mount instead.
+  const [activeId, setActiveId] = useState<string>('localStorage');
+  useEffect(() => {
     try {
-      return getActiveAdapter().id;
+      setActiveId(getActiveAdapter().id);
     } catch {
-      return 'localStorage';
+      // keep the localStorage default
     }
-  });
+  }, []);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err' | 'warn'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   // True when a folder was selected in a previous session (persisted handle in
