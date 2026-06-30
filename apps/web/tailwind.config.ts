@@ -56,8 +56,19 @@ const config: Config = {
           950: 'rgb(var(--n-950) / <alpha-value>)',
         },
       },
+      /**
+       * Typography is self-hosted (next/font/local, see app/fonts.ts) and wired
+       * through CSS variables set on <html> in app/layout.tsx, so these tokens
+       * stay theme-independent and require NO external font request:
+       *   font-sans     Inter           body / UI (default document face)
+       *   font-display  Geist           headings + wordmark (geometric grotesque)
+       *   font-mono     JetBrains Mono  editor / code / keycaps
+       * Each falls back to the same system stack the fonts.ts loader declares,
+       * so text is always legible before the woff2 swaps in.
+       */
       fontFamily: {
         sans: [
+          'var(--font-sans)',
           'ui-sans-serif',
           'system-ui',
           '-apple-system',
@@ -67,7 +78,18 @@ const config: Config = {
           'Arial',
           'sans-serif',
         ],
+        display: [
+          'var(--font-display)',
+          'var(--font-sans)',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif',
+        ],
         mono: [
+          'var(--font-mono)',
           'ui-monospace',
           'SFMono-Regular',
           'Menlo',
@@ -148,6 +170,32 @@ const config: Config = {
           from: { opacity: '0', transform: 'translateY(12px) scale(0.97)' },
           to: { opacity: '1', transform: 'translateY(0) scale(1)' },
         },
+        /* Landing hero: slow drift of the aurora gradient blobs for depth. */
+        'aurora-drift': {
+          '0%, 100%': { transform: 'translate3d(0,0,0) scale(1)', opacity: '0.9' },
+          '50%': { transform: 'translate3d(3%,-2%,0) scale(1.08)', opacity: '1' },
+        },
+        /* Constellation nodes gently breathe (radius/opacity) so the backdrop
+           feels alive without being distracting. */
+        twinkle: {
+          '0%, 100%': { opacity: '0.55', transform: 'scale(1)' },
+          '50%': { opacity: '1', transform: 'scale(1.18)' },
+        },
+        /* Edges of the hero graph draw in once on load via stroke-dashoffset. */
+        'draw-line': {
+          from: { strokeDashoffset: '1' },
+          to: { strokeDashoffset: '0' },
+        },
+        /* A traveling sheen used on the wordmark / primary CTA underline. */
+        shimmer: {
+          '0%': { backgroundPosition: '-150% 0' },
+          '100%': { backgroundPosition: '250% 0' },
+        },
+        /* Staggered word/section reveal: rise + fade with a soft blur clear. */
+        'rise-in': {
+          from: { opacity: '0', transform: 'translateY(14px)', filter: 'blur(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)', filter: 'blur(0)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 120ms ease-out',
@@ -159,6 +207,11 @@ const config: Config = {
         'node-appear': 'node-appear 500ms cubic-bezier(0.16, 1, 0.3, 1)',
         float: 'float 4s ease-in-out infinite',
         'onboarding-in': 'onboarding-in 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'aurora-drift': 'aurora-drift 18s ease-in-out infinite',
+        twinkle: 'twinkle 4s ease-in-out infinite',
+        'draw-line': 'draw-line 1.6s cubic-bezier(0.16, 1, 0.3, 1) both',
+        shimmer: 'shimmer 6s linear infinite',
+        'rise-in': 'rise-in 600ms cubic-bezier(0.16, 1, 0.3, 1) both',
       },
     },
   },

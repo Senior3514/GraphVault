@@ -1,41 +1,55 @@
 import Link from 'next/link';
 import { InstallButton } from '../components/InstallButton';
+import { HeroConstellation } from '../components/marketing/HeroConstellation';
 
 /**
- * Marketing landing page - rendered full-bleed (no app chrome) via AppFrame.
+ * Marketing landing page - the PUBLIC product page, deliberately distinct from
+ * the private vault shell. Rendered full-bleed (no app chrome) via AppFrame.
  *
  * Design goals:
- *  - Four core GraphVault promises front-and-center (local-first, self-hosted
- *    sync, graph-for-thinking, security).
- *  - Real-feeling product preview built from CSS + SVG only; zero external
- *    image or script fetches, zero telemetry.
+ *  - Read unmistakably as a marketing page (a "Product" pill in the nav, a
+ *    full-bleed animated hero, social proof) so it never gets confused with the
+ *    user's own private workspace. The primary CTA frames the transition: it
+ *    opens YOUR private vault, on this device, that no one else can see.
+ *  - Premium first impression: aurora-drift gradient depth + an animated graph
+ *    constellation backdrop, all pure CSS/SVG - zero images, zero deps, zero
+ *    network, zero telemetry.
+ *  - Beautiful self-hosted typography: Geist display headings + Inter body
+ *    (see app/fonts.ts), wired through the `font-display` / `font-sans` tokens.
  *  - Tasteful motion gated behind `motion-safe:` so prefers-reduced-motion is
- *    always honoured.
- *  - Social-proof strip + "star us on GitHub" CTA.
- *  - Dark-first with DESIGN.md's accent-400/neutral palette.
+ *    always honoured; contrast meets AA; every control is focus-visible.
  */
 
 export default function LandingPage() {
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-neutral-950 text-neutral-100">
       {/* ------------------------------------------------------------------ */}
-      {/* Ambient backdrop - pure CSS, no images                              */}
+      {/* Ambient backdrop - pure CSS/SVG, no images, no deps                 */}
       {/* ------------------------------------------------------------------ */}
 
-      {/* Top aurora glow */}
+      {/* Animated graph constellation - the product motif, brand cyan. Confined
+          to the top hero band and faded out so it never fights the content. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(70rem_50rem_at_50%_-15%,theme(colors.accent.500/18),transparent)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[42rem] opacity-50 [mask-image:radial-gradient(60rem_38rem_at_50%_20%,black,transparent_75%)]"
+      >
+        <HeroConstellation />
+      </div>
+
+      {/* Top aurora glow - slowly drifts for depth (motion-safe). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-40 left-1/2 h-[55rem] w-[80rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,theme(colors.accent.500/22),transparent)] blur-2xl motion-safe:animate-aurora-drift"
       />
-      {/* Secondary accent - lower right */}
+      {/* Secondary accent - lower right, counter-drifts. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 right-0 h-[50rem] w-[50rem] translate-x-1/3 translate-y-1/3 bg-[radial-gradient(circle,theme(colors.violet.600/8),transparent_70%)]"
+        className="pointer-events-none absolute bottom-0 right-0 h-[50rem] w-[50rem] translate-x-1/3 translate-y-1/3 rounded-full bg-[radial-gradient(circle,theme(colors.violet.600/10),transparent_70%)] blur-2xl motion-safe:animate-aurora-drift [animation-delay:-9s]"
       />
-      {/* Dot grid */}
+      {/* Dot grid - very faint, masked so it fades toward the edges. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.045] [background-image:radial-gradient(theme(colors.neutral.400)_1px,transparent_1px)] [background-size:28px_28px]"
+        className="pointer-events-none absolute inset-0 opacity-[0.05] [background-image:radial-gradient(theme(colors.neutral.400)_1px,transparent_1px)] [background-size:30px_30px] [mask-image:radial-gradient(80rem_50rem_at_50%_0%,black,transparent_80%)]"
       />
 
       <div className="relative">
@@ -44,13 +58,21 @@ export default function LandingPage() {
         {/* ================================================================ */}
         <header className="sticky top-0 z-40 border-b border-neutral-800/60 bg-neutral-950/70 backdrop-blur-xl">
           <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
-            <Link
-              href="/"
-              className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-neutral-100 transition-opacity hover:opacity-80"
-            >
-              <GraphMark className="h-6 w-6 text-accent-400" />
-              <span>GraphVault</span>
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-neutral-100 transition-opacity hover:opacity-80"
+              >
+                <GraphMark className="h-6 w-6 text-accent-400" />
+                <span className="font-display text-[1.05rem] tracking-[-0.02em]">GraphVault</span>
+              </Link>
+              {/* Marketing-chrome marker: this is the public product page, not
+                  the app. Sets the expectation that "Open GraphVault" crosses
+                  into a different (private) surface. */}
+              <span className="hidden rounded-full border border-neutral-800 bg-neutral-900/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500 sm:inline">
+                Product
+              </span>
+            </div>
 
             <div className="flex items-center gap-3 text-sm sm:gap-5">
               <Link
@@ -83,9 +105,10 @@ export default function LandingPage() {
               {/* Tap target ≥ 44px via min-h-[44px] */}
               <Link
                 href="/vault"
-                className="inline-flex min-h-[44px] items-center rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-accent-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-400 hover:shadow-lg hover:shadow-accent-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-accent-fg shadow-md shadow-accent-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-400 hover:shadow-lg hover:shadow-accent-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
                 Open GraphVault
+                <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
             </div>
           </nav>
@@ -95,10 +118,10 @@ export default function LandingPage() {
         {/* HERO                                                              */}
         {/* ================================================================ */}
         <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-10 pt-14 sm:px-6 sm:pt-24 lg:grid-cols-[1fr_480px] lg:items-center lg:gap-16">
-          {/* Left - copy */}
-          <div className="motion-safe:animate-slide-up">
+          {/* Left - copy. Each block rises in with a small stagger. */}
+          <div>
             {/* Badge */}
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-3.5 py-1.5 text-xs font-medium tracking-tight text-neutral-300 shadow-elevation-sm ring-1 ring-inset ring-white/[0.03]">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-3.5 py-1.5 text-xs font-medium tracking-tight text-neutral-300 shadow-elevation-sm ring-1 ring-inset ring-white/[0.03] motion-safe:animate-rise-in">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400/60 motion-safe:animate-ping" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -106,15 +129,18 @@ export default function LandingPage() {
               Local-first · No account needed · No telemetry, ever
             </div>
 
-            <h1 className="text-balance text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl sm:text-6xl xl:text-7xl">
+            <h1 className="text-balance font-display text-4xl font-semibold leading-[1.05] tracking-[-0.03em] motion-safe:animate-rise-in sm:text-5xl sm:text-6xl xl:text-7xl [animation-delay:60ms]">
               Notes that live{' '}
               <span className="relative whitespace-nowrap">
-                <span className="relative z-10 text-accent-400">on your terms</span>
+                {/* Animated gradient sheen on the accent phrase (motion-safe). */}
+                <span className="relative z-10 bg-gradient-to-r from-accent-300 via-accent-400 to-accent-300 bg-[length:200%_100%] bg-clip-text text-transparent motion-safe:animate-shimmer">
+                  on your terms
+                </span>
                 {/* Underline accent */}
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 300 12"
-                  className="absolute -bottom-1 left-0 w-full fill-accent-500/25"
+                  className="absolute -bottom-1 left-0 w-full fill-accent-500/30"
                   preserveAspectRatio="none"
                 >
                   <path d="M0 9 Q150 0 300 9" />
@@ -123,14 +149,14 @@ export default function LandingPage() {
               .
             </h1>
 
-            <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-neutral-400">
+            <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-neutral-400 motion-safe:animate-rise-in [animation-delay:140ms]">
               GraphVault is a local-first Markdown app with self-hosted sync and a graph you can
               actually think in. Open straight into your vault - no folder picker, no &quot;allow
               access to your files&quot; dialog. Start writing in seconds.
             </p>
 
             {/* Keyboard hints */}
-            <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-500">
+            <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-500 motion-safe:animate-rise-in [animation-delay:200ms]">
               <span>
                 Press <Kbd>Cmd</Kbd>
                 <Kbd>K</Kbd> to go anywhere
@@ -151,12 +177,12 @@ export default function LandingPage() {
 
             {/* CTAs - the primary action is unmistakable; min-h-[44px] keeps
                 every touch target above the accessibility floor. */}
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="mt-8 flex flex-wrap items-center gap-3 motion-safe:animate-rise-in [animation-delay:260ms]">
               <Link
                 href="/vault"
-                className="group inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 font-semibold text-white shadow-lg shadow-accent-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-400 hover:shadow-xl hover:shadow-accent-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                className="group inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 font-semibold text-accent-fg shadow-lg shadow-accent-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-400 hover:shadow-xl hover:shadow-accent-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
-                Open GraphVault
+                Open your private vault
                 <ArrowRightIcon className="h-4 w-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
               </Link>
               {/* Download the native app - routes to the OS-aware download page. */}
@@ -181,12 +207,19 @@ export default function LandingPage() {
               </a>
             </div>
 
-            {/* One-line trust statement - the whole pitch in a breath. The
-                "no sign-up" wording directly answers the common "do I need an
-                account?" question: you don't. */}
-            <p className="mt-4 text-sm text-neutral-500">
-              No sign-up, no account, works offline. &quot;Open GraphVault&quot; takes you straight
-              to writing - your notes stay on this device.
+            {/* Separation cue: spell out that the button crosses from this
+                public page INTO a private, on-device workspace. Directly
+                answers "do I need an account?" (no) and "who can see this?"
+                (only you, on this device). */}
+            <p className="mt-5 flex items-start gap-2 text-sm text-neutral-500 motion-safe:animate-rise-in [animation-delay:320ms]">
+              <LockIcon className="mt-0.5 h-4 w-4 shrink-0 text-accent-400/80" />
+              <span>
+                <span className="font-medium text-neutral-300">
+                  This page is public; your vault is private.
+                </span>{' '}
+                No sign-up, no account, works offline - opening GraphVault drops you into a
+                workspace that lives only on this device. No one else can see it.
+              </span>
             </p>
           </div>
 
@@ -1092,6 +1125,18 @@ function CheckIcon({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <path d="M3 8l3.5 3.5L13 4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        d="M10 1a4 4 0 00-4 4v2H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-1V5a4 4 0 00-4-4zm2 6V5a2 2 0 10-4 0v2h4z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 }

@@ -751,20 +751,28 @@ function NodeCount({
 
 function EmptyState({ message, hint }: { message: string; hint?: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
-      <svg
-        className="h-10 w-10 text-neutral-700"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.2}
-        aria-hidden
-      >
-        <circle cx="12" cy="12" r="9" />
-        <path strokeLinecap="round" d="M8 12h8M12 8v8" opacity={0.4} />
+    <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+      {/* A small, on-brand constellation so the empty graph reads as intentional
+          ("your graph will look like this") rather than a broken canvas. The
+          centre node carries the brand accent; the satellites are neutral. */}
+      <svg className="h-20 w-20" viewBox="0 0 64 64" fill="none" aria-hidden>
+        <g stroke="rgb(var(--n-700))" strokeWidth={1.2} strokeLinecap="round">
+          <line x1="32" y1="32" x2="18" y2="18" />
+          <line x1="32" y1="32" x2="48" y2="20" />
+          <line x1="32" y1="32" x2="20" y2="48" />
+          <line x1="32" y1="32" x2="46" y2="46" />
+        </g>
+        <circle cx="18" cy="18" r="3.5" fill="rgb(var(--n-600))" />
+        <circle cx="48" cy="20" r="3" fill="rgb(var(--n-600))" />
+        <circle cx="20" cy="48" r="3" fill="rgb(var(--n-600))" />
+        <circle cx="46" cy="46" r="3.5" fill="rgb(var(--n-600))" />
+        <circle cx="32" cy="32" r="7" fill="rgb(var(--accent-500))" fillOpacity={0.85} />
+        <circle cx="32" cy="32" r="11" stroke="rgb(var(--accent-500))" strokeOpacity={0.3} />
       </svg>
-      <p className="text-sm text-neutral-500">{message}</p>
-      {hint && <p className="text-xs text-neutral-700">{hint}</p>}
+      <div>
+        <p className="text-sm text-neutral-400">{message}</p>
+        {hint && <p className="mt-1 text-xs text-neutral-600">{hint}</p>}
+      </div>
     </div>
   );
 }

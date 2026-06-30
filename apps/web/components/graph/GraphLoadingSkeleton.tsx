@@ -89,7 +89,11 @@ export function GraphLoadingSkeleton() {
               cx={n.x}
               cy={n.y}
               r={n.r / 8}
-              fill={i === 0 ? 'rgb(var(--n-600))' : 'rgb(var(--n-700))'}
+              // Central node carries a faint brand-accent tint so the skeleton
+              // previews the real, on-brand graph rather than reading as a
+              // generic grey placeholder.
+              fill={i === 0 ? 'rgb(var(--accent-500))' : 'rgb(var(--n-700))'}
+              fillOpacity={i === 0 ? 0.55 : 1}
               className="motion-safe:animate-glow-pulse"
               style={{ animationDelay: `${n.delay}ms` }}
             />

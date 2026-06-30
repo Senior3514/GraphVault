@@ -74,9 +74,15 @@ export function clampPhysics(base: GraphPhysics, patch: Partial<GraphPhysics>): 
 /**
  * Radius for a node given its degree. Hubs grow on a square-root curve so a
  * few very-high-degree nodes don't dwarf everything, but still read as hubs.
+ *
+ * The `1.55` multiplier (vs a bare `sqrt`) makes the leaf→hub contrast read more
+ * clearly: a degree-1 leaf sits near the floor while a degree-6 hub already
+ * approaches the cap, giving the graph an obvious visual hierarchy. The growth
+ * is still capped at `base + 7` so a single super-hub can't dominate the view
+ * (and so `radiusForDegree(1000) <= 10` stays true).
  */
 export function radiusForDegree(degree: number): number {
-  return 3 + Math.min(7, Math.sqrt(degree));
+  return 3 + Math.min(7, 1.55 * Math.sqrt(degree));
 }
 
 /**

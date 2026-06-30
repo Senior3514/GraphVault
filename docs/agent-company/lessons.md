@@ -243,6 +243,60 @@ stop repeating mistakes. Newest at the top within each section.
   lands in the static export (`out/download/index.html`), not just `next build`'s
   route table.
 
+### Self-host fonts with `next/font/local` for the zero-telemetry / offline promise
+
+- **Symptom/risk:** the codebase already set Inter-specific OpenType features
+  (`font-feature-settings: 'cv11','ss01','cv05'`) but loaded NO actual font - so
+  the features were inert no-ops and the UI rendered in plain system-ui. Reaching
+  for `next/font/google` to fix it would have added a build-time fetch to
+  fonts.googleapis.com, breaking the local-first / zero-telemetry / fully-offline
+  promise and the `font-src 'self'` CSP.
+- **Fix / rule:** bundle the `.woff2` files locally under `apps/web/app/fonts/`
+  and load them with `next/font/local` (NOT `next/font/google`). The build emits
+  them to same-origin `/_next/static/media/*.woff2` with self-scoped `@font-face`,
+  so the existing `font-src 'self'` CSP needs no change and there is zero external
+  request. Wire each face's `variable` (`--font-sans` etc.) through Tailwind
+  `fontFamily` tokens (`'var(--font-sans)', ...fallbacks`) and set the variable
+  classes + a default `font-sans` on `<html>` so it applies app-wide in both
+  themes. Variable fonts (Geist) take a weight RANGE (`weight: '300 700'`); static
+  faces (Inter 400/600, JetBrains Mono 400) take a single weight per `src` entry.
+- **Where to find woff2 offline:** Next.js ships Geist + Geist Mono woff2 in its
+  own devtools assets, and the `prisma` package ships full Inter + JetBrains Mono
+  woff2 sets - usable as bundled sources without any download. Pairing used:
+  Geist (display/headings) + Inter (body, matches the cv11/ss01 features) +
+  JetBrains Mono (editor).
+- **Verify in the EMITTED output, not source:** confirm `ls out/_next/static/
+media/*.woff2` count matches your `src` entries, that `@font-face` `src:url(...)`
+  in the built CSS references ONLY `/_next/static/media/`, and that a grep for
+  `fonts.googleapis|fonts.gstatic|typekit|cdn...font` across `out/` returns
+  nothing. `preload: true` faces also appear as `<link rel="preload" as="font">`
+  in each page's HTML; set `preload: false` for the mono (rarely above the fold).
+
+### Marketing vs private-vault separation is copy + chrome, not new routes
+
+- **Symptom:** user feedback "it's unclear what separates our landing (public)
+  page from a user's own private notebook." The landing and the app shell shared
+  the same wordmark/styling, so the boundary read as ambiguous.
+- **Fix / rule:** make the boundary explicit on BOTH sides without restructuring
+  routing. On the public page: a "Product" pill in the nav, a hero line "This
+  page is public; your vault is private", and a primary CTA labelled "Open your
+  private vault". On the private side: a one-time, focus-trapped first-entry
+  modal ("This space is yours alone - lives only on this device") gated by a
+  localStorage `seen` flag (re-openable via a custom event, never auto-reshown),
+  plus a persistent "Private vault" + lock identity in the sidebar header. This
+  is presentational only - no data/sync/storage logic touched.
+
+### Decorative hero animation: pure CSS/SVG, server component, motion-safe
+
+- **Rule:** a premium animated landing backdrop does NOT need a canvas/WebGL dep.
+  An inline-SVG constellation (nodes + edges in brand cyan) animated purely with
+  Tailwind keyframes (`stroke-dashoffset` draw-in via `pathLength={1}`, node
+  `twinkle`, gradient `aurora-drift`) renders as a SERVER component - zero client
+  JS, keeping the landing route tiny (stayed ~1.9 kB). Gate every animation
+  behind `motion-safe:` (the global `prefers-reduced-motion` rule then freezes
+  them) and mark the layer `aria-hidden`. Inline `style={{animationDelay}}` for
+  per-node stagger is fine under the static-export `style-src 'unsafe-inline'`.
+
 ### Download-page GitHub fetch is privacy-safe - read-only, `credentials: 'omit'`
 
 - **Rule:** the only allowed network call on the download page is
@@ -1246,3 +1300,62 @@ letterSpacing }]` tuples gives a cohesive scale with progressively tighter
   negative tracking on display sizes (-0.02 -> -0.032em) - confident headings,
   comfortable body - without touching any component class. Only override the steps
   you tune; the rest fall back to Tailwind defaults.
+
+## Wave 7 - spectacular graph (signature surface)
+
+### Make node colour token-driven, not a hardcoded hex, so the graph is on-brand in both themes
+
+- **Symptom:** the graph "felt generic" - every note was the same flat periwinkle
+  blue (`#7aa2f7`), edges were near-invisible thin grey lines, no depth/hierarchy.
+- **Root cause:** `CATEGORY_STYLE.note` was an arbitrary blue unrelated to the
+  brand, and the canvas drew flat discs with a faint gradient + a single low-alpha
+  grey edge colour that washed out (especially on the light page).
+- **Fix / rule:** the default "note" colour is now the brand CYAN (matches
+  `--accent-400`). The canvas re-resolves it at runtime from the live
+  `--accent-400`/`--accent-300` tokens via `useGraphThemeColors`, so notes stay
+  on-brand when the theme flips (the `model.ts` hex is only the dark fallback +
+  legend swatch). Edges derive from a theme-aware `edge` `{r,g,b}` triple chosen
+  by page-background luminance (light slate on dark, mid slate on light) and are
+  drawn at per-type alpha. NEVER hardcode a canvas colour that has to work in both
+  themes - read the token through the theme hook and the light theme comes for free.
+
+### Lit-sphere nodes + degree-scaled resting glow give instant visual hierarchy
+
+- **Rule:** draw nodes as lit spheres - a radial gradient with a bright off-centre
+  core (`mix(base, white, 0.45)`) → base → slightly darker rim, plus a hairline
+  rim stroke - instead of a flat disc. Add a soft ambient halo whose strength is
+  normalised by `sqrt(degree)/sqrt(maxDegree)` so hubs glow more and visual weight
+  tracks structural importance even at rest. Gate the halo OFF under
+  `prefers-reduced-motion` AND in dense graphs (`> LABEL_NODE_CAP`) to stay calm +
+  cheap. The hover/selection focus simply raises the same `glow` value to ~1 for
+  the centre and ~0.7 for neighbours, so the highlight reuses one code path.
+
+### Focused-subgraph edges in brand accent + directional particles read as "alive"
+
+- **Rule:** when a node is focused (hover or select), light its incident edges in
+  the bright accent (`--accent-300`) at high alpha, widen them, and run ONE
+  `linkDirectionalParticle` along each (gated by reduced-motion / only when a focus
+  exists). Everything else recedes to ~18% alpha. This makes relationships obvious
+  without changing the layout - it is purely an accessor-driven repaint, so it
+  composes with the existing search/timeline/context dimming. A faint constant
+  curvature (0.08) on all single edges + 0.28 on multi-edges reads as organic arcs
+  rather than a rigid web.
+
+### Smoother settling = higher velocity decay, not fewer ticks
+
+- **Rule:** jitter at rest comes from low damping, not from too many cooldown
+  ticks. Raising `d3VelocityDecay` (0.32 → 0.42) and a touch more `warmupTicks`
+  (24 → 40) settles the layout calmly and reduces the "twitchy" feel, while keeping
+  `cooldownTicks` high enough that the graph reaches a stable shape before
+  `onEngineStop` fires the gentle zoom-to-fit. All motion stays gated behind the
+  reduced-motion branch (0 warmup/cooldown).
+
+### Worktree gotchas for an isolated agent
+
+- **Note:** an agent worktree starts WITHOUT `node_modules` and the branch may lag
+  `origin/main`. Before building: `git checkout -B <branch> origin/main`, then
+  `pnpm install --frozen-lockfile`, then build the workspace deps
+  (`@graphvault/shared`, `engine`, `sync-core`) so the web `tsc --noEmit` can
+  resolve their `dist` types. The smoke harness skips when Playwright's pinned
+  Chromium build is absent; point `GV_SMOKE_CHROMIUM` at any installed
+  `/opt/pw-browsers/chromium-*/chrome-linux/chrome` to actually exercise `/graph`.

@@ -29,6 +29,7 @@ import { BackupHistory } from './BackupHistory';
 import { CommandPalette } from './CommandPalette';
 import { NavIcon } from './NavIcon';
 import { OnboardingHint } from './onboarding/OnboardingHint';
+import { PrivateVaultWelcome } from './onboarding/PrivateVaultWelcome';
 import { Tour } from './onboarding/Tour';
 import { Sidebar } from './Sidebar';
 import { useLayout } from '../lib/layout/useLayout';
@@ -250,6 +251,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
           the OPEN_BACKUP_HISTORY_EVENT custom event. Mounted once so the IDB
           load is shared across all triggers. */}
       <BackupHistory />
+      {/* First-entry framing: a one-time modal that makes the public-page →
+          private-vault transition explicit ("this space lives only on this
+          device"). Shown once, before the lighter OnboardingHint tips. */}
+      <PrivateVaultWelcome />
       {/* Onboarding hint: shown only on first use, persisted-dismissed in localStorage */}
       <OnboardingHint />
       {/* Guided tour: multi-step coachmark shown on first run, re-openable via

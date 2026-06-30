@@ -97,7 +97,11 @@ export type ColorMode = 'type' | 'tag' | 'cluster';
  * table so it can never drift from what the canvas draws.
  */
 export const CATEGORY_STYLE: Record<NodeCategory, { color: string; label: string }> = {
-  note: { color: '#7aa2f7', label: 'Note' },
+  // Brand CYAN (matches `--accent-400`) so the primary "note" node reads as
+  // GraphVault rather than a generic blue dot. The canvas re-resolves this from
+  // the live `--accent-400` token at runtime so notes stay on-brand in the
+  // light theme too; this hex is the dark-theme fallback + legend swatch.
+  note: { color: '#1fafc6', label: 'Note' },
   attachment: { color: '#e0af68', label: 'Attachment' },
   unresolved: { color: '#6b7280', label: 'Missing note' },
 };
