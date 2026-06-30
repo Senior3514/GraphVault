@@ -126,6 +126,25 @@ stop repeating mistakes. Newest at the top within each section.
 
 ## Web / Next.js
 
+### De-clutter a heavy settings page with `<details>` groups, not a structural rewrite
+
+- **Symptom:** a 4000+ line Settings page felt "clunky" and implied an account was
+  required, because self-hosted-sync/account/cloud-backend/AI/encryption sections
+  sat inline at the same visual weight as everyday controls.
+- **Fix / rule:** wrap (don't rewrite) - add two presentational helpers,
+  `GroupHeading` ("Essentials" vs "Advanced (optional)") and a native
+  `<details>`-based `CollapsibleSection`, and only REORDER the existing section
+  component calls into those groups. Native `<details>/<summary>` is keyboard-
+  accessible, works without JS, and keeps every control mounted + fully wired in
+  the DOM (so no behaviour/logic change, no autosave/auth risk). Animate the
+  chevron with `group-open:rotate-180` and gate it behind `motion-reduce`.
+- **Copy rule for "no account required" products:** relabel "Account" →
+  "Sync account (self-hosted)" and add an inline "Optional - you do not need this"
+  banner; clarify that "Create account" sets up a login on the user's OWN server,
+  not a hosted product account. Mirror the reassurance on the landing hero
+  ("No sign-up, no account") and in the first-run OnboardingHint so the message
+  lands before the user ever opens Settings.
+
 ### `env(safe-area-inset-*)` is inert without `viewport-fit=cover`
 
 - **Symptom:** the mobile shell padded its top bar / bottom nav with

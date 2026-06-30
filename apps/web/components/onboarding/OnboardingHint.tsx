@@ -77,6 +77,15 @@ export function OnboardingHint() {
           </button>
         </div>
 
+        {/* Reassurance: GraphVault needs no account and works fully offline.
+            This directly answers the most common first-run question. */}
+        <p className="border-b border-neutral-800 px-4 py-2.5 text-xs leading-relaxed text-neutral-400">
+          <span className="font-medium text-neutral-200">
+            You&apos;re all set - no account needed.
+          </span>{' '}
+          GraphVault works fully offline and your notes stay on this device. Just start typing.
+        </p>
+
         {/* Tips */}
         <ul className="divide-y divide-neutral-800/60 px-4">
           {TIPS.map((tip) => (

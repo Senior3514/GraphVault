@@ -58,6 +58,7 @@ import {
 import type { LocalImportConnector } from '../../lib/connectors/types';
 import { ALL_IMPORTERS, ImporterError, type Importer } from '../../lib/importers';
 import { isValid, validateFields, type FieldErrors } from '../../lib/settings/validation';
+import { ThemeToggle } from '../../components/ThemeToggle';
 
 /** Trigger a browser download of `data` under `filename`. */
 function downloadBlob(data: BlobPart, filename: string, type: string) {
@@ -263,75 +264,35 @@ export default function SettingsPage() {
   return (
     <main className="mx-auto w-full max-w-3xl overflow-auto px-8 py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">Settings</h1>
+      <p className="mt-1 text-sm text-neutral-500">
+        GraphVault works fully offline with no account. Everything below the essentials is optional.
+      </p>
 
-      <section className="mt-8 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
-        <h2 className="text-sm font-semibold text-neutral-200">Sync server</h2>
+      {/* ================================================================== */}
+      {/* ESSENTIALS - the everyday controls a normal user needs.            */}
+      {/* ================================================================== */}
+      <GroupHeading
+        title="Essentials"
+        subtitle="Everything you need for day-to-day note-taking. No account required."
+      />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Appearance / theme                                                  */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="mt-4 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+        <h2 className="text-sm font-semibold text-neutral-200">Appearance</h2>
         <p className="mt-1 text-xs text-neutral-500">
-          Base URL of your self-hosted GraphVault server. Defaults to
-          <code className="mx-1 text-neutral-400">NEXT_PUBLIC_GRAPHVAULT_SERVER_URL</code>.
+          Choose a light or dark theme, or follow your system preference.
         </p>
-        <div className="mt-3 flex gap-2">
-          <input
-            type="url"
-            value={draftUrl}
-            onChange={(e) => setDraftUrl(e.target.value)}
-            placeholder="http://127.0.0.1:4000"
-            aria-invalid={Boolean(urlError)}
-            aria-describedby={urlError ? 'sync-url-error' : undefined}
-            className="flex-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 outline-none focus:border-neutral-600"
-          />
-          <button
-            type="button"
-            onClick={save}
-            className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={() => void testConnection()}
-            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
-          >
-            Test
-          </button>
-        </div>
-        <FieldError id="sync-url-error" message={urlError} />
-        <div className="mt-2 h-4 text-xs" role="status" aria-live="polite">
-          {saved && <span className="text-emerald-400">Saved.</span>}
-          {test && <span className="text-neutral-400">{test}</span>}
+        <div className="mt-3 max-w-xs">
+          <ThemeToggle />
         </div>
       </section>
-
-      {/* Account / authentication */}
-      <AuthSection auth={auth} serverUrl={serverUrl} />
-
-      {/* Vault registration (only once signed in) */}
-      {auth.isSignedIn && <VaultRegistrationSection auth={auth} serverUrl={serverUrl} />}
 
       {/* ------------------------------------------------------------------ */}
       {/* Storage location                                                    */}
       {/* ------------------------------------------------------------------ */}
       <StorageSection />
-
-      {/* ------------------------------------------------------------------ */}
-      {/* WebDAV storage (M18)                                                */}
-      {/* ------------------------------------------------------------------ */}
-      <WebDavSection auth={auth} serverUrl={serverUrl} />
-
-      {/* ------------------------------------------------------------------ */}
-      {/* S3-compatible storage (M18)                                         */}
-      {/* ------------------------------------------------------------------ */}
-      <S3Section auth={auth} serverUrl={serverUrl} />
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Azure Blob Storage (M18)                                            */}
-      {/* ------------------------------------------------------------------ */}
-      <AzureSection auth={auth} serverUrl={serverUrl} />
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Google Cloud Storage (M18)                                          */}
-      {/* ------------------------------------------------------------------ */}
-      <GcsSection auth={auth} serverUrl={serverUrl} />
 
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Vault</h2>
@@ -359,11 +320,6 @@ export default function SettingsPage() {
           Reset vault to samples
         </button>
       </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Vault encryption                                                    */}
-      {/* ------------------------------------------------------------------ */}
-      <EncryptionSection />
 
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Import &amp; export</h2>
@@ -467,20 +423,119 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* AI assistant                                                        */}
-      {/* ------------------------------------------------------------------ */}
-      <AIAssistantSection />
+      {/* ================================================================== */}
+      {/* ADVANCED - optional power features, tucked away in collapsibles.   */}
+      {/* Every control below works exactly as before; it is only grouped    */}
+      {/* and made collapsible so a normal user is never overwhelmed.        */}
+      {/* ================================================================== */}
+      <GroupHeading
+        title="Advanced (optional)"
+        subtitle="Self-hosted sync, cloud backups, encryption, AI, and connectors. You do not need any of this to use GraphVault."
+      />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Connectors (M22)                                                    */}
-      {/* ------------------------------------------------------------------ */}
-      <ConnectorsSection vault={vault} auth={auth} serverUrl={serverUrl} />
+      {/* ---- Self-hosted sync & account ---------------------------------- */}
+      <CollapsibleSection
+        title="Self-hosted sync & account"
+        summary="Optional - sync across your own devices via your own server"
+      >
+        <p className="rounded-md border border-accent-500/30 bg-accent-500/5 px-3 py-2 text-xs leading-relaxed text-neutral-400">
+          <span className="font-medium text-accent-300">
+            You do not need this to use GraphVault.
+          </span>{' '}
+          Sign in only if you want to sync your notes across your own devices through a server you
+          host yourself. This is not a GraphVault product account - there is no GraphVault cloud,
+          and nothing is created unless you set up your own server.
+        </p>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* App importers (M20)                                                 */}
-      {/* ------------------------------------------------------------------ */}
-      <AppImporterSection vault={vault} />
+        {/* Sync server */}
+        <section className="mt-4 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+          <h3 className="text-sm font-semibold text-neutral-200">Sync server</h3>
+          <p className="mt-1 text-xs text-neutral-500">
+            Base URL of your self-hosted GraphVault server. Defaults to
+            <code className="mx-1 text-neutral-400">NEXT_PUBLIC_GRAPHVAULT_SERVER_URL</code>.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input
+              type="url"
+              value={draftUrl}
+              onChange={(e) => setDraftUrl(e.target.value)}
+              placeholder="http://127.0.0.1:4000"
+              aria-invalid={Boolean(urlError)}
+              aria-describedby={urlError ? 'sync-url-error' : undefined}
+              className="flex-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 outline-none focus:border-neutral-600"
+            />
+            <button
+              type="button"
+              onClick={save}
+              className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => void testConnection()}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
+            >
+              Test
+            </button>
+          </div>
+          <FieldError id="sync-url-error" message={urlError} />
+          <div className="mt-2 h-4 text-xs" role="status" aria-live="polite">
+            {saved && <span className="text-emerald-400">Saved.</span>}
+            {test && <span className="text-neutral-400">{test}</span>}
+          </div>
+        </section>
+
+        {/* Account / authentication */}
+        <AuthSection auth={auth} serverUrl={serverUrl} />
+
+        {/* Vault registration (only once signed in) */}
+        {auth.isSignedIn && <VaultRegistrationSection auth={auth} serverUrl={serverUrl} />}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* WebDAV storage (M18)                                             */}
+        {/* ---------------------------------------------------------------- */}
+        <WebDavSection auth={auth} serverUrl={serverUrl} />
+
+        {/* ---------------------------------------------------------------- */}
+        {/* S3-compatible storage (M18)                                      */}
+        {/* ---------------------------------------------------------------- */}
+        <S3Section auth={auth} serverUrl={serverUrl} />
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Azure Blob Storage (M18)                                         */}
+        {/* ---------------------------------------------------------------- */}
+        <AzureSection auth={auth} serverUrl={serverUrl} />
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Google Cloud Storage (M18)                                       */}
+        {/* ---------------------------------------------------------------- */}
+        <GcsSection auth={auth} serverUrl={serverUrl} />
+      </CollapsibleSection>
+
+      {/* ---- Encryption -------------------------------------------------- */}
+      <CollapsibleSection
+        title="Vault encryption"
+        summary="Optional - encrypt notes at rest with a passphrase"
+      >
+        <EncryptionSection />
+      </CollapsibleSection>
+
+      {/* ---- AI assistant ------------------------------------------------ */}
+      <CollapsibleSection title="AI assistant" summary="Optional - off by default, privacy-first">
+        <AIAssistantSection />
+      </CollapsibleSection>
+
+      {/* ---- Connectors & importers -------------------------------------- */}
+      <CollapsibleSection
+        title="Connectors & app importers"
+        summary="Optional - bring notes in from other apps and sources"
+      >
+        {/* Connectors (M22) */}
+        <ConnectorsSection vault={vault} auth={auth} serverUrl={serverUrl} />
+        {/* App importers (M20) */}
+        <AppImporterSection vault={vault} />
+      </CollapsibleSection>
 
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5 text-xs text-neutral-500">
         <h2 className="text-sm font-semibold text-neutral-200">Privacy</h2>
@@ -491,6 +546,63 @@ export default function SettingsPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Presentational grouping helpers (visual only - no behaviour change)
+// ---------------------------------------------------------------------------
+
+/** A bold divider that introduces a top-level group of settings. */
+function GroupHeading({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="mt-10 border-t border-neutral-800 pt-6">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-accent-400">{title}</h2>
+      <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
+    </div>
+  );
+}
+
+/**
+ * A collapsible wrapper around one or more optional settings sections. Uses a
+ * native <details>/<summary> so it works without JS, is keyboard-accessible,
+ * and never hides the controls inside (they remain in the DOM and fully wired).
+ */
+function CollapsibleSection({
+  title,
+  summary,
+  children,
+}: {
+  title: string;
+  summary: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group mt-4 rounded-lg border border-neutral-800 bg-neutral-950/30">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-5 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-neutral-200">{title}</span>
+          <span className="mt-0.5 block text-xs text-neutral-500">{summary}</span>
+        </span>
+        <ChevronIcon className="h-4 w-4 shrink-0 text-neutral-500 transition-transform duration-150 ease-out group-open:rotate-180 motion-reduce:transition-none" />
+      </summary>
+      <div className="border-t border-neutral-800/70 px-5 pb-5 pt-1">{children}</div>
+    </details>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -2680,7 +2792,11 @@ function AuthSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; se
 
   return (
     <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
-      <h2 className="text-sm font-semibold text-neutral-200">Account</h2>
+      <h2 className="text-sm font-semibold text-neutral-200">Sync account (self-hosted)</h2>
+      <p className="mt-1 text-xs text-neutral-500">
+        Optional. This signs in to <em>your own</em> sync server - it is not a GraphVault product
+        account, and you do not need it to use the app.
+      </p>
 
       {auth.isSignedIn ? (
         <div className="mt-3 space-y-2">
@@ -2707,9 +2823,11 @@ function AuthSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; se
       ) : (
         <div className="mt-3 space-y-3">
           <p className="text-xs text-neutral-500">
-            Sign in or create an account on your server to enable sync. Your password is only sent
-            to the server URL configured above over a secure connection. The token is stored in
-            sessionStorage (cleared on tab close) - never in a cookie or logged anywhere.
+            Sign in to the server you host yourself to turn on cross-device sync. The &quot;Create
+            account&quot; button just sets up your login on that server - there is no GraphVault
+            cloud. Your password is only sent to the server URL configured above over a secure
+            connection. The token is stored in sessionStorage (cleared on tab close) - never in a
+            cookie or logged anywhere.
           </p>
 
           {form === 'none' && (

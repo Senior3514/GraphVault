@@ -181,9 +181,12 @@ export default function LandingPage() {
               </a>
             </div>
 
-            {/* One-line trust statement - the whole pitch in a breath. */}
+            {/* One-line trust statement - the whole pitch in a breath. The
+                "no sign-up" wording directly answers the common "do I need an
+                account?" question: you don't. */}
             <p className="mt-4 text-sm text-neutral-500">
-              Works offline · No account · Your files stay yours.
+              No sign-up, no account, works offline. &quot;Open GraphVault&quot; takes you straight
+              to writing - your notes stay on this device.
             </p>
           </div>
 
