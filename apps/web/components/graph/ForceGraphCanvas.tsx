@@ -188,9 +188,29 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 /**
- * Draw a node using a radial gradient fill (rich centre → transparent edge)
- * plus a faint outer ring for structural weight. Returns the canvas state
- * restored to what it was before the call.
+ * Mix two rgb colours by `t` ∈ [0,1] (0 = a, 1 = b). Used to give node cores a
+ * brighter highlight than their rim so they read as lit spheres, not flat discs.
+ */
+function mixRgb(
+  a: { r: number; g: number; b: number },
+  b: { r: number; g: number; b: number },
+  t: number,
+): { r: number; g: number; b: number } {
+  return {
+    r: a.r + (b.r - a.r) * t,
+    g: a.g + (b.g - a.g) * t,
+    b: a.b + (b.b - a.b) * t,
+  };
+}
+
+/**
+ * Draw a node as a lit sphere: a soft ambient halo whose strength scales with
+ * the node's importance (degree), a radial-gradient body with a bright,
+ * off-centre highlight, and a crisp rim that gives it edge definition. Hubs get
+ * a noticeably stronger halo so visual weight tracks structural importance.
+ *
+ * `glow` 0..1 scales the resting halo (driven by degree, gated off under
+ * reduced-motion / dense graphs by the caller passing 0).
  */
 function drawNodeGradient(
   ctx: CanvasRenderingContext2D,
@@ -202,52 +222,81 @@ function drawNodeGradient(
   isSelected: boolean,
   globalScale: number,
   theme: GraphThemeColors,
+  glow: number,
 ) {
-  const { r, g, b } = hexToRgb(color);
+  const base = hexToRgb(color);
+  const { r, g, b } = base;
 
   if (isPlaceholder) {
-    // Faint, outlined disc for attachments / missing notes.
+    // Faint, outlined disc for attachments / missing notes - hollow ring so it
+    // reads as "not a real note yet" against either theme's background.
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
     ctx.fillStyle = theme.placeholderFill;
     ctx.fill();
-    ctx.lineWidth = 1.4 / globalScale;
-    ctx.strokeStyle = color;
+    ctx.setLineDash([2.4 / globalScale, 2.4 / globalScale]);
+    ctx.lineWidth = 1.3 / globalScale;
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.75)`;
     ctx.stroke();
-  } else {
-    // Radial gradient: opaque centre, fading toward the edge.
-    const grad = ctx.createRadialGradient(
-      x - radius * 0.25,
-      y - radius * 0.25,
-      radius * 0.05,
-      x,
-      y,
-      radius,
-    );
-    grad.addColorStop(0, `rgba(${r},${g},${b},1)`);
-    grad.addColorStop(0.55, `rgba(${r},${g},${b},0.92)`);
-    grad.addColorStop(1, `rgba(${r},${g},${b},0.55)`);
-
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    // Soft outer ring: visible halo at 1.45× radius.
-    const ringRadius = radius * 1.45;
-    ctx.beginPath();
-    ctx.arc(x, y, ringRadius, 0, 2 * Math.PI, false);
-    ctx.strokeStyle = `rgba(${r},${g},${b},0.18)`;
-    ctx.lineWidth = 1.2 / globalScale;
-    ctx.stroke();
+    ctx.setLineDash([]);
+    return;
   }
 
-  // Selected: crisp white ring directly over the node.
-  if (isSelected) {
+  // Resting halo: a soft, wide glow behind hubs so they feel alive at rest.
+  if (glow > 0.001) {
+    const haloR = radius * (2.0 + glow * 1.6);
+    const halo = ctx.createRadialGradient(x, y, radius * 0.6, x, y, haloR);
+    halo.addColorStop(0, `rgba(${r},${g},${b},${0.16 * glow})`);
+    halo.addColorStop(0.5, `rgba(${r},${g},${b},${0.07 * glow})`);
+    halo.addColorStop(1, `rgba(${r},${g},${b},0)`);
     ctx.beginPath();
-    ctx.arc(x, y, radius + 1.5 / globalScale, 0, 2 * Math.PI, false);
+    ctx.arc(x, y, haloR, 0, 2 * Math.PI, false);
+    ctx.fillStyle = halo;
+    ctx.fill();
+  }
+
+  // Body: lit sphere. Bright off-centre core → base colour → slightly darker
+  // rim so the node has dimensionality instead of reading as a flat dot.
+  const core = mixRgb(base, { r: 255, g: 255, b: 255 }, 0.45);
+  const rim = mixRgb(base, { r: 0, g: 0, b: 0 }, 0.18);
+  const grad = ctx.createRadialGradient(
+    x - radius * 0.35,
+    y - radius * 0.35,
+    radius * 0.05,
+    x,
+    y,
+    radius,
+  );
+  grad.addColorStop(0, `rgb(${core.r | 0},${core.g | 0},${core.b | 0})`);
+  grad.addColorStop(0.45, `rgb(${r},${g},${b})`);
+  grad.addColorStop(1, `rgb(${rim.r | 0},${rim.g | 0},${rim.b | 0})`);
+
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Crisp rim stroke: a hairline of the base colour at higher alpha defines the
+  // sphere's edge cleanly at any zoom.
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.55)`;
+  ctx.lineWidth = 0.8 / globalScale;
+  ctx.stroke();
+
+  // Selected: a crisp brand-accent ring with a thin background gap so it reads
+  // on any node colour in either theme.
+  if (isSelected) {
+    const ring = hexToRgb(theme.accentBright);
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 2.4 / globalScale, 0, 2 * Math.PI, false);
+    ctx.lineWidth = 1.6 / globalScale;
+    ctx.strokeStyle = theme.background;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 2.4 / globalScale, 0, 2 * Math.PI, false);
     ctx.lineWidth = 2 / globalScale;
-    ctx.strokeStyle = '#f4f4f5';
+    ctx.strokeStyle = `rgb(${ring.r},${ring.g},${ring.b})`;
     ctx.stroke();
   }
 }
@@ -470,6 +519,14 @@ export default function ForceGraphCanvas({
   // Whether labels should be globally suppressed for performance.
   const denseGraph = model.nodes.length > LABEL_NODE_CAP;
 
+  // Highest degree in the model, used to normalise the resting hub glow so the
+  // most-connected node always reads as the brightest regardless of vault size.
+  const maxDegree = useMemo(() => {
+    let max = 1;
+    for (const n of model.nodes) if (n.degree > max) max = n.degree;
+    return max;
+  }, [model.nodes]);
+
   const handleNodeClick = useCallback(
     (node: LiveNode | null) => {
       // If the clicked node is pinned, unpin it first and cancel any navigation.
@@ -527,6 +584,8 @@ export default function ForceGraphCanvas({
   contextViewRef.current = contextView;
   const themeRef = useRef(themeColors);
   themeRef.current = themeColors;
+  const maxDegreeRef = useRef(maxDegree);
+  maxDegreeRef.current = maxDegree;
 
   const nodeCanvasObject = useCallback(
     (node: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -540,9 +599,18 @@ export default function ForceGraphCanvas({
 
       const isSelected = n.id === currentSelectedId;
       const isFocused = currentFocus !== null && currentFocus.set.has(n.id);
+      const isFocusCentre = currentFocus !== null && currentFocus.id === n.id;
       const isPinned = pinnedRef.current.has(n.id);
       const isPlaceholder = n.category !== 'note';
       const currentTimelineIds = timelineIdsRef.current;
+      const theme = themeRef.current;
+
+      // On-brand note colour: in "type" colour mode every note carries the
+      // CATEGORY_STYLE cyan, which we re-resolve from the live `--accent-400`
+      // token so notes stay correct when the theme flips (the model's static hex
+      // is only the dark-theme fallback). Tag / cluster / group colours and
+      // placeholder colours are left untouched.
+      const fill = n.category === 'note' && n.color === '#1fafc6' ? theme.accent : n.color;
 
       // Dimming logic:
       // 1. Timeline: if active, nodes outside the window are faded first.
@@ -578,15 +646,30 @@ export default function ForceGraphCanvas({
 
       ctx.globalAlpha = dimmed ? dimAlpha : 1;
 
-      // v1 preserved: Hover/selection glow around the focused node + neighbours.
-      if (isFocused && !reducedMotion) {
+      // Resting glow strength: hubs glow more so visual weight tracks structural
+      // importance even before any interaction. Suppressed in dense graphs and
+      // under reduced-motion (kept calm + cheap). Focused nodes get a strong,
+      // unmistakable glow on top.
+      let glow = 0;
+      if (!isPlaceholder && !reducedMotion && !denseGraph) {
+        const norm = Math.min(1, Math.sqrt(n.degree) / Math.sqrt(maxDegreeRef.current));
+        glow = 0.18 + norm * 0.5;
+      }
+      if (isFocused) {
+        // Hover/selection: lift the focused node + its neighbours with a clearly
+        // stronger glow so the highlighted subgraph reads instantly.
+        glow = Math.max(glow, isFocusCentre ? 1 : 0.7);
+      }
+
+      // Focused-centre pulse ring: a soft accent ring just outside the node so
+      // the actively hovered/selected node is obvious among its lit neighbours.
+      if (isFocusCentre && !reducedMotion) {
         ctx.save();
-        ctx.shadowColor = n.color;
-        ctx.shadowBlur = (n.id === currentFocus?.id ? 22 : 12) / globalScale;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, radius, 0, 2 * Math.PI, false);
-        ctx.fillStyle = n.color;
-        ctx.fill();
+        ctx.arc(n.x, n.y, radius + 3 / globalScale, 0, 2 * Math.PI, false);
+        ctx.strokeStyle = `rgba(255,255,255,0.5)`;
+        ctx.lineWidth = 1 / globalScale;
+        ctx.stroke();
         ctx.restore();
       }
 
@@ -603,18 +686,19 @@ export default function ForceGraphCanvas({
         ctx.restore();
       }
 
-      // v3: Radial gradient node body + soft outer ring.
+      // Lit-sphere node body (halo + gradient + rim + selection ring).
       ctx.save();
       drawNodeGradient(
         ctx,
         n.x,
         n.y,
         radius,
-        n.color,
+        fill,
         isPlaceholder,
         isSelected,
         globalScale,
-        themeRef.current,
+        theme,
+        glow,
       );
       ctx.restore();
 
@@ -688,10 +772,10 @@ export default function ForceGraphCanvas({
         height={size.h}
         graphData={graphData}
         backgroundColor={themeColors.background}
-        cooldownTicks={reducedMotion ? 0 : 140}
-        warmupTicks={reducedMotion ? 0 : 24}
-        d3AlphaDecay={0.022}
-        d3VelocityDecay={0.32}
+        cooldownTicks={reducedMotion ? 0 : 160}
+        warmupTicks={reducedMotion ? 0 : 40}
+        d3AlphaDecay={0.0228}
+        d3VelocityDecay={0.42}
         nodeRelSize={4}
         minZoom={0.4}
         maxZoom={8}
@@ -699,43 +783,83 @@ export default function ForceGraphCanvas({
         linkColor={(link) => {
           const l = link as LiveLink;
           const dashed = !l.resolved;
+          const { r, g, b } = themeColors.edge;
 
-          // v3: opacity by relationship type.
-          // wikilink: most opaque; markdown: slightly less; typed relations: more subtle.
+          // Base presence by relationship type so connections actually read at
+          // rest (the old values washed out, especially in light theme).
+          // wikilink: most opaque; markdown: slightly less; typed relations: subtler.
           let baseOpacity: number;
           if (!l.resolved) {
-            baseOpacity = 0.15;
-          } else if (l.type === 'wikilink') {
-            baseOpacity = 0.32;
-          } else if (l.type === 'markdown') {
-            baseOpacity = 0.26;
-          } else {
-            // typed relation (references, refutes, etc.)
             baseOpacity = 0.22;
+          } else if (l.type === 'wikilink') {
+            baseOpacity = 0.42;
+          } else if (l.type === 'markdown') {
+            baseOpacity = 0.34;
+          } else {
+            baseOpacity = 0.3;
           }
 
-          if (!focus)
-            return dashed
-              ? `rgba(120,120,130,${baseOpacity * 0.6})`
-              : `rgba(120,120,130,${baseOpacity})`;
+          if (!focus) {
+            return `rgba(${r},${g},${b},${dashed ? baseOpacity * 0.65 : baseOpacity})`;
+          }
+          // When a node is focused, edges touching it light up in brand accent
+          // and everything else recedes so the connected subgraph is obvious.
           const lit = endpointId(l.source) === focus.id || endpointId(l.target) === focus.id;
-          if (lit) return dashed ? 'rgba(190,160,120,0.75)' : 'rgba(170,185,215,0.9)';
-          return `rgba(120,120,130,${baseOpacity * 0.22})`;
+          if (lit) {
+            const a = hexToRgb(themeColors.accentBright);
+            return `rgba(${a.r},${a.g},${a.b},${dashed ? 0.65 : 0.95})`;
+          }
+          return `rgba(${r},${g},${b},${baseOpacity * 0.18})`;
         }}
         linkLineDash={(link) => ((link as LiveLink).resolved ? null : [3, 3])}
         linkWidth={(link) => {
           const l = link as LiveLink;
-          if (!focus) return 1;
+          if (!focus) return 1.1;
           const lit = endpointId(l.source) === focus.id || endpointId(l.target) === focus.id;
-          return lit ? 2 : 1;
+          return lit ? 2.6 : 0.9;
         }}
         linkCurvature={(link) => {
           const l = link as LiveLink;
           const key = [endpointId(l.source), endpointId(l.target)].sort().join('|||');
-          return multiEdgePairs.has(key) ? 0.25 : 0;
+          // Multi-edges fan apart; single edges get a faint, consistent bow so
+          // the layout reads as organic arcs rather than a rigid web.
+          return multiEdgePairs.has(key) ? 0.28 : 0.08;
         }}
-        linkDirectionalArrowLength={(link) => ((link as LiveLink).resolved ? 3 : 0)}
-        linkDirectionalArrowRelPos={1}
+        linkDirectionalArrowLength={(link) => {
+          const l = link as LiveLink;
+          if (!l.resolved) return 0;
+          if (!focus) return 2.6;
+          const lit = endpointId(l.source) === focus.id || endpointId(l.target) === focus.id;
+          return lit ? 4.2 : 2;
+        }}
+        linkDirectionalArrowColor={(link) => {
+          const l = link as LiveLink;
+          const { r, g, b } = themeColors.edge;
+          if (focus) {
+            const lit = endpointId(l.source) === focus.id || endpointId(l.target) === focus.id;
+            if (lit) {
+              const a = hexToRgb(themeColors.accentBright);
+              return `rgba(${a.r},${a.g},${a.b},0.95)`;
+            }
+          }
+          return `rgba(${r},${g},${b},0.5)`;
+        }}
+        linkDirectionalArrowRelPos={0.92}
+        linkDirectionalParticles={(link) => {
+          // A single particle flows along edges of the focused node so active
+          // relationships feel alive. Off under reduced-motion and at rest.
+          if (reducedMotion || !focus) return 0;
+          const l = link as LiveLink;
+          const lit =
+            l.resolved && (endpointId(l.source) === focus.id || endpointId(l.target) === focus.id);
+          return lit ? 2 : 0;
+        }}
+        linkDirectionalParticleWidth={2}
+        linkDirectionalParticleSpeed={0.006}
+        linkDirectionalParticleColor={() => {
+          const a = hexToRgb(themeColors.accentBright);
+          return `rgba(${a.r},${a.g},${a.b},0.95)`;
+        }}
         onNodeHover={(node) => setHoverId(node ? (node as LiveNode).id : null)}
         onNodeClick={(node) => handleNodeClick(node as LiveNode | null)}
         onNodeDragEnd={(node) => handleNodeDragEnd(node as LiveNode)}

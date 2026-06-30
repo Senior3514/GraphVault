@@ -1246,3 +1246,62 @@ letterSpacing }]` tuples gives a cohesive scale with progressively tighter
   negative tracking on display sizes (-0.02 -> -0.032em) - confident headings,
   comfortable body - without touching any component class. Only override the steps
   you tune; the rest fall back to Tailwind defaults.
+
+## Wave 7 - spectacular graph (signature surface)
+
+### Make node colour token-driven, not a hardcoded hex, so the graph is on-brand in both themes
+
+- **Symptom:** the graph "felt generic" - every note was the same flat periwinkle
+  blue (`#7aa2f7`), edges were near-invisible thin grey lines, no depth/hierarchy.
+- **Root cause:** `CATEGORY_STYLE.note` was an arbitrary blue unrelated to the
+  brand, and the canvas drew flat discs with a faint gradient + a single low-alpha
+  grey edge colour that washed out (especially on the light page).
+- **Fix / rule:** the default "note" colour is now the brand CYAN (matches
+  `--accent-400`). The canvas re-resolves it at runtime from the live
+  `--accent-400`/`--accent-300` tokens via `useGraphThemeColors`, so notes stay
+  on-brand when the theme flips (the `model.ts` hex is only the dark fallback +
+  legend swatch). Edges derive from a theme-aware `edge` `{r,g,b}` triple chosen
+  by page-background luminance (light slate on dark, mid slate on light) and are
+  drawn at per-type alpha. NEVER hardcode a canvas colour that has to work in both
+  themes - read the token through the theme hook and the light theme comes for free.
+
+### Lit-sphere nodes + degree-scaled resting glow give instant visual hierarchy
+
+- **Rule:** draw nodes as lit spheres - a radial gradient with a bright off-centre
+  core (`mix(base, white, 0.45)`) → base → slightly darker rim, plus a hairline
+  rim stroke - instead of a flat disc. Add a soft ambient halo whose strength is
+  normalised by `sqrt(degree)/sqrt(maxDegree)` so hubs glow more and visual weight
+  tracks structural importance even at rest. Gate the halo OFF under
+  `prefers-reduced-motion` AND in dense graphs (`> LABEL_NODE_CAP`) to stay calm +
+  cheap. The hover/selection focus simply raises the same `glow` value to ~1 for
+  the centre and ~0.7 for neighbours, so the highlight reuses one code path.
+
+### Focused-subgraph edges in brand accent + directional particles read as "alive"
+
+- **Rule:** when a node is focused (hover or select), light its incident edges in
+  the bright accent (`--accent-300`) at high alpha, widen them, and run ONE
+  `linkDirectionalParticle` along each (gated by reduced-motion / only when a focus
+  exists). Everything else recedes to ~18% alpha. This makes relationships obvious
+  without changing the layout - it is purely an accessor-driven repaint, so it
+  composes with the existing search/timeline/context dimming. A faint constant
+  curvature (0.08) on all single edges + 0.28 on multi-edges reads as organic arcs
+  rather than a rigid web.
+
+### Smoother settling = higher velocity decay, not fewer ticks
+
+- **Rule:** jitter at rest comes from low damping, not from too many cooldown
+  ticks. Raising `d3VelocityDecay` (0.32 → 0.42) and a touch more `warmupTicks`
+  (24 → 40) settles the layout calmly and reduces the "twitchy" feel, while keeping
+  `cooldownTicks` high enough that the graph reaches a stable shape before
+  `onEngineStop` fires the gentle zoom-to-fit. All motion stays gated behind the
+  reduced-motion branch (0 warmup/cooldown).
+
+### Worktree gotchas for an isolated agent
+
+- **Note:** an agent worktree starts WITHOUT `node_modules` and the branch may lag
+  `origin/main`. Before building: `git checkout -B <branch> origin/main`, then
+  `pnpm install --frozen-lockfile`, then build the workspace deps
+  (`@graphvault/shared`, `engine`, `sync-core`) so the web `tsc --noEmit` can
+  resolve their `dist` types. The smoke harness skips when Playwright's pinned
+  Chromium build is absent; point `GV_SMOKE_CHROMIUM` at any installed
+  `/opt/pw-browsers/chromium-*/chrome-linux/chrome` to actually exercise `/graph`.
