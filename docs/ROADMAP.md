@@ -210,13 +210,35 @@ connector shows its privacy posture.
 
 ---
 
-## Open question to resolve with the owner
+## Monetization ✅ decided (open-core), 🟡 Cloud tier not built
 
-- **License / source model**: open-source (recommended: open-core - auditable
-  client + engine, optional paid hosted sync) vs closed. For a _local-first_
-  app, user data access comes from local files + export (already shipped), **not**
-  from the license - so closed source does **not** improve "access," while open
-  source materially improves trust for a security-sensitive notes app. Pending decision.
+Owner decided: **open-core**, MIT, matching Obsidian's proven model for this
+category. The app, self-hosting, and every storage backend stay free forever.
+
+- ✅ Plan/tier data model (`packages/shared/src/billing.ts`) - `free` / `cloud`,
+  reuses the existing AI spend-cap metering rather than a parallel system.
+- ✅ [`docs/PRICING.md`](PRICING.md) - the public pricing page content.
+- ⬜ **GraphVault Cloud** (paid, optional): managed sync relay, pooled AI
+  credits, managed backups, priority support. Requires a real payment
+  processor integration and a business entity - not started; needs an owner
+  decision on provider (e.g. Stripe) before implementation.
+
+## Milestone 23 - Obsidian-class UI polish ✅
+
+Direct response to user feedback that the product felt generic.
+
+- ✅ Spectacular, intuitive graph: on-brand lit-sphere nodes with degree-scaled
+  glow, curved directional edges, hover-highlighted focus subgraph
+- ✅ Self-hosted premium typography (Geist/Inter/JetBrains Mono via
+  `next/font/local`, zero external font requests)
+- ✅ Animated, dependency-free landing hero (CSS/SVG, motion-safe)
+- ✅ Clear public-landing vs private-vault separation (lock cue, one-time
+  welcome, "Private vault" sidebar identity)
+- ✅ Headless-browser smoke test (`pnpm run smoke:web`) wired into the
+  gauntlet - loads every route in real Chromium, catches the class of bug
+  (hydration mismatches, stale-SW chunks) that unit tests and `build:web`
+  both missed and that once caused a production white-screen
+- ✅ README rewritten: concise, accurate, no internal/agent-company exposure
 
 ## Working agreement (every agent)
 

@@ -98,6 +98,7 @@ hardcoded secrets.
 | [`docs/hardening.md`](docs/hardening.md)         | Production security checklist |
 | [`docs/sync-protocol.md`](docs/sync-protocol.md) | The sync wire protocol        |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md)             | Where the project is headed   |
+| [`docs/PRICING.md`](docs/PRICING.md)             | Free vs. GraphVault Cloud     |
 
 ## Tech
 
