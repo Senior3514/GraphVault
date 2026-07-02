@@ -94,6 +94,7 @@ hardcoded secrets.
 
 | Doc                                              | What it covers                |
 | ------------------------------------------------ | ----------------------------- |
+| [`docs/quickstart.md`](docs/quickstart.md)       | Using the app, step by step   |
 | [`docs/deployment.md`](docs/deployment.md)       | Self-hosting the sync server  |
 | [`docs/hardening.md`](docs/hardening.md)         | Production security checklist |
 | [`docs/sync-protocol.md`](docs/sync-protocol.md) | The sync wire protocol        |

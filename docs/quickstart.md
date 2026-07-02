@@ -15,8 +15,8 @@ choose a folder or grant any file-system permissions - the vault is stored in
 your browser.
 
 > If you are running the app locally for the first time, follow the
-> [local development quickstart](../README.md#quickstart--local-development)
-> first, then return here.
+> [local development quickstart](../README.md#quickstart) first, then return
+> here.
 
 ## 2. Write a note
 
@@ -130,22 +130,47 @@ kept as copies, and how many were identical (skipped).
 
 ## 9. Connect to a self-hosted sync server (optional)
 
-For multi-device sync, you need a self-hosted GraphVault server. See
-[`deployment.md`](./deployment.md) for how to run one.
+This entire step is optional - GraphVault works fully offline with no account.
+Only do this if you want to sync your notes across your own devices through a
+server you host yourself. See [`deployment.md`](./deployment.md) for how to
+run one.
 
-Once the server is running:
+Once the server is running, in **Settings** (under **Advanced → Self-hosted
+sync & account**):
 
-1. Go to **Settings** → **Sync server**.
-2. Enter the server URL (e.g. `https://notes.example.com`).
-3. Click **Test** to verify the connection.
-4. Click **Save**.
+1. Enter the server URL under **Sync server** (e.g. `https://notes.example.com`),
+   click **Test**, then **Save**.
+2. Under **Sync account (self-hosted)**, click **Create account** (first time)
+   or **Sign in**. This creates a login on _your_ server - there is no
+   GraphVault cloud account.
+3. Register your vault so the server can track it.
 
 Go to **Sync Status** to check the server connection, run a manual sync, and
-review any conflicts.
+review any conflicts. Conflicts are never silently overwritten - the losing
+side is saved alongside the winner as a conflict copy.
 
-> Sign-in and vault registration from the web client UI are not yet wired up;
-> they are planned for a later milestone. The sync engine and server API are
-> fully implemented.
+## 10. Install as an app (optional)
+
+GraphVault runs as a standalone app on desktop and mobile, installed straight
+from the browser - no app store, no download page required for this:
+
+- **Desktop (Chrome/Edge):** an **Install** button appears near the address
+  bar (or in the app's UI on the landing page). Click it - GraphVault opens in
+  its own window with a Dock/taskbar icon, and works offline.
+- **Mobile (iOS Safari):** tap **Share** → **Add to Home Screen**.
+- **Mobile (Android Chrome):** tap the **Install** prompt, or menu → **Install
+  app**.
+
+This is the same app, not a separate download - your vault and settings carry
+over automatically since it's the same origin.
+
+## 11. Try the AI assistant (optional, off by default)
+
+The assistant is fully opt-in. With it off (the default), GraphVault makes
+**zero** network requests for AI. To try it, go to **Settings → Advanced → AI
+assistant** and choose a privacy level: a local model (e.g. Ollama), your own
+API key, or your self-hosted server as a gateway. Every request shows
+you exactly what context it will send before it sends anything.
 
 ## Keyboard reference
 
