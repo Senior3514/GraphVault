@@ -907,6 +907,76 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
   apps/web-local `proxyAdapterHelpers.ts` (no new dep) and keep each adapter a thin
   shell, rather than copy-pasting the whole s3Adapter three times.
 
+## Graph fix 2 - actually screenshotting a "spectacular" pass caught what code review missed
+
+### Never trust a prior pass's self-report on visual quality - screenshot it
+
+- **Symptom:** a prior "make the graph spectacular" milestone reported success,
+  but the user's honest feedback was "nodes still look like garbage, labels
+  overlap and hide each other, everything is gross." Reading the code alone
+  (radial-gradient "lit sphere" nodes, halo labels, DPR notes in comments) reads
+  as sophisticated and plausible - the bugs were only visible in an actual
+  rendered screenshot of a busy vault.
+- **Fix / rule:** for any graph/canvas visual-quality task, build the app, serve
+  the static export, and use `playwright-core` (`chromium.launch({ executablePath:
+'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })`, no need to install a
+  browser) to screenshot the REAL rendered output before touching code - dark
+  AND light theme, a HiDPI context (`deviceScaleFactor: 2/3`), and a busy vault
+  (30-45+ notes with a few high-degree hub nodes, not the sparse 3-note seed -
+  label crowding only shows up once several nodes cluster tightly). Crop tight
+  with PIL (`im.crop(...).resize(..., Image.NEAREST)`) and `Read` the PNG to
+  inspect at the pixel level - the label "ghosting" bug in this task was
+  invisible at a normal screenshot zoom level and only obvious once cropped in.
+- **Concrete bugs found this way that code review would not have caught:**
+  (1) `shouldShowLabel` only checked a zoom threshold with zero collision
+  awareness, so any moderately dense neighbourhood (a hub with 5+ close
+  neighbours) rendered as a totally illegible stack of overlapping label text -
+  the single biggest driver of the "gross" complaint. (2) The "halo label"
+  technique drew 4 solid copies of the shadow colour at a FIXED (not
+  `/globalScale`) 0.8px offset before the real text - at most zoom levels this
+  read as a smeared, doubled "ghost" copy of every label, not a clean halo.
+  (3) DPR/canvas-backing-resolution and the lit-sphere node body were RE-checked
+  under this same screenshot process and found already correct (verified via
+  `page.evaluate` reading `canvas.width/height` vs `cssW/cssH × devicePixelRatio`
+  at dsf 1/2/3 - exact match every time) - resist the urge to "fix" working code
+  just because the user's complaint sounds DPR-shaped; verify first.
+
+### Real label-declutter needs a per-frame pre-pass, not a per-node decision
+
+- **Rule:** `react-force-graph-2d`/`force-graph` calls `nodeCanvasObject` once
+  per node in data order with no shared per-frame state, so a purely local
+  "should I draw my label" decision can never know what other labels already
+  claimed that screen space. The fix is `onRenderFramePre(ctx, globalScale)`
+  (exposed by both the underlying `force-graph` lib and the React wrapper,
+  called with the SAME zoom/pan-transformed `ctx` that `nodeCanvasObject` later
+  draws into) - build the full candidate list once, run a greedy
+  collision-avoidance pass, and stash the resulting `Set<nodeId>` in a ref that
+  `nodeCanvasObject` just reads. Put the actual greedy algorithm in a pure,
+  DOM-free module (`lib/graph/labelLayout.ts`: `selectVisibleLabels`) with text
+  measurement injected as `(text, fontSize) => number` so it unit-tests without
+  a canvas - forced candidates (selected/hovered/focused-neighbourhood/search
+  match) always place first and reserve their box regardless of mutual overlap
+  (the user explicitly focused that neighbourhood); everything else is sorted
+  by priority (node degree) and skipped if its bounding box would overlap an
+  already-placed one. O(n²) axis-aligned rect scan against a small "placed"
+  list is plenty cheap at the label-eligible counts a zoom threshold ever lets
+  through (a few hundred at most) - no spatial index needed.
+
+### Canvas text halo: stroke a single outline, never stack offset fill copies
+
+- **Symptom:** drawing a label 5 times (4 offset "shadow" copies + 1 real pass)
+  to fake a halo produces a legible-at-a-glance but genuinely smeared/doubled
+  look under any real inspection, because the offset is either imperceptible or
+  reads as a second copy of the glyphs - there is no in-between that looks like
+  a clean halo.
+- **Fix / rule:** `ctx.lineJoin='round'; ctx.lineWidth = fontSize * 0.3; ctx.strokeStyle
+= haloColor; ctx.strokeText(text, x, y);` THEN `ctx.fillText(...)` - one stroke
+  pass + one fill pass. Scale `lineWidth` off the (already zoom-normalised)
+  `fontSize`, not a fixed pixel constant, so the halo stays proportionally
+  correct at every zoom level instead of vanishing when zoomed out or turning
+  into a blob when zoomed in. Cheaper (2 draw calls vs 5) and strictly better-
+  looking.
+
 ## Wave 18 - public opt-in graph-snapshot store + web short share links
 
 ### Unauthenticated public-write endpoints: default OFF + layered caps
