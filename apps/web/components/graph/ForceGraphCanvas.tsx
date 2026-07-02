@@ -28,17 +28,36 @@
  *   3-D "glow dot" appearance without canvas shadow overhead.
  * - Soft outer ring: a faint outline ring at `radius * 1.45` that gives hubs
  *   extra visual mass without dominating small nodes.
- * - Halo labels: white text drawn twice (once slightly offset in a "shadow"
- *   colour) for legibility on any background, replacing the old flat label.
+ * - Halo labels: text drawn with a single crisp stroked outline (see v4 below
+ *   for why this replaced the original stacked-copy technique) for legibility
+ *   on any background.
  * - DPR-aware drawing: all pixel-level measurements (line widths, font sizes,
  *   pin glyphs) are divided by `globalScale` so they remain visually consistent
  *   at any zoom level on retina / HiDPI screens. The force-graph library
- *   handles the canvas backing-store scaling automatically.
+ *   handles the canvas backing-store scaling automatically (verified: canvas
+ *   backing `width`/`height` == CSS size × `devicePixelRatio` at 1x/2x/3x).
  * - Edge opacity by relationship type: wikilink ≥ markdown > typed-relation
  *   edges; unresolved links stay dashed at a lower opacity.
  * - Context view: when a node is selected, distant nodes (non-neighbours) fade
  *   to near-invisible so the selected neighbourhood reads as a distinct "island".
  *   The effect stacks correctly with timeline dimming and search dimming.
+ *
+ * v4 (graph-fix-2) - label declutter + halo cleanup. Screenshotting the app
+ * (dark/light, HiDPI, a busy 45-note vault) showed two real problems: dense
+ * neighbourhoods produced totally illegible stacks of overlapping labels, and
+ * every label rendered with a smeared "double text" ghost. DPR/node-body
+ * rendering were re-checked and found already correct (see above) - not
+ * touched.
+ * - Real label collision avoidance: `onRenderFramePre` runs a greedy placement
+ *   pass once per frame (`lib/graph/labelLayout.ts`) so labels never stack on
+ *   top of each other. Selected/hovered/focused/search-matched nodes always
+ *   keep their label and are placed first; everything else is placed by
+ *   degree (highest first), skipped if it would collide with an already-
+ *   placed label's bounding box. `nodeCanvasObject` just reads the precomputed
+ *   per-frame result instead of a purely local per-node decision.
+ * - `drawHaloLabel` no longer draws 4 offset copies of the shadow colour (that
+ *   read as a blurry duplicate "ghost" of the text at most zoom levels); it
+ *   strokes a single crisp outline behind the fill text instead.
  *
  * Interaction:
  * - single click  → select (side panel); click a pinned node → unpin
@@ -52,6 +71,7 @@ import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
 
 import { type GraphPhysics, radiusForDegree, shouldShowLabel } from '../../lib/graph/physics';
 import { makePositioningForce, type PositioningForce } from '../../lib/graph/forces';
+import { selectVisibleLabels, type LabelCandidate } from '../../lib/graph/labelLayout';
 import type { RenderLink, RenderModel, RenderNode } from '../../lib/graph/model';
 import { useGraphThemeColors, type GraphThemeColors } from '../../lib/graph/useThemeColors';
 
@@ -302,8 +322,24 @@ function drawNodeGradient(
 }
 
 /**
- * Draw a label with a "halo" (white shadow pass then solid text pass) so it
- * reads cleanly on any background colour.
+ * The label font stack, shared between the draw pass and the per-frame
+ * placement pass (`ctx.measureText` must use the exact same font the text
+ * will actually be drawn with, or measured widths won't match rendered ones).
+ */
+const LABEL_FONT_FAMILY = 'ui-sans-serif, system-ui, sans-serif';
+
+/**
+ * Draw a label with a "halo" so it reads cleanly on any background colour or
+ * edge crossing.
+ *
+ * This used to draw 4 solid copies of the halo colour offset by a fixed 0.8
+ * (world-space, i.e. NOT scaled by zoom) amount before the real text pass. At
+ * most zoom levels that offset was either too small to read as a halo or big
+ * enough to read as a second, slightly-shifted, smeared copy of the text - a
+ * "ghosting" artefact that was a real contributor to the "labels look gross"
+ * complaint (confirmed by screenshotting the built app). A single stroked
+ * outline behind the fill text is the standard technique for this and has
+ * neither problem: it scales cleanly with font size and never looks doubled.
  */
 function drawHaloLabel(
   ctx: CanvasRenderingContext2D,
@@ -321,22 +357,18 @@ function drawHaloLabel(
       ? theme.labelPlaceholder
       : theme.labelText;
 
-  ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.font = `${fontSize}px ${LABEL_FONT_FAMILY}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
   if (!isDimmed) {
-    // Halo pass: slightly thicker, in the page-background colour, drawn offset to
-    // simulate a shadow that lifts the text off any node colour in either theme.
-    ctx.fillStyle = theme.labelHalo;
-    for (const [dx, dy] of [
-      [-0.8, 0],
-      [0.8, 0],
-      [0, -0.8],
-      [0, 0.8],
-    ] as [number, number][]) {
-      ctx.fillText(text, x + dx, y + dy);
-    }
+    // Halo: a single crisp outline, proportional to the font size so it holds
+    // up at any zoom level without turning into a thick blob or vanishing.
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.lineWidth = Math.max(fontSize * 0.3, 1);
+    ctx.strokeStyle = theme.labelHalo;
+    ctx.strokeText(text, x, y);
   }
 
   // Foreground text pass.
@@ -587,6 +619,63 @@ export default function ForceGraphCanvas({
   const maxDegreeRef = useRef(maxDegree);
   maxDegreeRef.current = maxDegree;
 
+  // v4: the set of node ids whose label should be drawn THIS frame, decided
+  // once up-front (see `onRenderFramePre` below) rather than independently
+  // per node - this is what makes real label-collision avoidance possible.
+  const labelVisibleRef = useRef<Set<string>>(new Set());
+
+  // Runs once per animation frame, before any node/link is drawn (force-graph
+  // calls this with the same transformed `ctx` that `nodeCanvasObject` later
+  // draws into, so world-space coordinates line up exactly). Builds the
+  // candidate list, greedily declutters it, and stashes the result in
+  // `labelVisibleRef` for `nodeCanvasObject` to read per node.
+  const onRenderFramePre = useCallback(
+    (ctx: CanvasRenderingContext2D, globalScale: number) => {
+      const nodes = graphDataRef.current.nodes as LiveNode[];
+      const currentFocus = focusRef.current;
+      const currentSearchIds = searchIdsRef.current;
+      const currentSelectedId = selectedIdRef.current;
+      // Non-focused candidates still respect the existing zoom-scaled
+      // threshold control; focused/selected/search-matched nodes bypass it.
+      const zoomEligible = shouldShowLabel({
+        globalScale,
+        threshold: physics.labelThreshold,
+        isFocused: false,
+      });
+
+      const fontSize = Math.max(10 / globalScale, 2);
+      // Set the exact font the labels will be drawn with so measureText widths
+      // (used for collision boxes) match the real rendered glyphs.
+      ctx.font = `${fontSize}px ${LABEL_FONT_FAMILY}`;
+      const measureTextWidth = (text: string) => ctx.measureText(text).width;
+
+      const candidates: LabelCandidate[] = [];
+      for (const n of nodes) {
+        if (n.x === undefined || n.y === undefined) continue;
+        const isSelected = n.id === currentSelectedId;
+        const isFocused = currentFocus !== null && currentFocus.set.has(n.id);
+        const isSearchMatch = currentSearchIds?.has(n.id) ?? false;
+        const forced = isFocused || isSelected || isSearchMatch;
+        // Performance: in dense graphs, only forced labels are ever
+        // candidates (matches the old `denseGraph` suppression); everything
+        // else additionally needs the zoom threshold.
+        if (!forced && (denseGraph || !zoomEligible)) continue;
+        candidates.push({
+          id: n.id,
+          x: n.x,
+          y: n.y,
+          radius: radiusForDegree(n.degree),
+          text: n.title,
+          forced,
+          priority: n.degree,
+        });
+      }
+
+      labelVisibleRef.current = selectVisibleLabels(candidates, fontSize, measureTextWidth);
+    },
+    [physics.labelThreshold, denseGraph],
+  );
+
   const nodeCanvasObject = useCallback(
     (node: object, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const n = node as LiveNode;
@@ -639,10 +728,7 @@ export default function ForceGraphCanvas({
         dimmed = (currentFocus !== null && !isFocused) || timelineDimmed;
       }
 
-      // Performance: suppress label rendering in dense graphs unless important.
       const isSearchMatch = currentSearchIds?.has(n.id) ?? false;
-      const forceLabel = isFocused || isSelected || isSearchMatch;
-      const showLabelDense = !denseGraph || forceLabel;
 
       ctx.globalAlpha = dimmed ? dimAlpha : 1;
 
@@ -717,10 +803,9 @@ export default function ForceGraphCanvas({
         ctx.restore();
       }
 
-      if (
-        showLabelDense &&
-        shouldShowLabel({ globalScale, threshold: physics.labelThreshold, isFocused: forceLabel })
-      ) {
+      // v4: label visibility is decided once per frame in `onRenderFramePre`
+      // (greedy collision avoidance across the whole graph), not locally here.
+      if (labelVisibleRef.current.has(n.id)) {
         const fontSize = Math.max(10 / globalScale, 2);
         ctx.save();
         ctx.globalAlpha = dimmed ? dimAlpha : 1;
@@ -739,11 +824,12 @@ export default function ForceGraphCanvas({
       }
       ctx.globalAlpha = 1;
     },
-    // focusRef, searchIdsRef, timelineIdsRef, selectedIdRef, contextViewRef and
-    // pinnedRef are intentionally read via refs so this callback can be stable -
-    // it only needs to rebuild when the label threshold, density flag, or
-    // reduced-motion preference changes.
-    [physics.labelThreshold, denseGraph, reducedMotion],
+    // focusRef, searchIdsRef, timelineIdsRef, selectedIdRef, contextViewRef,
+    // pinnedRef and labelVisibleRef are intentionally read via refs so this
+    // callback can be stable - it only needs to rebuild when the density flag
+    // or reduced-motion preference changes (label visibility itself is now
+    // decided per-frame in `onRenderFramePre`, not here).
+    [denseGraph, reducedMotion],
   );
 
   const nodePointerAreaPaint = useCallback(
@@ -864,6 +950,7 @@ export default function ForceGraphCanvas({
         onNodeClick={(node) => handleNodeClick(node as LiveNode | null)}
         onNodeDragEnd={(node) => handleNodeDragEnd(node as LiveNode)}
         onBackgroundClick={() => onSelect(null)}
+        onRenderFramePre={onRenderFramePre}
         nodeCanvasObject={nodeCanvasObject}
         nodePointerAreaPaint={nodePointerAreaPaint}
       />
