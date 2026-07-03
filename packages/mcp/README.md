@@ -5,6 +5,10 @@ server** that exposes a self-hosted GraphVault vault to external agents (for
 example, Claude Desktop). The **read** tools are always available; **conflict-safe
 write** tools are enabled only when a device id is configured.
 
+> **Package status:** this package is publish-ready but not yet published to
+> the npm registry, so the `npx @graphvault/mcp` commands below will work once
+> it is. Until then, use the "From a local checkout" instructions.
+
 > **Data safety:** the read tools can only explore your vault - list, read,
 > search, traverse the link graph. The write tools are **off by default** and
 > are registered only when `GRAPHVAULT_DEVICE_ID` is set. Every write is
@@ -108,8 +112,21 @@ this must match a device registered for `GRAPHVAULT_TOKEN`.
 
 ## Running
 
+No install step needed - `npx` fetches and runs the published package:
+
 ```bash
-# From a built checkout:
+GRAPHVAULT_SERVER_URL=https://vault.example.com \
+GRAPHVAULT_TOKEN=your-token \
+GRAPHVAULT_VAULT_ID=your-vault-id \
+  npx @graphvault/mcp
+```
+
+The process speaks MCP over stdio; all diagnostics go to **stderr** so they
+never corrupt the protocol stream on stdout.
+
+### From a local checkout (contributors)
+
+```bash
 pnpm --filter @graphvault/mcp build
 
 GRAPHVAULT_SERVER_URL=https://vault.example.com \
@@ -117,9 +134,6 @@ GRAPHVAULT_TOKEN=your-token \
 GRAPHVAULT_VAULT_ID=your-vault-id \
   node packages/mcp/dist/index.js
 ```
-
-The process speaks MCP over stdio; all diagnostics go to **stderr** so they
-never corrupt the protocol stream on stdout.
 
 ## Claude Desktop configuration
 
@@ -131,8 +145,8 @@ Add an entry to your Claude Desktop MCP config
 {
   "mcpServers": {
     "graphvault": {
-      "command": "node",
-      "args": ["/absolute/path/to/GraphVault/packages/mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@graphvault/mcp"],
       "env": {
         "GRAPHVAULT_SERVER_URL": "https://vault.example.com",
         "GRAPHVAULT_TOKEN": "your-token",
@@ -147,8 +161,10 @@ To also enable the conflict-safe write tools, add `GRAPHVAULT_DEVICE_ID` (the
 device id bound to your token) to the `env` block above. Without it, only the
 read tools are registered.
 
-If the package is installed globally (it exposes a `graphvault-mcp` bin), you
-can instead use `"command": "graphvault-mcp"` with no `args`.
+Running from a local checkout instead? Use
+`"command": "node", "args": ["/absolute/path/to/GraphVault/packages/mcp/dist/index.js"]`,
+or install the package globally and use `"command": "graphvault-mcp"` with no
+`args`.
 
 Restart Claude Desktop; the GraphVault tools appear in the tool picker, your
 notes appear as attachable **resources**, and the **prompts** above appear as

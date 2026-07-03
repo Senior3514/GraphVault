@@ -1,13 +1,39 @@
 {
   "name": "@graphvault/cli",
   "version": "0.1.0",
-  "private": true,
+  "description": "Command-line access to a local GraphVault vault: list, search, stats, graph export, and a read-only local HTTP API.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Senior3514/GraphVault.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/Senior3514/GraphVault/blob/main/packages/cli/README.md",
+  "bugs": "https://github.com/Senior3514/GraphVault/issues",
+  "keywords": [
+    "graphvault",
+    "cli",
+    "markdown",
+    "notes",
+    "knowledge-graph"
+  ],
   "type": "module",
   "bin": {
     "graphvault": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "!dist/**/*.test.*",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -b",
     "dev": "tsc -b --watch",
