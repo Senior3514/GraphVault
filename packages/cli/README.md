@@ -4,25 +4,30 @@ Command-line interface for GraphVault vaults. Provides power-user / automation
 access to a local vault directory of Markdown files, powered by
 `@graphvault/engine`.
 
+> **Package status:** this package is publish-ready but not yet published to
+> the npm registry, so the `npx @graphvault/cli` command below will work once
+> it is. Until then, use the "From a local checkout" instructions.
+
 ## Install
 
-From the monorepo root, build once:
+```sh
+npx @graphvault/cli --help
+```
+
+No install step - `npx` fetches and runs it. To use the `graphvault` command
+without the `npx` prefix, install it globally:
+
+```sh
+npm install -g @graphvault/cli
+graphvault --help
+```
+
+### From a local checkout (contributors)
 
 ```sh
 pnpm --filter @graphvault/cli build
-```
-
-Then link globally (optional):
-
-```sh
-cd packages/cli
-npm link      # makes `graphvault` available on your PATH
-```
-
-Or run directly with Node:
-
-```sh
 node packages/cli/dist/index.js --help
+# or: cd packages/cli && npm link
 ```
 
 ## Usage

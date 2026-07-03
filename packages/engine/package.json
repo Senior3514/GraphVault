@@ -1,7 +1,22 @@
 {
   "name": "@graphvault/engine",
   "version": "0.1.0",
-  "private": true,
+  "description": "GraphVault's Markdown parsing, link/tag indexing, and graph-query engine - the core powering the graph view, CLI, and MCP server.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Senior3514/GraphVault.git",
+    "directory": "packages/engine"
+  },
+  "homepage": "https://github.com/Senior3514/GraphVault#readme",
+  "bugs": "https://github.com/Senior3514/GraphVault/issues",
+  "keywords": [
+    "graphvault",
+    "markdown",
+    "graph",
+    "wikilink",
+    "knowledge-graph"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,6 +25,17 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "!dist/**/*.test.*",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -b",

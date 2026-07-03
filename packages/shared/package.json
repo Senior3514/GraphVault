@@ -1,7 +1,21 @@
 {
   "name": "@graphvault/shared",
   "version": "0.1.0",
-  "private": true,
+  "description": "Shared TypeScript types and zod schemas for GraphVault - the single source of truth for the sync/AI/storage wire protocol.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Senior3514/GraphVault.git",
+    "directory": "packages/shared"
+  },
+  "homepage": "https://github.com/Senior3514/GraphVault#readme",
+  "bugs": "https://github.com/Senior3514/GraphVault/issues",
+  "keywords": [
+    "graphvault",
+    "types",
+    "zod",
+    "shared"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,6 +24,17 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "!dist/**/*.test.*",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -b",

@@ -1,7 +1,25 @@
 {
   "name": "@graphvault/mcp",
   "version": "0.1.0",
-  "private": true,
+  "description": "Standalone stdio MCP (Model Context Protocol) server exposing a self-hosted GraphVault vault to Claude Desktop and other MCP-compatible agents - read/search/graph tools, note resources, and prompt templates.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Senior3514/GraphVault.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/Senior3514/GraphVault/blob/main/packages/mcp/README.md",
+  "bugs": "https://github.com/Senior3514/GraphVault/issues",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-desktop",
+    "graphvault",
+    "markdown",
+    "notes",
+    "knowledge-graph"
+  ],
   "type": "module",
   "bin": {
     "graphvault-mcp": "./dist/index.js"
@@ -13,6 +31,17 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "!dist/**/*.test.*",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -b",
