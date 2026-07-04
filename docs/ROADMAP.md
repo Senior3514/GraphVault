@@ -121,7 +121,10 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
 - ✅ Accessibility pass: focus traps + restoration, skip-link, ARIA + live regions, WCAG AA
 - ✅ QA gauntlet + review (data-loss / privacy / security CLEAR; 2 fixes applied)
 - ✅ Light/dark theming via design tokens (system preference + persisted override) - "Prism2": CSS-variable neutral ramp, no-flash boot, segmented Light/Dark/System toggle
-- ⬜ "+ to add files" primary action: bottom-thumb FAB (mobile) + file-tree header (desktop)
+- ✅ "+ to add files" primary action: `AddButton` renders a bottom-thumb FAB in
+  the mobile safe-area (mounted in `AppFrame.tsx`) and an inline "+" in the
+  file-tree header above `NoteTree` on desktop (`vault/page.tsx`); one tap/click
+  opens New note / Import… / New folder
 - 🟡 v0.1.0 release **prepped**: all workspace versions bumped to 0.1.0, CHANGELOG
   written, CI green. Final step (owner): `git tag v0.1.0 && git push origin v0.1.0`
   to trigger `desktop-release.yml` (native installers). See `docs/releasing.md`.
