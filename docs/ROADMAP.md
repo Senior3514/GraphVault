@@ -146,12 +146,17 @@ providers go through the self-hosted server (keys never touch the browser).
   server-proxied providers (WebDAV, S3, Azure Blob, GCS) selectable from Settings;
   web `StorageAdapter`s talk only to the self-hosted proxy (creds never in browser)
 
-## Milestone 19 - Browser extension (web-clipper → note) 🟡
+## Milestone 19 - Browser extension (web-clipper → note) ✅
 
 - ✅ MV3 extension: clip → Markdown → save; cross-browser PNG icons + Firefox id; store-packaging zip
-- ⬜ Post directly to the self-hosted sync server (once auth lands end-to-end)
 - ✅ Store packaging zip (Chrome / Edge / Firefox) - publishing is a manual upload
-- ⬜ Post clips directly to the self-hosted sync server
+- ✅ Post clips directly to the self-hosted server inbox - a "Send to server
+  inbox" action posts to the already-shipped `POST /v1/inbox/:token` (token
+  minted once from Settings → Advanced → Connectors on the web app); least-
+  privilege `optional_host_permissions` requested only when first used; the
+  bearer token lives in `chrome.storage.local` (not `.sync`, unlike the local-
+  vault URL preference) so it never silently roams the browser account; honest
+  per-status error messages (404/413/429/network), never a generic failure
 
 ## Milestone 20 - Embed everywhere / integrations ⬜
 

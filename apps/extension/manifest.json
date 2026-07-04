@@ -33,8 +33,9 @@
   ],
   "permissions": ["activeTab", "scripting", "downloads", "storage"],
   "host_permissions": [],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src http: https:"
   },
   "browser_specific_settings": {
     "gecko": {

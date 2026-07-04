@@ -72,6 +72,29 @@ function buildNoteMarkdown({ title, tag, url, markdown }) {
   return lines.join('\n');
 }
 
+// -- Helpers extracted from popup.js's "send to server inbox" path --
+
+function normalizeTag(rawTag) {
+  const t = (rawTag || '').trim();
+  if (!t) return null;
+  return t.replace(/^#+/, '').replace(/\s+/g, '-').toLowerCase();
+}
+
+function buildInboxRequestBody({ title, tag, markdown, source }) {
+  const body = { title, markdown, source };
+  const normalized = normalizeTag(tag);
+  if (normalized) body.tags = [normalized];
+  return body;
+}
+
+function mapInboxStatusError(status) {
+  if (status === 201) return '';
+  if (status === 404) return 'Server rejected the token - check it in Settings.';
+  if (status === 413) return 'This clip is too large for the inbox endpoint.';
+  if (status === 429) return 'Rate limited by the server - wait a moment and try again.';
+  return `Server returned an unexpected error (HTTP ${status}).`;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -183,5 +206,69 @@ describe('buildNoteMarkdown', () => {
       markdown: 'x',
     });
     assert.ok(md.includes('> Tags: #research-papers'));
+  });
+});
+
+describe('buildInboxRequestBody', () => {
+  it('builds a body matching the server schema: {title, markdown, source}', () => {
+    const body = buildInboxRequestBody({
+      title: 'Test Article',
+      tag: '',
+      markdown: '# Test Article\n\ncontent',
+      source: 'https://example.com/article',
+    });
+    assert.equal(body.title, 'Test Article');
+    assert.equal(body.markdown, '# Test Article\n\ncontent');
+    assert.equal(body.source, 'https://example.com/article');
+    assert.equal(body.tags, undefined);
+  });
+
+  it('omits tags entirely when no tag is provided (not an empty array)', () => {
+    const body = buildInboxRequestBody({ title: 't', tag: '', markdown: 'm', source: 's' });
+    assert.ok(!('tags' in body));
+  });
+
+  it('includes a single-element tags array when a tag is provided', () => {
+    const body = buildInboxRequestBody({ title: 't', tag: '#Reading', markdown: 'm', source: 's' });
+    assert.deepEqual(body.tags, ['reading']);
+  });
+
+  it('normalises the tag the same way buildNoteMarkdown does (no drift)', () => {
+    const body = buildInboxRequestBody({ title: 't', tag: '##Research Papers', markdown: 'm', source: 's' });
+    assert.deepEqual(body.tags, ['research-papers']);
+  });
+
+  it('sends the tag WITHOUT a leading # in the tags array (unlike the markdown body)', () => {
+    const body = buildInboxRequestBody({ title: 't', tag: '#clipping', markdown: 'm', source: 's' });
+    assert.deepEqual(body.tags, ['clipping']);
+  });
+});
+
+describe('mapInboxStatusError', () => {
+  it('maps 404 to a token-specific message (never "not found")', () => {
+    const msg = mapInboxStatusError(404);
+    assert.ok(msg.toLowerCase().includes('token'));
+    assert.ok(!msg.toLowerCase().includes('not found'));
+  });
+
+  it('maps 413 to an oversize-clip message', () => {
+    assert.ok(mapInboxStatusError(413).toLowerCase().includes('large'));
+  });
+
+  it('maps 429 to a rate-limit message telling the user to wait', () => {
+    const msg = mapInboxStatusError(429).toLowerCase();
+    assert.ok(msg.includes('rate') || msg.includes('wait'));
+  });
+
+  it('falls back to a specific-but-generic message carrying the status code for anything else', () => {
+    const msg = mapInboxStatusError(500);
+    assert.ok(msg.includes('500'));
+  });
+
+  it('never returns a vague "something went wrong" style message', () => {
+    for (const status of [404, 413, 429, 500, 400]) {
+      const msg = mapInboxStatusError(status).toLowerCase();
+      assert.ok(!msg.includes('something went wrong'));
+    }
   });
 });

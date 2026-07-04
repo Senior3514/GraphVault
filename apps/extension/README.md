@@ -22,6 +22,7 @@ clean Markdown note - fully offline-capable, zero telemetry, local-first.
 |--------|-------------|----------|
 | **Download .md** | Saves a `.md` file to your browser Downloads folder via `chrome.downloads`. | Yes |
 | **Send to GraphVault** | Opens your GraphVault web app at `/vault?new=<markdown>` in a new tab. The web app receives the Markdown via the URL query parameter and can create a new note from it (see "Web app integration" below). | Requires the web app to be running |
+| **Send to server inbox** | POSTs the note directly to your self-hosted GraphVault server's inbox endpoint (`POST /v1/inbox/:token`) - no open-tab redirect, and the note lands on the server so it syncs to every device. Requires the server URL + an inbox token to be configured in Settings (see below). | Requires the self-hosted server to be reachable |
 
 The generated note contains a YAML-style header block with the source URL, date,
 and tag, followed by the clipped Markdown content - plain `.md` with no
@@ -69,6 +70,12 @@ Firefox requires a slightly different path because MV3 support is still maturing
    Downloads folder.
 7. Click **Send to GraphVault** - a new tab should open at your configured
    GraphVault URL with the Markdown in the `?new=` query parameter.
+8. To test **Send to server inbox**: open Settings, set a **Self-hosted server
+   URL** and paste an **Inbox token** (minted from the web app's Settings ->
+   Advanced -> Connectors & app importers), save, then click **Send to server
+   inbox**. The first time, the browser will prompt for permission to contact
+   your server - accept it. You should see a success status and the popup
+   should close.
 
 ---
 
@@ -78,9 +85,21 @@ Click the small **Settings** link at the bottom of the popup to configure:
 
 - **GraphVault URL**: the base URL of your running GraphVault web app
   (default: `http://localhost:3000`). Used for the "Send to GraphVault" action.
+- **Self-hosted server URL**: the base URL of your self-hosted GraphVault
+  *server* (e.g. `https://vault.example.com`). This is intentionally separate
+  from the GraphVault URL above - you may run the web app locally while
+  pointing clips at a remote self-hosted server. Used for "Send to server inbox".
+- **Inbox token**: a one-time token minted in the GraphVault web app under
+  **Settings -> Advanced -> Connectors & app importers**. The token IS the
+  credential for the public `POST /v1/inbox/:token` endpoint - no separate
+  auth header is sent.
 
-Settings are persisted via `chrome.storage.sync` (synced across your devices if
-you are signed in to Chrome).
+**Storage split, and why:** the GraphVault URL and the self-hosted server URL
+are both plain URL preferences, persisted via `chrome.storage.sync` (synced
+across your devices if you are signed in to Chrome/Firefox). The **inbox
+token is a bearer secret** and is persisted via `chrome.storage.local`
+instead - it is device-scoped and never silently replicates to every device on
+your browser account the way a URL preference reasonably can.
 
 ---
 
@@ -134,38 +153,63 @@ The extension requests the minimum set of permissions required:
 | `activeTab` | Read the title and URL of the current tab when the popup is open. Required to send a message to the tab's content script. |
 | `scripting` | Inject the content script programmatically if it is not already loaded (graceful recovery). |
 | `downloads` | Save the `.md` file to the user's Downloads folder without a file-picker dialog every time. |
-| `storage` | Persist the user's GraphVault URL setting across browser sessions and devices (`chrome.storage.sync`). |
+| `storage` | Persist the user's GraphVault URL / server URL (`chrome.storage.sync`) and inbox token (`chrome.storage.local`). |
 
-There are **no** host permissions, meaning the extension cannot access page
-content on its own - it only runs when the user explicitly opens the popup. The
-content script is injected at `document_idle` on all pages but is passive (it
-only registers a message listener and does nothing until the popup sends a
+`host_permissions` is `[]` at install time - **no** page-content access is
+granted up front, so installing the extension shows no alarming permission
+prompt. Instead, `optional_host_permissions` declares `["http://*/*",
+"https://*/*"]`, and the extension requests that permission **at runtime**,
+only the first time the user clicks "Send to server inbox" with a server URL
+and token configured (`chrome.permissions.request`, must be called from a user
+gesture). If the user declines, the extension shows a clear status message and
+does not retry silently - it will ask again only the next time the button is
+clicked. The manifest's CSP also grants `connect-src http: https:` (it
+otherwise falls back to `default-src 'self'`, which would block `fetch` to any
+external origin even with the host permission granted) so the popup can
+actually issue the request once permission is held.
+
+The content script is injected at `document_idle` on all pages but is passive
+(it only registers a message listener and does nothing until the popup sends a
 message).
 
-No external network requests are made by the extension itself. The only outbound
-action is opening the user's own GraphVault tab.
+The only network calls the extension makes are: (a) opening the user's own
+GraphVault tab ("Send to GraphVault"), and (b) `fetch` to the user's own
+self-hosted server's inbox endpoint ("Send to server inbox") - both configured
+by the user, never a third-party or GraphVault-operated server.
 
 ---
 
-## Planned deeper integration (post-MVP)
+## Sending to your self-hosted server's inbox
 
-Once GraphVault's self-hosted sync server supports authenticated API calls from
-browser extensions, the clipper will gain a third save path:
+"Send to server inbox" POSTs the note directly to your own server:
 
 ```
-POST <SYNC_SERVER>/vault/<vaultId>/notes
-Authorization: Bearer <token>
+POST <SERVER_URL>/v1/inbox/<token>
 Content-Type: application/json
 
-{ "path": "clippings/<title>.md", "content": "<markdown>" }
+{ "title": "...", "markdown": "...", "tags": ["..."], "source": "<page url>" }
 ```
 
-This will allow one-click clip → vault with no open-tab redirect, even when the
-web app is not running. The token will be stored in `chrome.storage.local`
-(device-scoped, not synced) and obtained via an OAuth-style flow. The extension
-will request the `"identity"` permission at that point.
+The token IS the credential - no separate `Authorization` header. Mint one
+from the GraphVault web app: **Settings -> Advanced -> Connectors & app
+importers** -> create an inbox token (shown once - copy it into the
+extension's Settings panel). The landing note this creates on the server is
+non-clobbering (always a fresh path) and is subject to the server's own rate
+limit and size cap.
 
-For the sync server API reference, see `docs/sync-protocol.md`.
+Status handling is specific to the endpoint's real contract - never a vague
+"something went wrong":
+
+| Response | Meaning shown to the user |
+|----------|---------------------------|
+| `201` | Sent - popup closes after a brief confirmation. |
+| `404` | The token is wrong or revoked - "check it in Settings" (the server 404s rather than leaking whether a token ever existed). |
+| `413` | The clip is too large for the inbox endpoint's size cap. |
+| `429` | Rate limited - told to wait and retry. |
+| network failure | "Could not reach the server - check the server URL." |
+
+For the full request/response schema, see `apps/server/src/routes/inbox.ts`
+and `docs/sync-protocol.md`.
 
 ---
 
@@ -254,9 +298,11 @@ the `.svg` source icons (replaced by the generated PNGs).
 5. Set **Visibility** to `Public` (or `Private` for internal testing).
 6. Submit for review. Chrome review usually takes 1-3 business days.
 
-> The extension requests only: `activeTab`, `scripting`, `downloads`, `storage`.
-> No host permissions, no remote code, no external network requests from the
-> extension itself.  This minimal permission set speeds up review.
+> The extension requests only: `activeTab`, `scripting`, `downloads`, `storage`
+> at install time. No host permissions are granted up front - `http://*/*` and
+> `https://*/*` are declared as `optional_host_permissions` and only requested
+> at runtime, the first time the user opts in to "Send to server inbox". No
+> remote code. This minimal up-front permission set speeds up review.
 
 ### Firefox Add-on (AMO) submission
 
