@@ -167,7 +167,7 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
   a path is ever granted, via `app.fs_scope().allow_directory(path, true)`,
   and only for the single folder the user just picked - added a
   `capabilities/default.json` (`fs:read-all` / `fs:write-all` command
-  permissions, no pre-configured path) since the app previously had *zero*
+  permissions, no pre-configured path) since the app previously had _zero_
   capabilities and every fs-plugin call would have been denied at runtime.
   **Known gap, documented not fabricated**: the scope grant lives in the
   running process's memory only, so the folder isn't remembered across app

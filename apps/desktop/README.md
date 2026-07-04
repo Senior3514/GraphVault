@@ -151,12 +151,12 @@ interface as every other backend, no editor/vault-page changes were needed.
 
 - **Allowlist is minimal**: only `tauri-plugin-fs` and `tauri-plugin-dialog`
   are loaded; no shell, HTTP, or clipboard plugins.
-- **FS scope is least-privilege and dynamic**: the `fs` plugin's *static*
+- **FS scope is least-privilege and dynamic**: the `fs` plugin's _static_
   scope (`tauri.conf.json` → `plugins.fs.scope`) stays permanently empty - no
   path is pre-approved at build time. `capabilities/default.json` grants the
-  `fs:read-all` / `fs:write-all` *command* permissions (which commands may be
+  `fs:read-all` / `fs:write-all` _command_ permissions (which commands may be
   called) with **no path attached**; `pick_vault_folder` (in
-  `src-tauri/src/main.rs`) is the *only* place a path is ever added to the
+  `src-tauri/src/main.rs`) is the _only_ place a path is ever added to the
   scope, via `app.fs_scope().allow_directory(path, true)`, and only for the
   single folder the user just explicitly chose.
 - **Known limitation - no persistence across restarts**: the scope grant lives

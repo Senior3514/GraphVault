@@ -1625,7 +1625,7 @@ surfaced a second, independent runtime bug beyond the four build-time ones:
    command (fs, dialog) would have been denied at the ACL layer regardless of
    the separate scope problem below. Fixed by adding
    `capabilities/default.json` granting `fs:read-all` / `fs:write-all` (the
-   permission set that enables the *commands* with **no pre-configured
+   permission set that enables the _commands_ with **no pre-configured
    path** - verified by reading `tauri-plugin-fs`'s own
    `permissions/read-all.toml` in the local cargo registry cache rather than
    guessing at the identifier).
