@@ -97,7 +97,21 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
   blob body caps, hardened Dockerfile/compose (non-root, cap_drop, read-only +
   tmpfs, healthcheck), `docs/hardening.md` (nginx TLS, UFW, fail2ban, systemd)
 - ✅ Lazy-load graph (force-graph lib code-split via `next/dynamic` + accessible
-  loading skeleton; kept out of First Load JS) · ⬜ CSP Trusted Types (CSP shipped)
+  loading skeleton; kept out of First Load JS)
+- ⬜ CSP Trusted Types - **investigated, blocked, not shipped.** Built and
+  tested the policy/wrapper infra (`apps/web/lib/security/trustedTypes.ts`,
+  `toTrustedHTML()` wired into all 3 `dangerouslySetInnerHTML` sites), but did
+  **not** add `require-trusted-types-for` / `trusted-types` to the CSP: a real
+  headless-Chromium run with the CSP actually enforced (not just a green
+  `pnpm build`) found that the third-party `force-graph` library (graph view)
+  assigns a bare string to `.innerHTML` in its own `init()` - outside our code,
+  and un-interceptable in time from a React parent (child layout effects run
+  before a parent's) - which throws and breaks the graph view on every
+  Chromium user. The only fixes are a blanket `'default'` Trusted Types policy
+  (rejected - defeats the purpose) or patching the dependency (fragile, out of
+  scope). Full writeup + exact repro in `apps/web/lib/security/csp.ts` and
+  `docs/agent-company/lessons.md`. Re-attempt once `force-graph` is
+  Trusted-Types-aware upstream or is swapped out, re-verifying the same way.
 
 ## Milestone 14b - Graph v2 extras ✅
 
