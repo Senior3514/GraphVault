@@ -76,6 +76,11 @@
             Send to GraphVault
           </button>
         </div>
+        <div class="save-actions">
+          <button id="btn-send-inbox" class="btn btn-accent" type="button" disabled>
+            Send to server inbox
+          </button>
+        </div>
       </form>
 
       <!-- Settings link -->
@@ -99,6 +104,34 @@
         <p class="field-hint">
           Used for "Send to GraphVault". Must be a running GraphVault web app.
         </p>
+
+        <label class="field">
+          <span class="field-label">Self-hosted server URL <span class="field-hint">(optional)</span></span>
+          <input
+            id="field-server-url"
+            class="input"
+            type="url"
+            placeholder="https://vault.example.com"
+            spellcheck="false"
+          />
+        </label>
+        <label class="field">
+          <span class="field-label">Inbox token <span class="field-hint">(optional)</span></span>
+          <input
+            id="field-inbox-token"
+            class="input"
+            type="password"
+            placeholder="Paste your inbox token"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+        <p class="field-hint">
+          Get a token from Settings &rarr; Advanced &rarr; Connectors &amp; app importers
+          in the GraphVault web app. Used for "Send to server inbox"; the token is
+          stored locally on this device only (never synced).
+        </p>
+
         <div class="settings-actions">
           <button id="btn-save-settings" class="btn btn-primary" type="button">Save</button>
           <button id="btn-close-settings" class="btn btn-secondary" type="button">Cancel</button>
