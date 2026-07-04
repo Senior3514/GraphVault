@@ -178,9 +178,13 @@ device unless the user enables a provider.
   sessionStorage, redacted from errors, never logged; button hidden when off
 - ✅ Graph intelligence: AI-named clusters, related-notes, gap-finding overlays
   (titles + topology only; off by default; confirm-before-send)
-- ⬜ **Server-side AI proxy (BFF)** - keys live on the user's self-hosted server
-  (encrypted), never the browser; **OpenRouter** as default gateway (400+ models)
-  - per-key spend caps. (Research-backed: client-stored secrets are extractable.)
+- ✅ **Server-side AI proxy (BFF)** - keys live on the user's self-hosted server,
+  AES-256-GCM + HKDF encrypted at rest, never the browser; **OpenRouter** as the
+  default gateway (`custom` gateway supports any OpenAI-compatible endpoint,
+  e.g. Anthropic/OpenAI directly); per-user monetary (`spendCapUsd`) and daily
+  request (`dailyRequestCap`) caps enforced server-side, with `spendCapState`
+  surfaced to the client so the UI can show remaining budget. SSE streaming
+  supported. (Research-backed: client-stored secrets are extractable.)
 - ✅ MCP server - expose the vault to external agents (Claude) for interoperability
   (`@graphvault/mcp`: stdio server over the self-hosted HTTP API; read tools -
   list/read/search notes, backlinks, local graph, vault stats; reuses the engine.
