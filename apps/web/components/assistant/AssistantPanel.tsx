@@ -34,6 +34,7 @@ import { useVaultContext } from '../../lib/vault/VaultProvider';
 import { useAISettings } from './useAISettings';
 import { useAuth } from '../../lib/api/useAuth';
 import { useServerSettings } from '../../lib/api/useServerSettings';
+import { toTrustedHTML } from '../../lib/security/trustedTypes';
 
 /** Custom event name - dispatched by the toolbar button and command-palette. */
 export const ASSISTANT_TOGGLE_EVENT = 'graphvault:assistant-toggle';
@@ -599,7 +600,11 @@ export function AssistantPanel() {
                   {/* Sanitised markdown output */}
                   <div
                     className="markdown-preview rounded-md border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm"
-                    dangerouslySetInnerHTML={{ __html: result }}
+                    // `result` is always the output of `renderMarkdown()` (DOMPurify-
+                    // sanitised); wrap it so this sink is ready for the CSP
+                    // `trusted-types` directive (not yet enabled - see the blocker
+                    // note in `lib/security/csp.ts`). See `lib/security/trustedTypes.ts`.
+                    dangerouslySetInnerHTML={{ __html: toTrustedHTML(result) }}
                   />
                   {/* Usage / cost - surfaced from the terminal SSE usage frame. */}
                   {usage && (

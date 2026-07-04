@@ -12,6 +12,7 @@
 import { useMemo, type MouseEvent } from 'react';
 
 import { renderMarkdown, type ResolveTarget } from '../lib/markdown/render';
+import { toTrustedHTML } from '../lib/security/trustedTypes';
 
 interface MarkdownPreviewProps {
   markdown: string;
@@ -21,7 +22,12 @@ interface MarkdownPreviewProps {
 }
 
 export function MarkdownPreview({ markdown, resolve, onNavigate, onTag }: MarkdownPreviewProps) {
-  const html = useMemo(() => renderMarkdown(markdown, resolve), [markdown, resolve]);
+  // `renderMarkdown` already ran the raw markdown through DOMPurify; wrap the
+  // result through our Trusted Types policy so this sink is ready for when the
+  // CSP `trusted-types` directive is enabled (not yet - see the blocker note
+  // in `lib/security/csp.ts`). No-op passthrough today either way - see
+  // `lib/security/trustedTypes.ts`.
+  const html = useMemo(() => toTrustedHTML(renderMarkdown(markdown, resolve)), [markdown, resolve]);
 
   const handleClick = (e: MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;

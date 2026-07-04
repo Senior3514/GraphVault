@@ -1496,3 +1496,117 @@ letterSpacing }]` tuples gives a cohesive scale with progressively tighter
 graphvault-vault.json`), not a wildcard/param that gets appended to a base URL
   - any other key falls through to a catch-all `*` route that just 400s, so
     there is no string-building step for an attacker to smuggle traversal into.
+
+## CSP Trusted Types attempt - investigated end-to-end, shipped the safe half, blocked on a third-party sink
+
+### Summary
+
+Tried to close Milestone 15's last `⬜` (CSP Trusted Types). Built and tested
+the full policy/wrapper infrastructure - a single, narrowly-scoped policy
+(`apps/web/lib/security/trustedTypes.ts`, `graphvault-sanitized-html`, never a
+blanket `'default'`) wired into all 3 `dangerouslySetInnerHTML` sites
+(`MarkdownPreview.tsx`, `AssistantPanel.tsx`, `app/layout.tsx`'s theme-boot
+script) via `toTrustedHTML()`. Did **not** add `require-trusted-types-for
+'script'; trusted-types graphvault-sanitized-html;` to the CSP - real,
+enforced testing found a genuine third-party blocker. Roadmap item stays `⬜`
+with the blocker documented in `apps/web/lib/security/csp.ts` and here.
+
+### The core lesson: "the build is green" is not evidence for a CSP change - you must load the built site in a real browser with the real header
+
+A plain `pnpm run build:web` + `pnpm typecheck` + unit tests all passed with
+the Trusted Types CSP directives added. It was only `node scripts/smoke-web.mjs`
+(loads every exported route in real headless Chromium) that caught two
+**separate** real breakages, neither of which any static check could see:
+
+1. **First pass** (added `trusted-types graphvault-sanitized-html` only):
+   `/graph` and `/embed` threw `TypeError: Failed to set the 'src' property on
+'HTMLScriptElement': This document requires 'TrustedScriptURL' assignment.`
+   Root cause: Next.js's webpack client build unconditionally sets
+   `output.trustedTypes = 'nextjs#bundler'` (confirmed by grepping the built
+   `_next/static/chunks/webpack-*.js` for `trustedTypes.createPolicy`), so its
+   OWN chunk-loading runtime (`__webpack_require__.l`, used by every
+   `next/dynamic` code-split chunk - exactly the lazy-loaded
+   `react-force-graph-2d` chunk from the earlier "lazy-load graph" slice) tries
+   to register a policy named `nextjs#bundler` for the `<script src>` URLs it
+   creates. Our CSP only allow-listed our own policy name, so
+   `trustedTypes.createPolicy('nextjs#bundler', …)` was refused by the browser
+   (CSP violation), and the runtime fell back to a bare-string `script.src =`
+   assignment, which the sink itself then rejected. **Fix that would have
+   worked:** also allow-list `nextjs` and `nextjs#bundler` (Next.js's App
+   Router route-loader/prefetch module registers the plain `nextjs` name for
+   the same reason) in the `trusted-types` directive.
+
+2. **Second pass** (added `nextjs` + `nextjs#bundler` too): the
+   `TrustedScriptURL` errors disappeared, but `/graph` and `/embed` now threw
+   `TypeError: Failed to set the 'innerHTML' property on 'Element': This
+document requires 'TrustedHTML' assignment.`, tracked via a full stack
+   trace to `force-graph/src/force-graph.js`'s Kapsule `init: function(domNode,
+state) { domNode.innerHTML = ''; ... }` - the library's own container-wipe
+   on mount, called via `react-kapsule`'s `useLayoutEffect` the instant the
+   graph component mounts. This is **not fixable by allow-listing a policy
+   name** the way the webpack case was, because `force-graph` never creates or
+   uses a Trusted Types policy at all - it just assigns a bare string, and per
+   the Trusted Types spec that's rejected unconditionally once ANY
+   `trusted-types` directive is present, with no way to opt a specific
+   third-party string in without either (a) a blanket `'default'` policy
+   (explicitly rejected - would silently exempt every other future unaudited
+   `innerHTML =` in the app too) or (b) patching the dependency.
+
+   Also checked, empirically, whether a THIRD framework/library policy
+   (DOMPurify's own internal `dompurify` policy, used for its internal HTML
+   parsing step) would be needed - it was not: `/vault` (which renders real
+   markdown through `DOMPurify.sanitize()`) passed with **zero console errors**
+   even with `dompurify` deliberately absent from the allow-list. Read
+   DOMPurify's source (`_createTrustedTypesPolicy`) to confirm why: it parses
+   into a document created via `document.implementation.createHTMLDocument()`,
+   which carries no CSP of its own, so Trusted Types simply isn't enforced on
+   that internal sink regardless. This is a good example of _not_ fixing a
+   theoretical problem that real-browser testing shows isn't actually live -
+   the instinct to "just allow-list every library's policy name defensively"
+   would have been wrong here.
+
+3. **Why the `force-graph` sink can't be intercepted from our own component
+   code:** the natural instinct is "wrap the container ref before the library
+   touches it" (e.g. a `useLayoutEffect` in our own `ForceGraphCanvas.tsx` that
+   installs a per-node `innerHTML` property-descriptor override before the
+   child mounts). This doesn't work: `react-kapsule`'s wrapper does the actual
+   `chart(domEl.current)` call (which triggers `force-graph`'s `.innerHTML =
+''`) inside **its own** `useLayoutEffect`, and React fires layout
+   effects/ref callbacks bottom-up (children before parents) during commit -
+   so by the time any hook in our parent component would run, the child's
+   layout effect (and the throw) has already happened. There is no user-space
+   hook that runs early enough. (A global `Element.prototype.innerHTML`
+   monkey-patch that only special-cased the literal empty string was
+   considered and rejected: even scoped to `''`, patching a core Web API
+   prototype app-wide is exactly the kind of "clever, hard-to-audit" move
+   `CLAUDE.md` warns against, and it would make the "no blanket default
+   policy" invariant misleading to a future reviewer who doesn't also know
+   about the prototype patch.)
+
+### What shipped vs. what didn't
+
+- **Shipped:** `apps/web/lib/security/trustedTypes.ts` (policy + `toTrustedHTML()`
+  - ambient typing in `apps/web/types/trusted-types.d.ts`, since this
+    TypeScript/lib.dom.d.ts version has no real Trusted Types typings and
+    `@types/react`'s `TrustedHTML` is an empty placeholder interface), wired into
+    all 3 sinks; `apps/web/lib/security/csp.ts` (CSP extracted to a single
+    source of truth, matching the existing `lib/themeScript.ts` pattern) +
+    `csp.test.ts` (byte-for-byte `<meta>` vs `vercel.json` header sync check -
+    this test would have caught the CSP-drift class of bug even before Trusted
+    Types was on the table). All harmless when inactive: with no `trusted-types`
+    CSP directive present, `window.trustedTypes.createPolicy()` still succeeds
+    in Chromium (the directive only restricts which sinks/behaviors are
+    _enforced_, not whether `createPolicy` itself is callable), so `toTrustedHTML()`
+    is future-ready groundwork, not dead code.
+- **Not shipped:** the CSP `require-trusted-types-for 'script'; trusted-types
+…;` directives themselves, in either `vercel.json` or the `<meta>` tag.
+  Roadmap stays `⬜`.
+
+### Rule for the next attempt
+
+Re-verify with the exact same method (headless Chromium, `scripts/smoke-web.mjs`
+or equivalent, served with the REAL response header - not just the `<meta>`
+tag, since that's what's authoritative on Vercel) against `/graph` and `/embed`
+specifically, since those are the routes that load `react-force-graph-2d`.
+Do not re-enable the CSP directive on the strength of `pnpm build` + unit
+tests alone - this class of bug is invisible to both.
