@@ -41,6 +41,8 @@ Thumbs.db
 
 # Tauri
 apps/desktop/src-tauri/target/
+# Auto-generated capability/ACL schemas, regenerated every build.
+apps/desktop/src-tauri/gen/
 
 # Test coverage
 coverage/

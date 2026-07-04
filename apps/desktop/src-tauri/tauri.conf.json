@@ -10,7 +10,7 @@
     "devUrl": "http://localhost:3000",
 
     "beforeBuildCommand": "pnpm -w run build:web",
-    "frontendDist": "../../apps/web/out"
+    "frontendDist": "../../../apps/web/out"
   },
 
   "app": {

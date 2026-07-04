@@ -25,8 +25,12 @@ local-first / zero-telemetry, multi-storage, privacy-first AI, and one codebase
 across web + mobile + desktop. The loop prioritizes the bets below in order:
 
 1. **One-click native installers, hosted** - end users download a Windows
-   `.exe` / macOS `.dmg` / Linux `.AppImage` from `/download`. Pipeline is built;
-   it lights up the moment the owner enables GitHub Actions (or builds locally).
+   `.exe` / macOS `.dmg` / Linux `.AppImage` from `/download`. Pipeline is built
+   **and now verified working** (Milestone 16 - a real local Linux build
+   produced valid `.deb`/`.rpm` packages after fixing four previously-hidden
+   bugs); it lights up for hosted downloads the moment the owner enables
+   GitHub Actions, or can be built locally today (see the README's "Get the
+   app" section: `pnpm --filter @graphvault/desktop build`).
 2. **Connect to everything (privacy-graded)** - web-clip via the server proxy is
    done; next is live email (IMAP / Gmail / Outlook OAuth, creds server-side).
 3. **Cloud drives** - Google Drive + OneDrive (OAuth app-folder, tokens
@@ -122,8 +126,40 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
 - ✅ **Installable PWA** - manifest + offline service worker + icons + Install button;
   runs as a standalone desktop app from any modern browser, auto-updating (the
   "run it right now, any OS" path)
-- ✅ Tauri 2 shell scaffold (`apps/desktop`) wrapping the web export + `TauriStorageAdapter`
-- ✅ CI gauntlet workflow + Tauri release workflow (Win/Mac/Linux installers on `v*` tags)
+- ✅ **Native desktop build fixed and verified end-to-end** (previously silently
+  broken since the scaffold was first written - never once compiled, in any
+  environment, until this fix). Four real, concrete bugs found and fixed:
+  1. `Cargo.toml` declared a `"dialog"` feature on the `tauri` crate itself -
+     not a valid feature on any 2.x release - which failed dependency
+     resolution before compilation could even start, everywhere.
+  2. `main.rs` called `.pick_folder().await` on a callback-based (not
+     `Future`-returning) API - switched to the crate's own documented
+     `blocking_pick_folder()` for use inside an async command.
+  3. The result is a `FilePath` enum (path or `file://`/`content://` URL), not
+     a `PathBuf` - switched to `.into_path()`, which correctly normalizes a URL
+     variant to a real OS path (a bare `Display`/`to_string()` would not).
+  4. **`tauri.conf.json`'s `frontendDist` was `"../../apps/web/out"`** -
+     resolved (relative to the config file's own directory) to
+     `apps/apps/web/out`, which never exists - one `../` short of the repo
+     root. This is _why_ every previous "missing web assets" build failure
+     looked identical to the separate missing-system-library problem; fixing
+     the libraries alone was never going to be enough.
+     Verified for real: installed the Linux build toolchain
+     (libwebkit2gtk-4.1-dev et al.), ran a full `cargo build --release` (clean,
+     zero warnings) and `tauri build`, and got genuine, valid installer packages
+  - `GraphVault_0.1.0_amd64.deb` and `GraphVault-0.1.0-1.x86_64.rpm` - out the
+    other end. (The `.AppImage` bundling step failed only on a sandboxed-network
+    403 fetching a third-party `AppRun` binary from GitHub - not a code issue;
+    unaffected on a normal internet connection or GitHub's own CI runners.) This
+    also means the CI-based `desktop-release.yml` workflow was never actually
+    going to succeed either, independent of the GitHub Actions billing block -
+    it hit the identical bug. Both paths are real now.
+- 🟡 Tauri 2 shell scaffold (`apps/desktop`) wraps the web export and now
+  builds real installers (above). `TauriStorageAdapter` (native on-disk vault
+  storage, as opposed to the webview's default `localStorage`) is still an
+  unwired scaffold - see the adapter's own doc comment for the exact wiring
+  steps and the empty `fs` scope that still needs to be granted dynamically to
+  the user-picked folder.
 - ⬜ Native file watching; open an existing folder as a vault (web: "Open folder" ✅)
 
 ## Milestone 17 - Polish, onboarding & launch 🟡
