@@ -1429,3 +1429,70 @@ letterSpacing }]` tuples gives a cohesive scale with progressively tighter
   resolve their `dist` types. The smoke harness skips when Playwright's pinned
   Chromium build is absent; point `GV_SMOKE_CHROMIUM` at any installed
   `/opt/pw-browsers/chromium-*/chrome-linux/chrome` to actually exercise `/graph`.
+
+## SecAudit - periodic sweep (post AI-BFF streaming + billing/plan-tier types)
+
+### No new vuln found - streaming and redirect re-validation are structurally coupled, not just test-covered
+
+- **What was re-verified:** `guardedFetch`'s hop loop calls `assertSafeUrl`
+  (validate + DNS-resolve + private-range check) **unconditionally on every
+  iteration**, before branching into the buffered-vs-`stream:true` transport
+  path. The `stream` flag only changes how the FINAL 2xx response body is
+  wired (live `ReadableStream` vs buffered `Buffer`) - it never skips or
+  reorders the per-hop SSRF check. This means the guarantee "every redirect hop
+  is re-validated" holds **by construction** for the streaming AI-BFF path too,
+  not merely because a test happens to cover it - worth confirming by reading
+  the control flow directly (would a refactor that special-cased `stream` early
+  and `continue`d past validation be a regression? yes - so that shape is the
+  thing to re-check first on any future `guardedFetch` diff).
+- **Also re-verified clean:** every service under `apps/server/src/services/`
+  that makes an outbound call (`ai.ts` buffered + streaming, `webdav.ts`,
+  `s3.ts`, `azure.ts`, `gcs.ts`, `clip.ts`) imports and calls `guardedFetch` -
+  zero raw `fetch(`/`http.request(` in `apps/server/src` outside `ssrf.ts`
+  itself (grep confirms). The AI `custom` gateway (arbitrary user `baseUrl`)
+  goes through the same guard as WebDAV/S3/Azure/GCS custom endpoints.
+- **Rule:** when auditing a guard like this after a feature adds a new mode
+  (streaming, a new provider, etc.), the fastest way to prove "the invariant
+  still holds" is to find the one call site that enforces it and check that the
+  new mode's code path is a **strict subset** (only changes the tail/body
+  handling) rather than a parallel branch that could bypass the check earlier.
+
+### `packages/shared/src/billing.ts` (plan/tier) is inert - confirm before auditing it as a "vector"
+
+- **Finding:** the new open-core plan/tier schema (`planTierSchema`,
+  `planInfoSchema`, `cloudFeatureSchema`, `planIncludes`) holds zero secrets
+  (no payment token, no customer id, no webhook signing key - just an enum tier
+  - subscription status + renewal date) and is **not wired into any server
+    route or web import yet** (`grep -rl billing apps/server apps/web` returns
+    nothing outside `packages/shared` itself). It cannot leak a credential or
+    bypass authz because nothing calls it. Re-check this when a future PR
+    actually wires a `/v1/billing` or `/v1/plan` route - at that point re-audit
+    for the standard non-secret-GET / authz-owns-tier-mutation pattern used by
+    `ai.ts`/`webdav.ts` configs.
+
+### Content-addressed blob store is intentionally deployment-wide, not per-vault-owner - do not "fix" this without a design change
+
+- **Re-confirmed (not new):** `GET/PUT/HEAD /v1/blobs/:hash` requires only a
+  valid bearer token for _some_ user of the deployment, not `requireOwned` on a
+  specific vault - any authenticated user can fetch any blob if they already
+  know its exact `sha256:<hex>` hash. This is unchanged since v0 and is the
+  correct trade-off for a preimage-resistant content-addressed store in
+  `docs/security-basics.md`'s stated threat model ("single user or a small,
+  trusted team... not a hardened multi-tenant SaaS") - knowing the hash
+  requires already having the plaintext bytes, so this is not a practical
+  disclosure primitive, only a theoretical same-deployment confirmation
+  oracle. Do not scope blobs to `requireOwned` reactively during an audit
+  sweep; if multi-tenant isolation is ever a real goal, that is a deliberate
+  design change (vault-scoped blob namespacing), not a quick authz patch.
+
+### Re-verified still intact: WebDAV double-encoded-dot traversal fix
+
+- The `containsPathTraversal`/`containsTraversal` belt-and-suspenders guard
+  (shared zod schema in `packages/shared/src/webdav.ts` + service-layer
+  `joinWebDavUrl` in `apps/server/src/services/webdav.ts`) from the earlier
+  `f1b15c9` fix is untouched by the later AI-BFF/billing/storage-proxy commits.
+  The S3/Azure/GCS proxies never had this class of bug because their object
+  path is a **literal Fastify route segment** (`/v1/storage/s3/object/
+graphvault-vault.json`), not a wildcard/param that gets appended to a base URL
+  - any other key falls through to a catch-all `*` route that just 400s, so
+    there is no string-building step for an attacker to smuggle traversal into.
