@@ -1,89 +1,86 @@
 /**
- * Tauri native filesystem {@link StorageAdapter}.
+ * Tauri native filesystem {@link StorageAdapter} (Milestone 16).
  *
- * This adapter satisfies exactly the same `StorageAdapter` interface defined in
- * `apps/web/lib/vault/storage/index.ts` - no UI changes are required to use
- * it in the desktop build.
+ * Reads and writes real `.md` files on the host filesystem via
+ * `@tauri-apps/plugin-fs`, for the desktop build only. It lives alongside the
+ * other adapters (not in `apps/desktop`) so it is bundled and code-split the
+ * same way as `fileSystemAdapter.ts` - the desktop app is just the same web
+ * export running inside a Tauri webview, and `isAvailable()` keeps this
+ * adapter completely inert (never touching the Tauri APIs) in every other
+ * environment (plain browser, SSR, the Vercel-hosted PWA).
  *
  * ## How it works
  *
- * 1. On first use the web layer calls `TauriStorageAdapter.pickFolder()`, which
- *    invokes the Rust-side `pick_vault_folder` command and stores the returned
- *    absolute path.
+ * 1. `TauriStorageAdapter.pickFolder()` invokes the Rust `pick_vault_folder`
+ *    IPC command, which shows the native folder picker AND grants that
+ *    folder (only that folder) to the `fs` plugin's runtime scope - see the
+ *    command's implementation in `apps/desktop/src-tauri/src/main.rs`. The
+ *    plugin's *static* scope (`tauri.conf.json` → `plugins.fs.scope`) stays
+ *    empty; no path is accessible until the user explicitly picks one.
+ * 2. Subsequent `load()` / `save()` / `clear()` calls use
+ *    `@tauri-apps/plugin-fs` to read/write real files at that path.
  *
- * 2. Subsequent `load()` / `save()` / `clear()` calls use `@tauri-apps/plugin-fs`
- *    to read and write real `.md` files at that path via Tauri's IPC bridge -
- *    bypassing the File System Access browser API entirely (which requires a
- *    user gesture each session in a browser, but not in Tauri).
+ * ## Known limitation: no cross-restart persistence (yet)
  *
- * ## Security (M16 scaffold - NOT yet wired)
- *
- * IMPORTANT: native disk storage is an M16 scaffold. The shipping desktop app
- * currently runs purely as the web shell; this adapter is NOT registered and
- * the native fs path is NOT exercised at runtime.
- *
- * - The `@tauri-apps/plugin-fs` scope in `src-tauri/tauri.conf.json` ships with
- *   an EMPTY `allow` list, and `pick_vault_folder` (Rust) returns the chosen
- *   path WITHOUT granting fs scope to it. As a result, fs-plugin calls made by
- *   this adapter would be DENIED at runtime today. Dynamic scope granting from
- *   the chosen folder is deferred work - do not treat "scoped to the chosen
- *   vault" as an implemented guarantee yet.
- * - The adapter never executes arbitrary shell commands; all disk operations go
- *   through the typed `@tauri-apps/plugin-fs` surface.
- *
- * ## Wire-up in the web layer (no UI changes needed)
- *
- * In `apps/web/lib/vault/storage/index.ts` a new adapter can be conditionally
- * registered at app startup when running inside Tauri:
- *
- * ```ts
- * // Detect Tauri: window.__TAURI__ is injected by the Tauri runtime.
- * if (typeof window !== 'undefined' && '__TAURI__' in window) {
- *   const { tauriStorageAdapter } = await import('@graphvault/desktop/src/tauriStorageAdapter');
- *   registerAdapter(tauriStorageAdapter);
- * }
- * ```
- *
- * The desktop build is the only consumer - this file is NOT imported from the
- * web app's source tree.
- *
- * ## Status (Milestone 16)
- *
- * The interface and wiring plan are complete. The concrete read/write logic
- * (`readTextFile`, `writeTextFile`, `readDir`, `remove`) from
- * `@tauri-apps/plugin-fs` is stubbed below and ready to be fleshed out when
- * the Tauri toolchain is available in the build environment.
+ * The fs plugin's scope grant lives in memory for the running process only -
+ * it is not restored when the app is relaunched, so the folder must be
+ * re-picked each session. The standard fix is the official
+ * `tauri-plugin-persisted-scope` crate, which auto-saves/restores scope
+ * across launches. It was evaluated and rejected for now: version 0.1.3 (the
+ * only version compatible with this project's `rust-version = "1.77"` pin)
+ * pulls in a `tauri = "^2.0.0"` / `wry = "^0.44.0"` dependency chain that
+ * conflicts with the `kuchikiki` crate already resolved by the current
+ * `tauri-plugin-dialog` version, breaking `cargo check` entirely. Newer
+ * releases of the plugin need `rustc >= 1.77.2`. Re-attempt once the
+ * `rust-version` floor is raised, or once a compatible release ships.
  */
 
-import { invoke } from '@tauri-apps/api/core';
-
-// We import types only from the plugin so this file can be type-checked without
-// a full Tauri runtime present (e.g. in a dry-run CI that only runs tsc).
-import type { StorageAdapter } from '../../web/lib/vault/storage/index';
-import type { Note } from '../../web/lib/vault/types';
+import type { StorageAdapter } from './index';
+import type { Note } from '../types';
 
 // ---------------------------------------------------------------------------
-// Tauri IPC helpers
+// Tauri runtime detection
 // ---------------------------------------------------------------------------
 
-/** Invoke the Rust `pick_vault_folder` command and return the chosen path. */
-async function invokePicker(): Promise<string | null> {
-  return invoke<string | null>('pick_vault_folder');
+/** True when running inside the Tauri desktop webview (not a plain browser). */
+export function isTauriRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI__' in window;
 }
 
 // ---------------------------------------------------------------------------
-// Runtime fs helpers (lazy-imported to avoid hard dependency in non-Tauri env)
+// Tauri IPC / fs helpers (lazy-imported so a plain browser build never pulls
+// in `@tauri-apps/*` code paths that would throw outside a Tauri webview)
 // ---------------------------------------------------------------------------
 
+type InvokeFn = (cmd: string) => Promise<string | null>;
 type FsPlugin = typeof import('@tauri-apps/plugin-fs');
 
-let _fs: FsPlugin | null = null;
+// Test-only override seams (see `_setInvokeForTesting` / `_setFsForTesting`
+// below) so unit tests can exercise load/save/clear against an in-memory fake
+// instead of the real `@tauri-apps/*` packages, which throw outside an actual
+// Tauri webview and cannot be driven from a plain Node test runner.
+let _invokeOverride: InvokeFn | null = null;
+let _fsOverride: FsPlugin | null = null;
+
+async function invokePicker(): Promise<string | null> {
+  if (_invokeOverride) return _invokeOverride('pick_vault_folder');
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<string | null>('pick_vault_folder');
+}
 
 async function fs(): Promise<FsPlugin> {
-  if (!_fs) {
-    _fs = await import('@tauri-apps/plugin-fs');
-  }
-  return _fs;
+  if (_fsOverride) return _fsOverride;
+  return import('@tauri-apps/plugin-fs');
+}
+
+/** Test-only: replace the `invoke` call with a fake. Pass `null` to restore. */
+export function _setInvokeForTesting(fn: InvokeFn | null): void {
+  _invokeOverride = fn;
+}
+
+/** Test-only: replace the `@tauri-apps/plugin-fs` module with a fake. */
+export function _setFsForTesting(fake: FsPlugin | null): void {
+  _fsOverride = fake;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,24 +89,18 @@ async function fs(): Promise<FsPlugin> {
 
 /**
  * A {@link StorageAdapter} that reads and writes real `.md` files on the host
- * filesystem via the Tauri fs plugin.
- *
- * This is the M16 equivalent of `FileSystemAdapter` for the desktop shell.
- * Its interface is identical; the only difference is the I/O layer underneath.
+ * filesystem via the Tauri fs plugin. The desktop equivalent of
+ * `FileSystemAdapter` (which uses the browser's File System Access API).
  */
 export class TauriStorageAdapter implements StorageAdapter {
   readonly id = 'tauriFs';
-  readonly label = 'Native filesystem (Tauri)';
+  readonly label = 'Native filesystem (Tauri desktop)';
 
   private vaultPath: string | null = null;
 
   constructor(vaultPath?: string) {
     this.vaultPath = vaultPath ?? null;
   }
-
-  // ------------------------------------------------------------------
-  // Factory / configuration
-  // ------------------------------------------------------------------
 
   /**
    * Open the native folder picker and return a configured adapter.
@@ -122,7 +113,7 @@ export class TauriStorageAdapter implements StorageAdapter {
   }
 
   /** Set (or replace) the vault directory without showing the picker. */
-  setVaultPath(path: string): void {
+  setVaultPath(path: string | null): void {
     this.vaultPath = path;
   }
 
@@ -136,7 +127,7 @@ export class TauriStorageAdapter implements StorageAdapter {
   // ------------------------------------------------------------------
 
   isAvailable(): boolean {
-    return typeof window !== 'undefined' && '__TAURI__' in window && this.vaultPath !== null;
+    return isTauriRuntime() && this.vaultPath !== null;
   }
 
   /**
@@ -188,7 +179,7 @@ export class TauriStorageAdapter implements StorageAdapter {
       let dir = root;
       for (const seg of subdirs) {
         dir = `${dir}/${seg}`;
-        // `mkdir` with `recursive: true` is a no-op if the directory exists.
+        // `recursive: true` makes this a no-op if the directory exists.
         await mkdir(dir, { recursive: true });
       }
 
@@ -197,8 +188,8 @@ export class TauriStorageAdapter implements StorageAdapter {
   }
 
   /**
-   * Remove all `.md` files that were loaded from the vault directory.
-   * Does not remove directories or non-`.md` files.
+   * Remove every `.md` file that a fresh {@link load} currently tracks.
+   * Does not remove directories or non-`.md` files - no arbitrary wipe.
    */
   async clear(): Promise<void> {
     const { remove } = await fs();
