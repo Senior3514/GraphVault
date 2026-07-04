@@ -158,7 +158,7 @@ providers go through the self-hosted server (keys never touch the browser).
   vault URL preference) so it never silently roams the browser account; honest
   per-status error messages (404/413/429/network), never a generic failure
 
-## Milestone 20 - Embed everywhere / integrations ⬜
+## Milestone 20 - Embed everywhere / integrations ✅
 
 Make GraphVault the most _usable_ knowledge tool - it goes where you are.
 
