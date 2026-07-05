@@ -1864,3 +1864,69 @@ the first real test must be a real, large codebase (ideally this one) - a
 handful of synthetic two-file fixtures will pass while missing the exact
 convention (`.js` specifiers → `.ts` files) that a real TypeScript project
 depends on for every single one of its internal imports.
+
+## "Scrolling feels bad" was a real bug, not a subjective vibe: the sticky nav never stuck
+
+### What happened
+
+After an earlier pass on landing-page scroll performance came back inconclusive
+(frame-timing A/B tests were too noisy in this sandbox to attribute a cause -
+documented in the previous lessons entry, no speculative fix shipped), the
+user repeated the complaint more strongly. Rather than re-run the same noisy
+frame-timing methodology a second time, checked the header's actual behavior
+directly: `page.locator('header').boundingBox()` after `window.scrollTo(0,
+2000)` returned `{ y: -2000, ... }` - the "sticky" nav header was not sticky
+at all. It scrolled away with the page exactly like a normal static element,
+on every single page load, for every user, the whole time this landing page
+has existed.
+
+### Root cause
+
+`<main>` had `overflow-x-hidden` (added to clip oversized decorative aurora
+glow blobs that are wider than the viewport). Per the CSS Overflow spec, if
+`overflow-x` is set to anything other than `visible` and `overflow-y` is left
+at its default (`visible`), the browser instead computes `overflow-y` as
+`auto` - the two axes can't have a "hidden + visible" split; one drags the
+other off `visible`. That makes `<main>` a scroll-context-establishing
+ancestor, and CSS `position: sticky` only sticks relative to its _nearest
+scrolling ancestor's_ scrollport - not necessarily the true page viewport.
+Confirmed empirically: removing `overflow-x-hidden` from `<main>` alone (no
+other change) made the header's bounding box report `y: 0` at any scroll
+depth.
+
+### The fix, and why body-level overflow-x is the standard answer
+
+Moved the horizontal-overflow guard from `<main>` to `body` (`globals.css`).
+`overflow-x` on `body` specifically is a documented special case (the
+"overflow propagation to the viewport" rule): when `<html>` has no explicit
+overflow of its own, the `<body>`'s overflow value gets promoted to control
+the _viewport's_ own scrolling instead of creating a nested scroll container
+on `<body>` itself - so it does not have the sticky-breaking side effect that
+`overflow-x` on any _other_ element does. This is why "put `overflow-x:
+hidden` on `body`, never on an inner wrapper" is the standard, idiomatic fix
+for "clip an oversized decorative element without breaking sticky
+positioning elsewhere on the page" - not a GraphVault-specific workaround.
+
+### Verified past a false alarm
+
+After the fix, a naive check (`window.scrollTo(500, 0)` then read
+`window.scrollX`) reported `500` - looking like the horizontal-overflow guard
+had regressed. It hadn't: `window.scrollTo()`/`scrollLeft` assignment is a
+JS API that some engines still honor even against an `overflow: hidden`
+ancestor, which is NOT how a real user scrolls. Re-tested with
+`page.mouse.wheel(800, 0)` (a real gesture) and got `scrollX: 0` - no drift.
+Checked `getComputedStyle` too: `body` computed to `overflow-x: hidden;
+overflow-y: auto` as expected, `html` stayed `visible`/`visible`. Lesson:
+when verifying overflow/scroll-clipping behavior, drive it with a real input
+gesture (`mouse.wheel`, a touch drag), not a programmatic `scrollTo()` call -
+the two do not always respect the same CSS constraints.
+
+### Rule for next time
+
+"Feels bad" complaints about scrolling are not always about paint/frame-rate
+performance (which is genuinely hard to measure reliably in a sandboxed
+headless environment - see the earlier entry). Check the _functional_
+behavior first and cheaply: does a `position: sticky` element that's supposed
+to stay in view actually report a stable bounding box across a big scroll
+delta? A broken sticky nav is a much more common, much more diagnosable root
+cause than paint jank, and takes one `boundingBox()` call to rule in or out.

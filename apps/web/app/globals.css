@@ -126,6 +126,20 @@ body {
      The @apply re-states it so the body face is explicit even if a parent
      class is ever removed. */
   @apply bg-neutral-950 font-sans text-neutral-100 antialiased;
+  /* Global horizontal-overflow guard (oversized decorative elements, e.g. the
+     landing page's aurora glow blobs, must never cause a horizontal
+     scrollbar). Deliberately here, not on any element *inside* the page
+     (e.g. <main>): overflow-x on <body> is a documented special case that
+     controls the viewport's own scroll behavior rather than establishing a
+     new scrolling container, so it does NOT break `position: sticky` for
+     descendants - overflow-x on any other ancestor does (it implicitly
+     computes overflow-y to `auto`, per the CSS Overflow spec's paired-axis
+     rule, which silently breaks sticky positioning for every sticky element
+     inside it). Found by dogfooding: the landing page's sticky nav header
+     never actually stuck to the viewport on scroll because of exactly this,
+     via a since-removed `overflow-x-hidden` on the page's <main>.
+     Never re-add overflow-x on <main> or any other page container. */
+  overflow-x: hidden;
   /* Inter OpenType features: cv11 single-storey a/g; ss01 stylistic alternates;
      cv05 lowercase l with a tail (disambiguates from 1/I). Harmless no-ops on
      the system fallback before the woff2 swaps in. */
