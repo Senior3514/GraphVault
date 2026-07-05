@@ -1788,3 +1788,79 @@ context per route/session) before looking at animations or CSS - a hydration
 crash presents visually as exactly the kind of flash a non-technical user
 would describe, and is far more likely than a paint/animation issue to be a
 severe, universally-reproducible bug rather than a subjective perception.
+
+## Verify hype before building on it: "graphify" wasn't real, but the idea was
+
+### What happened
+
+User shared a social-media (Facebook) screenshot of a "Senior AI Engineer"
+personal-brand post announcing "graphify" - `pip install graphify`, claiming
+it turns a codebase into a queryable graph so AI coding assistants stop
+reading files one-by-one, "cutting token usage up to 70x". Asked to add this
+capability.
+
+Checked before building anything: `pip index versions graphify` found
+nothing, and `https://pypi.org/pypi/graphify/json` returned `{"message": "Not
+Found"}`. Looking closer at the screenshot itself confirmed why - the fake
+"terminal" output ("Requirement already satisfied: graphify in xnonpackoap",
+"logic-timeon 1.3.1") isn't a real pip output format, and the file tree
+underneath it has garbled names (`reross.py`, `seconaty`, `moduls.py`) - the
+unmistakable signature of an AI-generated portfolio hero graphic with
+placeholder text that was never filled in correctly, not a screenshot of
+real, running software. The package plainly does not exist.
+
+### What shipped anyway - the real idea behind the hype, done for real
+
+The underlying concept (index a codebase as a graph so an AI agent queries it
+instead of reading every file) is sound and already half-true of GraphVault's
+own architecture (the MCP server does exactly this for a user's _notes_).
+Extended the same idea to _source code_, built for real and dogfooded, not
+copied from a screenshot:
+
+- `@graphvault/engine`: `buildCodeGraph` / `parseImports` / `findDependencies`
+  / `findDependents` - pure, filesystem-free (matches this package's existing
+  invariant), regex-based static import extraction + relative-import
+  resolution.
+- `@graphvault/cli`: `walkSourceFiles` (fs walker, mirrors `vault.ts`'s
+  pattern) + a new `codegraph` command (`--json`, `--dependencies <path>`,
+  `--dependents <path>`).
+
+### Dogfooding caught a real bug immediately
+
+Ran `graphvault codegraph --vault packages/engine/src` against this repo's
+own source the moment it built - and got **"0 resolved intra-repo"** imports,
+on a purely TypeScript codebase where every single import already resolves.
+Root cause: every import in this repo (and every modern TS-ESM project) is
+written `from './foo.js'` even though the file on disk is `foo.ts` - that's
+the standard TypeScript-ESM convention (the compiler rewrites the specifier
+verbatim into the emitted JS, so it must point at the eventual `.js` output,
+not the `.ts` source). The first resolver version only tried the literal
+specifier plus _appending_ extensions - it never tried _swapping_ an existing
+`.js`/`.jsx`/`.mjs`/`.cjs` extension for a TS one. Fixed by stripping a
+trailing JS-family extension and retrying resolution against all source
+extensions; added a regression test with the exact repro (`./b.js` resolving
+to `b.ts`). Without dogfooding against a real, large TypeScript codebase (not
+just synthetic fixtures), this would have shipped a tool that silently
+produced near-empty output on its own primary target.
+
+A second, smaller thing the same dogfood run surfaced: this file's own doc
+comment used literal quoted example import syntax (`import x from 'spec'`)
+to document the regex forms covered - which the tool's own regex then matched
+as fake "imports" when scanning its own source. Not a bug in the resolver (a
+regex-based, no-real-parser tool inherently can't distinguish code from a
+comment or string that merely looks like code - already documented as a
+known limitation), but cheap to reduce: rewrote the example text to use an
+unquoted `SPEC` placeholder instead, so the module doesn't self-pollute its
+own dogfood output.
+
+### Rule for next time
+
+Unverified social-media "just launched" AI-tool posts are not a citable
+source for what to build - check the actual registry (PyPI/npm/crates.io)
+before investing engineering time, and say so plainly if it doesn't exist
+rather than silently building toward an unverified premise. Separately: for
+any tool whose entire value proposition is "understand a real codebase,"
+the first real test must be a real, large codebase (ideally this one) - a
+handful of synthetic two-file fixtures will pass while missing the exact
+convention (`.js` specifiers → `.ts` files) that a real TypeScript project
+depends on for every single one of its internal imports.

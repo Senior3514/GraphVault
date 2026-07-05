@@ -266,6 +266,16 @@ Make GraphVault the most _usable_ knowledge tool - it goes where you are.
 - ✅ CLI (`@graphvault/cli`: list / search / stats / graph) + local HTTP API
   (`graphvault serve`: read-only JSON over `node:http`, localhost-default, zero-dep)
 - ✅ URL scheme (`web+graphvault:`) + PWA share_target (`/share`) - clip from any app
+- ✅ `graphvault codegraph` - a general-purpose source-code import-graph
+  scanner (file → file via static `import`/`require` analysis), not
+  Markdown-specific. New pure engine module (`@graphvault/engine`'s
+  `buildCodeGraph`/`parseImports`/`findDependencies`/`findDependents`) plus a
+  CLI fs-walker (`walkSourceFiles`) and `--json` / `--dependencies <path>` /
+  `--dependents <path>` output. Dogfooded against this repo's own packages
+  before shipping, which caught a real bug: the first resolver version never
+  matched this repo's own `from './foo.js'` → `foo.ts` (standard
+  TypeScript-ESM) imports, so it resolved 0% of intra-repo edges on a
+  TypeScript-only codebase - fixed and covered by a regression test.
 
 ## Milestone 21 - AI assistant (privacy-first, opt-in) 🟡
 

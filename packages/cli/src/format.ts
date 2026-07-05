@@ -5,6 +5,7 @@
  * This keeps formatting testable.
  */
 
+import type { CodeGraph } from '@graphvault/engine';
 import type { GraphResult, NoteEntry, SearchResult, StatsResult } from './types.js';
 
 /** Box-draw separator line. */
@@ -78,4 +79,38 @@ export function formatGraph(graph: GraphResult): string {
 
 export function formatGraphJson(graph: GraphResult): string {
   return JSON.stringify(graph, null, 2);
+}
+
+export function formatCodeGraph(graph: CodeGraph): string {
+  const resolvedCount = graph.edges.filter((e) => e.resolved).length;
+  const lines: string[] = [
+    `Code graph  (${graph.nodes.length} files, ${graph.edges.length} imports, ${resolvedCount} resolved intra-repo)`,
+    hr(),
+    'Files:',
+  ];
+  for (const n of graph.nodes) {
+    lines.push(`  ${n.path}  (${n.lines} lines)`);
+  }
+  lines.push('', 'Imports:');
+  for (const e of graph.edges) {
+    const marker = e.resolved ? '->' : '~~>';
+    lines.push(`  ${e.from} ${marker} ${e.to}`);
+  }
+  return lines.join('\n');
+}
+
+export function formatCodeGraphJson(graph: CodeGraph): string {
+  return JSON.stringify(graph, null, 2);
+}
+
+/** One file's dependency/dependent listing (used by --dependencies / --dependents). */
+export function formatFileRelations(
+  path: string,
+  kind: 'dependencies' | 'dependents',
+  files: string[],
+): string {
+  if (files.length === 0)
+    return `${path} has no ${kind === 'dependencies' ? 'resolved intra-repo imports' : 'known dependents'}.`;
+  const label = kind === 'dependencies' ? 'imports' : 'is imported by';
+  return [`${path} ${label} (${files.length}):`, ...files.map((f) => `  ${f}`)].join('\n');
 }
