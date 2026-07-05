@@ -12,9 +12,11 @@
 import { useMemo, type MouseEvent } from 'react';
 
 import { renderMarkdown, type ResolveTarget } from '../lib/markdown/render';
+import { splitFrontmatter } from '../lib/vault/parse';
 import { toTrustedHTML } from '../lib/security/trustedTypes';
 
 interface MarkdownPreviewProps {
+  /** Raw note content, frontmatter included - this component strips it. */
   markdown: string;
   resolve: ResolveTarget;
   onNavigate(target: string): void;
@@ -22,12 +24,21 @@ interface MarkdownPreviewProps {
 }
 
 export function MarkdownPreview({ markdown, resolve, onNavigate, onTag }: MarkdownPreviewProps) {
+  // Strip the `---\n...\n---` frontmatter block before rendering - every
+  // markdown reader (Obsidian included) hides it from the rendered view.
+  // Previously missing here: the raw YAML (parent:/tags:/etc.) rendered as a
+  // literal bold paragraph at the top of every note that had any
+  // frontmatter at all - real, visible garbage, not a subjective nitpick,
+  // and newly common now that the note-hierarchy feature encourages using
+  // frontmatter on far more notes than before.
+  const body = useMemo(() => splitFrontmatter(markdown).body, [markdown]);
+
   // `renderMarkdown` already ran the raw markdown through DOMPurify; wrap the
   // result through our Trusted Types policy so this sink is ready for when the
   // CSP `trusted-types` directive is enabled (not yet - see the blocker note
   // in `lib/security/csp.ts`). No-op passthrough today either way - see
   // `lib/security/trustedTypes.ts`.
-  const html = useMemo(() => toTrustedHTML(renderMarkdown(markdown, resolve)), [markdown, resolve]);
+  const html = useMemo(() => toTrustedHTML(renderMarkdown(body, resolve)), [body, resolve]);
 
   const handleClick = (e: MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
