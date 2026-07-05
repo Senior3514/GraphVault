@@ -21,8 +21,11 @@ import { HeroConstellation } from '../components/marketing/HeroConstellation';
  */
 
 export default function LandingPage() {
+  // No overflow-x on <main> below: it silently breaks `position: sticky` for
+  // the nav header further down (see the comment on `body` in globals.css,
+  // which now owns the global horizontal-overflow guard instead).
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-neutral-950 text-neutral-100">
+    <main className="relative min-h-screen bg-neutral-950 text-neutral-100">
       {/* ------------------------------------------------------------------ */}
       {/* Ambient backdrop - pure CSS/SVG, no images, no deps                 */}
       {/* ------------------------------------------------------------------ */}
@@ -56,7 +59,16 @@ export default function LandingPage() {
         {/* ================================================================ */}
         {/* NAV                                                               */}
         {/* ================================================================ */}
-        <header className="sticky top-0 z-40 border-b border-neutral-800/60 bg-neutral-950/70 backdrop-blur-xl">
+        {/* No backdrop-blur here on purpose: this header is `position: sticky`,
+            pinned on screen for the entire scroll of a long (4+ screen) page.
+            `backdrop-filter: blur()` re-samples everything behind the element
+            on every frame it's visible - one of the most-documented real-world
+            scroll-jank sources on mobile Chrome/Safari, and unlike this page's
+            other blurred elements (the aurora glow, `position: absolute`,
+            costs nothing once scrolled past), this one is live for the whole
+            page. A near-opaque solid background gives the same "floating
+            nav" look for a fraction of the compositing cost. */}
+        <header className="sticky top-0 z-40 border-b border-neutral-800/60 bg-neutral-950/95">
           <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex items-center gap-3">
               <Link

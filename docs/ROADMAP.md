@@ -366,6 +366,23 @@ Direct response to user feedback that the product felt generic.
   and is the single most reused "app store" cliche in dev-tool marketing) is
   replaced with 5 small nodes joining into a network. Verified in both themes
   with real screenshots, not just described.
+- ✅ **Fixed the landing page's sticky nav header - it never actually stuck.**
+  User feedback: scrolling the home page feels bad. Investigated with a real
+  headless-Chromium check (not assumption): `<header className="sticky
+top-0 ...">` reported `y: -2000` after scrolling 2000px - it was scrolling
+  away with the page like a normal element, not staying pinned. Root cause:
+  the page's `<main>` had `overflow-x-hidden` (added to clip the oversized
+  decorative aurora blobs) - per the CSS Overflow spec, setting `overflow-x`
+  to anything non-`visible` forces the _computed_ `overflow-y` to `auto` if
+  not otherwise specified, which turns `<main>` into its own scroll-context
+  ancestor and silently breaks `position: sticky` for every sticky element
+  inside it. Fixed by moving the horizontal-overflow guard to `body` in
+  `globals.css` instead - `overflow-x` on `body` specifically is a documented
+  browser special case that controls the _viewport's_ scroll behavior rather
+  than creating a new scrolling container, so it doesn't have the same
+  sticky-breaking side effect. Verified: header now stays at `y: 0` at any
+  scroll depth, and a real wheel-gesture scroll (not just a suggestible
+  `scrollTo()` call) confirmed no horizontal drift on any route.
 
 ## Working agreement (every agent)
 
