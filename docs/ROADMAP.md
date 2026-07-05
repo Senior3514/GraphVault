@@ -346,6 +346,16 @@ Direct response to user feedback that the product felt generic.
   (hydration mismatches, stale-SW chunks) that unit tests and `build:web`
   both missed and that once caused a production white-screen
 - ✅ README rewritten: concise, accurate, no internal/agent-company exposure
+- ✅ De-genericized two of the landing page's most template-feeling sections
+  (direct response to feedback that they read as "generic SaaS," identical to
+  any other Tailwind template): the 4-card "Core promises" grid now has a
+  distinct constellation (node + edge) corner motif per card, matching accent
+  color, reusing the exact visual language as the hero and the graph section
+  instead of a 5th generic icon-in-a-chip set; the GitHub-star CTA's literal
+  "5 filled stars" row (misleading - GraphVault has no review score to show,
+  and is the single most reused "app store" cliche in dev-tool marketing) is
+  replaced with 5 small nodes joining into a network. Verified in both themes
+  with real screenshots, not just described.
 
 ## Working agreement (every agent)
 
