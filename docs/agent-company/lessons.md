@@ -1988,3 +1988,52 @@ returns the right data shape.
 v1 is read/render only - setting a note's parent is frontmatter-only (hand-
 edit the YAML), no UI picker yet. Marked `⬜` in the roadmap rather than
 implied as finished.
+
+## The parent-picker UI almost shipped a real data-loss bug
+
+### What happened
+
+Immediate follow-up to the note hierarchy feature (previous entry): the
+roadmap explicitly deferred "a UI to set a note's parent without hand-editing
+frontmatter" as a fast-follow. Built it - a "Parent note (hierarchy)" section
+in the Details panel with a native `<input list>` picker, backed by a new
+pure `setFrontmatterField(content, key, value)` in the web client's own
+`lib/vault/parse.ts` (add/replace/remove one scalar frontmatter field,
+preserving every other line byte-for-byte - 9 unit tests including
+value-quoting edge cases for colons and padded whitespace).
+
+### The bug caught before shipping, not after
+
+The wiring handler's first draft read the note's content from
+`vault.getNote(path).content` - the last **persisted** version - rewrote the
+`parent:` field into it, and called `vault.updateContent`. This looks
+correct in isolation. It is not: the parent picker only ever renders for the
+**currently open** note (the Details panel always shows the active tab), so
+`path` here is always `activeTab.notePath` - meaning any time a user had
+unsaved keystrokes in the editor (autosave hasn't flushed yet) and used the
+picker, this rewrite would have silently overwritten those keystrokes with a
+version built from the STALE persisted content plus the parent change -
+classic silent data loss, and it would have shipped invisibly, since neither
+typecheck nor the unit tests for `setFrontmatterField` itself would ever
+catch it (the bug is in the CALLER's choice of which content to rewrite, not
+in the pure function).
+
+Caught by asking "what's the actual data flow here, given this UI can only
+ever target the active note" rather than trusting that "reads the note, edits
+one field, writes it back" was obviously safe. Fixed by rewriting from the
+live `draft` React state (the in-editor text, including unsaved keystrokes)
+whenever the target note is the active tab, falling back to persisted content
+only for the (currently unreachable, but kept for safety) case where it
+isn't.
+
+### Rule for next time
+
+Any time a new write path is added to an already-open, already-editable
+document (not just a fresh create), ask explicitly: "could this note have
+unsaved in-memory state that differs from what I'm about to read from
+storage?" A function can be unit-tested, type-safe, and pass every existing
+test while still discarding a user's most recent keystrokes if it reads from
+the wrong source of truth. This is the same class of bug the autosave-on-
+tab-switch and beforeunload/`directFlush` logic elsewhere in this codebase
+already exists specifically to prevent - a new write path has to honor that
+same invariant, not just parrot the SHAPE of "read, modify, write."

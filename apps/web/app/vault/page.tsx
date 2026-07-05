@@ -27,6 +27,7 @@ import { useLayout } from '../../lib/layout/useLayout';
 import { registerFlushOnExit } from '../../lib/vault/flushOnExit';
 import { VaultError } from '../../lib/vault/vault';
 import { nextUntitledName } from '../../lib/vault/untitled';
+import { setFrontmatterField } from '../../lib/vault/parse';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import type { NotePath } from '../../lib/vault/types';
 
@@ -284,6 +285,34 @@ export default function VaultPage() {
       setError(null);
     },
     [vault, layout.tabs, activeTab, actions, flushSave, switchTab],
+  );
+
+  // Set or clear a note's CherryTree-style hierarchy parent (a `parent:`
+  // frontmatter field) from the details panel's picker. Rewrites only that
+  // one field via setFrontmatterField, preserving everything else - then
+  // persists through the normal updateContent path, same as any other edit,
+  // so autosave/sync/backups all see it consistently.
+  //
+  // The details panel only ever shows this picker for the currently active
+  // note, so `path` here is always `activeTab.notePath` in practice - which
+  // means the basis content MUST be the live `draft` state (possibly unsaved
+  // keystrokes the user just typed), never `vault.getNote(path).content` (the
+  // last-PERSISTED version). Using the persisted version would silently
+  // discard any in-progress edit the moment the parent picker is used - the
+  // exact class of data loss this project never allows.
+  const setNoteParent = useCallback(
+    (path: NotePath, value: string | null) => {
+      const isActiveNote = activeTab?.notePath === path;
+      const baseContent = isActiveNote ? draft : vault.getNote(path)?.content;
+      if (baseContent === undefined) return;
+      const nextContent = setFrontmatterField(baseContent, 'parent', value);
+      vault.updateContent(path, nextContent);
+      if (isActiveNote) {
+        setDraftState(nextContent);
+        setDraftStore(activeTab!.id, nextContent);
+      }
+    },
+    [vault, activeTab, draft],
   );
 
   // When a new tab is created (activeTabId changes to an id not yet in loadedTabId),
@@ -578,8 +607,10 @@ export default function VaultPage() {
     <BacklinksPanel
       note={activeNote}
       backlinks={backlinks}
+      allNotes={vault.notes}
       resolveLink={vault.resolveLink}
       onOpen={openPath}
+      onSetParent={setNoteParent}
     />
   ) : (
     <div className="p-4 text-xs text-neutral-600">Open a note to see details.</div>
