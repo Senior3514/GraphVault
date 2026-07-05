@@ -6,7 +6,7 @@ import { ServiceWorkerRegistrar } from '../components/ServiceWorkerRegistrar';
 import { ThemeProvider } from '../components/ThemeProvider';
 import { THEME_BOOT_SCRIPT } from '../lib/themeScript';
 import { toTrustedHTML } from '../lib/security/trustedTypes';
-import { CSP } from '../lib/security/csp';
+import { CSP_META } from '../lib/security/csp';
 
 export const metadata: Metadata = {
   title: 'GraphVault - open and write. No folders, no file access.',
@@ -109,7 +109,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
          * ignore it in <meta> (per CSP Level 2 spec, section 6.2). The header in
          * vercel.json and X-Frame-Options both enforce the no-frame policy.
          */}
-        <meta httpEquiv="Content-Security-Policy" content={CSP} />
+        <meta httpEquiv="Content-Security-Policy" content={CSP_META} />
         {/* PWA manifest. theme-color + viewport-fit are emitted by the
             `viewport` export above (Next.js merges them into <meta> tags). */}
         <link rel="manifest" href="/manifest.webmanifest" />
@@ -118,6 +118,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="GraphVault" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        {/* Explicit favicon so the browser doesn't fall back to probing
+            `/favicon.ico` (which doesn't exist and 404s in the console on
+            every single page load otherwise). Reuses the existing PWA icon -
+            no separate .ico asset needed. */}
+        <link rel="icon" href="/icons/icon-192.png" type="image/png" />
       </head>
       <body>
         {/*

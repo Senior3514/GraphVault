@@ -1700,4 +1700,91 @@ loads with zero client-side errors in headless Chromium). Additionally ran a
 full `cargo build --release` + `tauri build` a second time (same method as
 the M16 build-fix PR) and re-verified genuine `.deb`/`.rpm` output with
 `file` - the capability/scope additions don't regress the native build.
-tests alone - this class of bug is invisible to both.
+
+## A real hydration crash on /vault, hidden by the smoke test's own design
+
+### What happened
+
+User feedback: "graphics look bad, bad flashes, scroll feels slow, home page
+is cluttered, make sure themes work." Rather than guess at any of these,
+loaded the actual built app in real headless Chromium (per this project's
+standing rule) and found one genuine, severe, previously-shipped bug plus a
+few smaller real ones - and left the "home page is cluttered" and "graph
+scroll" complaints as subjective/unverified rather than making speculative
+redesign changes I couldn't justify with evidence.
+
+**The big one: React error #418 (hydration mismatch) crashed on every fresh
+load of `/vault`.** Reproduced deterministically with a _fresh_ browser
+context going straight to `/vault` - and it reproduced 100% of the time. But
+`pnpm run smoke:web` - the exact regression guard built for this class of bug
+in an earlier session - reported all 9 routes clean, every time. The reason:
+`smoke-web.mjs` reused ONE browser context across all 9 routes in a fixed
+order ending at `/vault`. Visiting literally any other route first (even the
+unrelated `/404` page) made the subsequent `/vault` load clean. A real user
+landing on `/vault` directly - a bookmark, a deep link, the first page of a
+brand new session/PWA launch - hit the crash on every single visit, with zero
+warning from any check in the gauntlet.
+
+Root cause, found by stripping the CSP `<meta>` tag via `page.route()` so
+`next dev`'s non-minified hydration diagnostics would actually render (the
+production build only gives the useless minified error #418 with a link to
+a decoder page): `AppFrame.tsx` mounted the mobile FAB
+(`{pathname === '/vault' && <AddButton variant="fab" .../>}`) with no
+SSR/first-paint guard. `usePathname()` did not agree between the statically
+exported HTML (built with `next build`'s static export) and the browser's
+first hydration pass on that exact route - the _file itself already had_ a
+`hydrated` flag, set `true` in a post-mount `useEffect`, used two lines below
+for exactly the same class of problem (the sidebar's persisted collapse
+state) - it just wasn't applied to the FAB. Gating the FAB on the same flag
+fixed it outright; verified 5/5 clean on a fresh context after the fix.
+
+### Fixed the test, not just the bug
+
+A bug a purpose-built regression test can't catch will ship again. Changed
+`scripts/smoke-web.mjs` to open a fresh `browser.newContext()` **per route**
+instead of one shared context for the whole run. This is strictly a better
+regression guard for a test whose entire purpose is "does this route load
+clean" - it should never depend on which other routes happened to run first.
+
+### Smaller, real, verified fixes in the same pass
+
+- `/favicon.ico` 404'd on every load (no favicon ever existed) - added an
+  explicit `<link rel="icon">` pointing at the existing PWA icon.
+- The CSP `<meta>` tag included `frame-ancestors 'none'`, which Chromium
+  logs a console error for on every single page (browsers ignore
+  `frame-ancestors` in `<meta>` per spec) - split `csp.ts` into `CSP` (full,
+  for the `vercel.json` header, where it IS enforced) and `CSP_META` (used by
+  `layout.tsx`, with `frame-ancestors` removed). The comment in the old code
+  already _claimed_ this was already done ("frame-ancestors is intentionally
+  omitted here") - it wasn't; the comment was aspirational, not accurate.
+  Lesson: a comment describing intended behavior is not evidence the code
+  does it - the console output from a real page load is.
+- `NoteTree`'s scroll handler called `setScrollTop` (triggering a React
+  re-render + virtualization recompute) on every native `scroll` event,
+  unthrottled - `scroll` can fire faster than the display refreshes during a
+  fast fling. Coalesced to one `requestAnimationFrame` per frame, the
+  standard fix for this exact pattern.
+
+### What I did NOT change, and why
+
+Tried to attribute "scroll feels slow" on the landing page to a specific CSS
+cause (the sticky header's `backdrop-blur-xl`, the two continuously-animating
+`blur-2xl`/`blur-3xl` decorative blobs) via A/B frame-timing measurements
+under CPU throttling. The measurements were too noisy in this sandboxed
+environment to attribute the effect to either one with confidence - swings
+between runs of the _same_ configuration were as large as the effect being
+measured. Did not ship a speculative fix I couldn't verify actually helped;
+confirmed instead that the animated blobs already animate only `transform`/
+`opacity` (the cheap, compositor-only properties - already the correct
+pattern). "Home page is cluttered" (a 4.5-screen-tall landing page) is a
+genuine design-taste question, not a bug, and wasn't unilaterally redesigned
+without more specific direction. Recorded here rather than silently dropped.
+
+### Rule for next time
+
+When a user reports "flashes/flicker" on a React app, check for a hydration
+mismatch FIRST (real headless Chromium, `page.on('pageerror')`, a FRESH
+context per route/session) before looking at animations or CSS - a hydration
+crash presents visually as exactly the kind of flash a non-technical user
+would describe, and is far more likely than a paint/animation issue to be a
+severe, universally-reproducible bug rather than a subjective perception.

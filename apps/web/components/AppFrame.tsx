@@ -270,8 +270,17 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <AssistantButton />
       {/* Mobile FAB: fast-capture "+ Add" in the thumb zone.
           Mounted only on the vault route where note-creation is meaningful.
-          The FAB is hidden on desktop (md:hidden inside AddButton). */}
-      {pathname === '/vault' && (
+          The FAB is hidden on desktop (md:hidden inside AddButton).
+          Gated on `hydrated` (same flag as the sidebar collapse state above):
+          `usePathname()` does not reliably agree between the statically
+          exported HTML and the first client render on this route, which
+          otherwise threw a real, reproducible hydration-mismatch error
+          (React #418) on every fresh load of /vault - visible to the user as
+          a content flash while React discarded the server HTML and
+          re-rendered from scratch. Rendering nothing until after mount keeps
+          the first paint identical in both environments; the FAB then
+          appears via a normal (non-hydrating) update a frame later. */}
+      {hydrated && pathname === '/vault' && (
         <AddButton
           variant="fab"
           onNoteCreated={(path) => router.push(`/vault?note=${encodeURIComponent(path)}`)}

@@ -46,6 +46,10 @@ export function NoteTree({ notes, activePath, onSelect }: NoteTreeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
+  // Coalesces `scroll` events (which can fire far more often than the
+  // display's refresh rate during a fast fling) down to one state update -
+  // and one virtualization recompute + re-render - per animation frame.
+  const scrollRafRef = useRef<number | null>(null);
 
   // Rebuild tree only when notes change - O(n) but amortized.
   const tree = useMemo(() => buildTree(notes), [notes]);
@@ -79,7 +83,19 @@ export function NoteTree({ notes, activePath, onSelect }: NoteTreeProps) {
   }, []);
 
   const handleScroll = useCallback(() => {
-    if (containerRef.current) setScrollTop(containerRef.current.scrollTop);
+    if (scrollRafRef.current !== null) return; // already scheduled for this frame
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      if (containerRef.current) setScrollTop(containerRef.current.scrollTop);
+    });
+  }, []);
+
+  // Cancel any in-flight rAF on unmount so it never fires against a
+  // detached container.
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current !== null) cancelAnimationFrame(scrollRafRef.current);
+    };
   }, []);
 
   // Scroll the active note into view whenever it changes.

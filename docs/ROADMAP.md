@@ -195,6 +195,34 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
 - 🟡 v0.1.0 release **prepped**: all workspace versions bumped to 0.1.0, CHANGELOG
   written, CI green. Final step (owner): `git tag v0.1.0 && git push origin v0.1.0`
   to trigger `desktop-release.yml` (native installers). See `docs/releasing.md`.
+- ✅ **Fixed a real, reproducible hydration crash on `/vault`** (React error
+  #418) - present since `AddButton`'s mobile FAB was added, and invisible to
+  every prior check (`pnpm build`, unit tests, even `smoke:web`) because the
+  smoke test reused one browser context across all 9 routes, and visiting any
+  OTHER route before `/vault` happened to avoid the mismatch. A genuinely
+  fresh visitor landing on `/vault` directly - a bookmark, a deep link, the
+  first page of a new session - hit it on every single load: React discarded
+  the server HTML and re-rendered from scratch, which is exactly the kind of
+  visible content flash a user would describe as "bad flashes/flicker".
+  Root cause: `AppFrame.tsx` mounted the FAB behind `pathname === '/vault'`
+  with no SSR/first-hydration guard, and `usePathname()` did not agree
+  between the statically exported HTML and the client's first render on that
+  route. Fixed by gating it on the same post-mount `hydrated` flag already
+  used two lines above it for the sidebar's collapsed state - same pattern,
+  now applied consistently. **`scripts/smoke-web.mjs` now opens a fresh
+  browser context per route** instead of one shared context for all of them,
+  specifically so this class of "only wrong on a true first load" bug can
+  never hide behind route ordering again.
+- ✅ Console-clean pass: added a real `<link rel="icon">` (was a silent
+  `/favicon.ico` 404 on every load) and split the CSP into `CSP` (full, for
+  the `vercel.json` response header where `frame-ancestors` is actually
+  enforced) vs `CSP_META` (`app/layout.tsx`'s `<meta>` tag, `frame-ancestors`
+  removed - browsers ignore it there and logged a console error for it on
+  every page, every route, for no security benefit).
+- ✅ `NoteTree`'s scroll handler now coalesces to one `requestAnimationFrame`
+  per frame instead of one React state update (and virtualization recompute)
+  per native `scroll` event, which can fire faster than the display refreshes
+  during a fast fling.
 
 ## Milestone 18 - Universal storage providers (your data, literally anywhere) 🟡
 

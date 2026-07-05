@@ -106,11 +106,18 @@ try {
   process.exit(0);
 }
 
-const ctx = await browser.newContext({ locale: LOCALE, timezoneId: TZ });
 const list = routes();
 let failures = 0;
 
+// A FRESH browser context per route - not one shared context for all routes.
+// A shared context previously masked a real, reproducible React hydration
+// crash (error #418) on /vault: visiting any other route first happened to
+// leave the later /vault load clean, while a genuinely fresh visitor landing
+// on /vault directly (a bookmark, a deep link, the very first page of a
+// session) hit the crash every time. Testing each route as its own "first
+// load ever" is what this smoke test exists for - see docs/agent-company/lessons.md.
 for (const route of list) {
+  const ctx = await browser.newContext({ locale: LOCALE, timezoneId: TZ });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e && e.stack ? e.stack.split('\n')[0] : e)));
@@ -127,6 +134,7 @@ for (const route of list) {
     console.log(`✓ ${route}`);
   }
   await page.close();
+  await ctx.close();
 }
 
 await browser.close();

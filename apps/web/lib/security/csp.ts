@@ -32,8 +32,13 @@
  *   user-controlled HTML reaches an <img src> - DOMPurify strips all URLs.
  *
  * All remote origins are absent: no CDN scripts, no external fonts, no analytics.
- * frame-ancestors is ignored in <meta> per spec; it is enforced as a response
- * header in vercel.json (and X-Frame-Options as a belt-and-suspenders fallback).
+ * frame-ancestors is ignored in <meta> per spec (CSP Level 2 section 6.2) -
+ * Chromium logs a console error for it on every single page load if it's
+ * present in the meta tag, which is pure noise with zero security benefit
+ * there (real users' devtools consoles). So it is enforced ONLY as a response
+ * header in vercel.json (plus X-Frame-Options as a belt-and-suspenders
+ * fallback) and deliberately excluded from `CSP_META` below, which is what
+ * `app/layout.tsx` actually renders into the <meta> tag.
  *
  * ---------------------------------------------------------------------------
  * TRUSTED TYPES - investigated, NOT yet enforced via CSP. Read before retrying.
@@ -101,3 +106,15 @@ export const CSP_DIRECTIVES = [
 ] as const;
 
 export const CSP = CSP_DIRECTIVES.join('; ');
+
+/**
+ * The subset of `CSP_DIRECTIVES` meaningful in a `<meta http-equiv>` tag -
+ * i.e. everything except `frame-ancestors`, which browsers ignore there (see
+ * the note above) and which only produces a spurious console error if sent.
+ * `app/layout.tsx` renders this, not `CSP`. The `Content-Security-Policy`
+ * response header in `vercel.json` still uses the full `CSP` (frame-ancestors
+ * IS enforced via a real HTTP header).
+ */
+export const CSP_META_DIRECTIVES = CSP_DIRECTIVES.filter((d) => !d.startsWith('frame-ancestors'));
+
+export const CSP_META = CSP_META_DIRECTIVES.join('; ');
