@@ -1930,3 +1930,61 @@ behavior first and cheaply: does a `position: sticky` element that's supposed
 to stay in view actually report a stable bounding box across a big scroll
 delta? A broken sticky nav is a much more common, much more diagnosable root
 cause than paint jank, and takes one `boundingBox()` call to rule in or out.
+
+## Combining Obsidian + CherryTree: a third, independent graph model
+
+### What happened
+
+User asked for GraphVault to be "a combination of products like Obsidian and
+CherryTree." CherryTree's core idea (distinct from Obsidian's) is explicit,
+deep note-under-note nesting via a tree sidebar - independent of any file
+hierarchy or cross-note links. GraphVault already has Obsidian's half
+(wikilinks + graph); this adds CherryTree's half without touching either the
+existing folder tree or the wikilink graph.
+
+### Design: orthogonal, not a replacement
+
+Added a `parent:` frontmatter field and a THIRD independent graph model
+(`@graphvault/engine`'s `buildNoteHierarchy`), alongside the existing note
+link graph (`graph.ts`) and the code import graph (`codeGraph.ts`, this same
+session). A note can have a folder, tags, wikilinks, AND a hierarchy parent,
+all at once, none of them conflicting - the hierarchy is metadata, not a
+file move, so it costs nothing to add and nothing to ignore.
+
+### Reused the exact safety patterns already established this session
+
+- **Cycle-safety**: a note whose `parent` chain loops back to itself is
+  placed at the root (flagged, not silently dropped) instead of infinite-
+  looping - same "never lose a note, never crash" discipline as the code
+  graph's unresolved-import handling earlier today.
+- **Type boundary, not a shared type**: the web client has its OWN
+  lightweight `ParsedNote` (a separate, deliberately simpler client-side
+  parser - not `@graphvault/engine`'s parser at all), so `buildNoteHierarchy`
+  takes a minimal structural `NoteHierarchyInput` (`{path, title,
+frontmatter}`) rather than requiring the engine's full `ParsedNote` -
+  letting both the engine's own parser AND the web client's independent one
+  satisfy it without an adapter class, just a plain object literal at the
+  call site.
+- **Hydration safety**: the Folders/Hierarchy toggle's persisted preference
+  reads `localStorage` in a `useEffect` after mount, not during the initial
+  render or a `useState` initializer - exactly the pattern that was MISSING
+  from `AppFrame.tsx`'s mobile FAB earlier this session and caused a real
+  hydration-crash bug. Applied proactively here instead of found reactively.
+
+### Verified end-to-end, not just unit-tested
+
+Unit tests cover the pure `buildNoteHierarchy` logic (13 cases: multi-level
+nesting, multiple roots, title-based resolution, 2- and 3-note cycles, self-
+parenting, unresolvable parents). Separately, seeded a real seeded vault via
+`localStorage` (multi-level nesting + a deliberately broken parent),
+navigated the actual `/vault` page in headless Chromium, switched to
+Hierarchy view, and confirmed via both a screenshot and the rendered tree
+text that nesting, expand/collapse, the ⚠ on the broken parent, and clicking
+through to open a note all work - not just that the underlying function
+returns the right data shape.
+
+### What's deferred, documented not silently dropped
+
+v1 is read/render only - setting a note's parent is frontmatter-only (hand-
+edit the YAML), no UI picker yet. Marked `⬜` in the roadmap rather than
+implied as finished.

@@ -18,6 +18,7 @@ import { TOGGLE_PREVIEW_EVENT } from '../../components/CommandPalette';
 import { BacklinksPanel } from '../../components/BacklinksPanel';
 import { MarkdownEditor } from '../../components/MarkdownEditor';
 import { MarkdownPreview } from '../../components/MarkdownPreview';
+import { NoteHierarchyTree } from '../../components/NoteHierarchyTree';
 import { NoteTree } from '../../components/NoteTree';
 import { SearchBox } from '../../components/SearchBox';
 import { TabBar } from '../../components/workspace/TabBar';
@@ -30,6 +31,11 @@ import { useVaultContext } from '../../lib/vault/VaultProvider';
 import type { NotePath } from '../../lib/vault/types';
 
 const AUTOSAVE_MS = 400;
+
+/** Persisted choice between the folder-based tree and the CherryTree-style
+ *  parent/child note hierarchy in the sidebar's note list pane. */
+const NOTE_LIST_VIEW_KEY = 'graphvault.noteListView';
+type NoteListView = 'folders' | 'hierarchy';
 
 // ---- Per-tab draft store (kept outside React to avoid re-renders) -----------
 
@@ -52,6 +58,30 @@ export default function VaultPage() {
 
   // Error banner
   const [error, setError] = useState<string | null>(null);
+
+  // Note list pane: folder tree (default) vs. CherryTree-style note hierarchy.
+  // Starts at the SSR-stable default and reads the persisted preference in an
+  // effect (not the useState initializer) - matching the app's established
+  // pattern for anything localStorage-derived, since resolving it during
+  // render would render different markup on the server (no window) vs the
+  // client's first paint and cause a React hydration mismatch.
+  const [noteListView, setNoteListView] = useState<NoteListView>('folders');
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(NOTE_LIST_VIEW_KEY);
+      if (stored === 'hierarchy') setNoteListView('hierarchy');
+    } catch {
+      /* storage unavailable - keep the folders default */
+    }
+  }, []);
+  const setNoteListViewPersisted = useCallback((view: NoteListView) => {
+    setNoteListView(view);
+    try {
+      window.localStorage.setItem(NOTE_LIST_VIEW_KEY, view);
+    } catch {
+      /* best-effort persistence only */
+    }
+  }, []);
 
   // Active tab draft (what's in the editor right now).
   const [draft, setDraftState] = useState('');
@@ -408,18 +438,63 @@ export default function VaultPage() {
 
   const noteListSlot = (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-3 py-2">
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
         <span className="text-xs text-neutral-500">
           {vault.notes.length} {vault.notes.length === 1 ? 'note' : 'notes'}
         </span>
-        <AddButton variant="inline" onNoteCreated={openPath} />
+        <div className="flex items-center gap-1">
+          {/* Folders vs. CherryTree-style note hierarchy (a `parent:`
+              frontmatter field, independent of the folder a note lives in). */}
+          <div
+            role="group"
+            aria-label="Note list view"
+            className="flex rounded-md border border-neutral-800 bg-neutral-900/60 p-0.5 text-xs"
+          >
+            <button
+              type="button"
+              onClick={() => setNoteListViewPersisted('folders')}
+              aria-pressed={noteListView === 'folders'}
+              className={[
+                'rounded px-2 py-0.5 transition-colors',
+                noteListView === 'folders'
+                  ? 'bg-neutral-700 text-neutral-100'
+                  : 'text-neutral-500 hover:text-neutral-300',
+              ].join(' ')}
+            >
+              Folders
+            </button>
+            <button
+              type="button"
+              onClick={() => setNoteListViewPersisted('hierarchy')}
+              aria-pressed={noteListView === 'hierarchy'}
+              title="Nest notes under a parent note via a `parent:` frontmatter field, independent of folders"
+              className={[
+                'rounded px-2 py-0.5 transition-colors',
+                noteListView === 'hierarchy'
+                  ? 'bg-neutral-700 text-neutral-100'
+                  : 'text-neutral-500 hover:text-neutral-300',
+              ].join(' ')}
+            >
+              Hierarchy
+            </button>
+          </div>
+          <AddButton variant="inline" onNoteCreated={openPath} />
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-1 pb-3">
-        <NoteTree
-          notes={vault.notes}
-          activePath={(activeTab?.notePath as NotePath) ?? null}
-          onSelect={openPath}
-        />
+        {noteListView === 'hierarchy' ? (
+          <NoteHierarchyTree
+            notes={vault.notes}
+            activePath={(activeTab?.notePath as NotePath) ?? null}
+            onSelect={openPath}
+          />
+        ) : (
+          <NoteTree
+            notes={vault.notes}
+            activePath={(activeTab?.notePath as NotePath) ?? null}
+            onSelect={openPath}
+          />
+        )}
       </div>
     </div>
   );
