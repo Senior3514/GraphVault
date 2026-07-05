@@ -424,6 +424,19 @@ independent of where files live on disk.
   fixed to rewrite from the live in-editor draft instead. Verified end-to-end
   (set a real parent via the UI, confirmed the persisted file content, and
   confirmed the Hierarchy tree view picks it up), not just unit-tested.
+- ✅ **Fixed: the rendered note preview leaked raw frontmatter YAML as garbled
+  bold text.** `MarkdownPreview` rendered a note's full raw content -
+  frontmatter included - with no stripping, so `parent:`/`tags:`/etc. showed
+  up as a literal bold paragraph at the top of every note that had ANY
+  frontmatter at all. A pre-existing bug (nothing about the hierarchy
+  feature caused it), but newly visible on far more notes now that the
+  hierarchy feature encourages adding a `parent:` field. Found via a real
+  screenshot survey of the app (not a report with a screenshot attached)
+  after "this looks like garbage" feedback with no specifics - checked
+  everything recently shipped and found this in the split preview pane.
+  Fixed by stripping the frontmatter block (the already-tested
+  `splitFrontmatter` from `lib/vault/parse.ts`) before handing content to
+  the renderer - one core component, both preview call sites fixed at once.
 
 ## Working agreement (every agent)
 

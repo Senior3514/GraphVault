@@ -2091,3 +2091,53 @@ side must therefore guarantee - and did I test that specific guarantee with
 input designed to break it, not just input designed to exercise the happy
 path?" A green test suite proves the cases you thought to write, not the
 cases that actually matter.
+
+## "This looks like garbage" with no screenshot - a real screenshot survey found a real bug
+
+### What happened
+
+User feedback this time was just "continue, because this looks like garbage"
+
+- no screenshot, no specific page named. Rather than guess or ask for
+  clarification immediately, took real screenshots of everything shipped in
+  this session's recent stretch (hierarchy view, parent picker, details panel,
+  both themes) to look for something concrete - the same discipline already
+  established for vague visual complaints earlier in this session.
+
+Found it in the split preview pane: a note's frontmatter block
+(`---\nparent: Project.md\ntags: [design, ui]\n---`) was rendering as a
+literal bold paragraph - `**parent: Project.md tags: [design, ui]**` - at
+the very top of the rendered markdown, above the actual heading and body.
+`MarkdownPreview.tsx` passed the FULL raw note content (frontmatter
+included) straight to `renderMarkdown()` with no stripping at all.
+
+### Not a new bug - but newly, visibly common
+
+This was true for every note that ever had ANY frontmatter, since the
+component was written - nothing about today's hierarchy feature caused it.
+It just went from "rare, only visible on notes with manually-added
+frontmatter" to "visible on every note that participates in the hierarchy,"
+because that feature's whole point is adding a `parent:` field to notes.
+Shipping a feature that makes existing users touch a code path more often is
+exactly the kind of change that turns a latent, low-visibility bug into a
+loud, obvious one - worth remembering as a reason to re-survey nearby UI
+after any feature that changes how much a given data field gets used, even
+when the new feature's own code is completely correct in isolation.
+
+### The fix
+
+One line: `splitFrontmatter(markdown).body` before calling
+`renderMarkdown()`, reusing the already-thoroughly-tested `splitFrontmatter`
+from `lib/vault/parse.ts` rather than writing new stripping logic. Confirmed
+only one component (`MarkdownPreview.tsx`) needed it - grepped for every
+`renderMarkdown` call site first; the other one (`AssistantPanel.tsx`)
+renders AI responses, which never have frontmatter, so it was correctly
+left alone rather than "fixed" defensively for a case that can't occur there.
+
+### Rule for next time
+
+When feedback is vague ("this looks bad") with no screenshot and no specific
+page, take real screenshots of recently-changed surfaces before asking for
+clarification - a vague complaint after a feature ships is often pointing at
+a real, findable regression the feature made newly visible, not a
+subjective taste question. Ask only after a genuine look turns up nothing.
