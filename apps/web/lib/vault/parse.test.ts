@@ -115,3 +115,27 @@ test('setFrontmatterField quotes a value with leading/trailing whitespace', () =
   const result = setFrontmatterField('# n\n', 'parent', '  padded  ');
   assert.equal(splitFrontmatter(result).frontmatter.parent, '  padded  ');
 });
+
+test('setFrontmatterField round-trips a value containing a double quote (needs quoting for another reason)', () => {
+  // Regression test: the first version of quoteIfNeeded escaped internal `"`
+  // as `\"` when writing, but the reader (unquote()) never un-escapes
+  // anything - so the literal backslash survived into the read-back value.
+  // Caught by asserting the actual round-trip, not just that quoting happens.
+  const original = 'Chapter 1: "The Big Plan"';
+  const result = setFrontmatterField('# n\n', 'parent', original);
+  assert.equal(splitFrontmatter(result).frontmatter.parent, original);
+});
+
+test('setFrontmatterField round-trips a value containing a single quote', () => {
+  const original = "O'Brien's Notes: Draft";
+  const result = setFrontmatterField('# n\n', 'parent', original);
+  assert.equal(splitFrontmatter(result).frontmatter.parent, original);
+});
+
+test('setFrontmatterField flattens an embedded newline rather than corrupting the frontmatter block', () => {
+  const result = setFrontmatterField('# n\n', 'parent', 'line one\nline two');
+  // Never a raw embedded newline in the written frontmatter block.
+  const [, frontmatterBlock] = /^---\n([\s\S]*?)\n---/.exec(result) ?? [];
+  assert.equal(frontmatterBlock?.split('\n').length, 1);
+  assert.equal(splitFrontmatter(result).frontmatter.parent, 'line one line two');
+});

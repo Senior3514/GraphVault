@@ -100,13 +100,34 @@ export function splitFrontmatter(content: string): {
  * through {@link parseFrontmatterBlock} - which splits a line on the FIRST
  * `:` and treats a leading `[`/`- ` specially, so a value containing any of
  * those (or leading/trailing whitespace, which would silently vanish) must be
- * quoted to survive being read back. Internal `"` is escaped.
+ * quoted to survive being read back.
+ *
+ * {@link unquote} - the reader half of this pair - only strips a matching
+ * outer quote CHARACTER; it does not un-escape anything inside the quotes.
+ * So backslash-escaping an internal `"` (the obvious-looking fix) would NOT
+ * round-trip: the literal backslash would survive into the read-back value.
+ * Caught by testing an actual round-trip, not just that quoting happens.
+ * Instead: wrap in whichever quote character (`"` or `'`) does not appear in
+ * the value, so nothing inside ever needs escaping at all. If the value
+ * contains BOTH quote characters, there is no quote-free wrapping available
+ * in this deliberately-small, non-general-YAML subset; falls back to double
+ * quotes as a best effort (an already rare case, containing both quote
+ * characters at once, is rarer still).
+ *
+ * A raw embedded newline is flattened to a space defensively: this writer is
+ * line-based, and nothing downstream un-escapes a newline either, so an
+ * embedded one would otherwise corrupt the frontmatter block's line
+ * structure. No current caller can produce one (the parent-picker UI is a
+ * single-line `<input>`), so this only guards against future misuse.
  */
 function quoteIfNeeded(value: string): string {
-  if (value === '' || /[:#[\]]/.test(value) || value.trim() !== value) {
-    return `"${value.replace(/"/g, '\\"')}"`;
-  }
-  return value;
+  const flattened = value.replace(/\r?\n/g, ' ');
+  const needsQuoting =
+    flattened === '' || /[:#[\]]/.test(flattened) || flattened.trim() !== flattened;
+  if (!needsQuoting) return flattened;
+  if (!flattened.includes('"')) return `"${flattened}"`;
+  if (!flattened.includes("'")) return `'${flattened}'`;
+  return `"${flattened}"`;
 }
 
 /**
