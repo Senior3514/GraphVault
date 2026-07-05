@@ -95,6 +95,56 @@ export function splitFrontmatter(content: string): {
   };
 }
 
+/**
+ * Quote a scalar YAML value if writing it bare would round-trip incorrectly
+ * through {@link parseFrontmatterBlock} - which splits a line on the FIRST
+ * `:` and treats a leading `[`/`- ` specially, so a value containing any of
+ * those (or leading/trailing whitespace, which would silently vanish) must be
+ * quoted to survive being read back. Internal `"` is escaped.
+ */
+function quoteIfNeeded(value: string): string {
+  if (value === '' || /[:#[\]]/.test(value) || value.trim() !== value) {
+    return `"${value.replace(/"/g, '\\"')}"`;
+  }
+  return value;
+}
+
+/**
+ * Set (or remove, when `value` is `null`) a single top-level scalar
+ * frontmatter field in raw note content, preserving every other line
+ * (frontmatter and body) exactly as written. Adds a frontmatter block if the
+ * note doesn't have one yet and `value` is non-null; a no-op if the note has
+ * no frontmatter and `value` is `null` (nothing to remove).
+ *
+ * Deliberately line-based, matching {@link parseFrontmatterBlock}'s own
+ * reading rules, rather than a full YAML AST round-trip - this project's
+ * frontmatter support is a documented small subset, not general YAML.
+ */
+export function setFrontmatterField(content: string, key: string, value: string | null): string {
+  const keyLineRe = new RegExp(`^${key}:\\s*.*$`);
+  const m = FRONTMATTER_RE.exec(content);
+
+  if (!m) {
+    if (value === null) return content; // nothing to remove
+    return `---\n${key}: ${quoteIfNeeded(value)}\n---\n\n${content}`;
+  }
+
+  const rawBlock = m[1];
+  const body = content.slice(m[0].length);
+  const lines = rawBlock.split(/\r?\n/);
+  const existingIndex = lines.findIndex((line) => keyLineRe.test(line));
+
+  if (value === null) {
+    if (existingIndex !== -1) lines.splice(existingIndex, 1);
+  } else {
+    const newLine = `${key}: ${quoteIfNeeded(value)}`;
+    if (existingIndex !== -1) lines[existingIndex] = newLine;
+    else lines.push(newLine);
+  }
+
+  return `---\n${lines.join('\n')}\n---\n${body}`;
+}
+
 /** Extract inline `#tags` from a markdown body, normalized to lower case. */
 export function extractInlineTags(body: string): string[] {
   const tags = new Set<string>();

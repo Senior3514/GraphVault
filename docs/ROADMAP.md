@@ -409,10 +409,21 @@ independent of where files live on disk.
   - Verified end-to-end with a real seeded vault (multi-level nesting +
     a deliberately-broken parent), not just unit tests - screenshot +
     real click-through confirmed the tree renders and navigates correctly.
-- ⬜ A UI affordance to set/change a note's parent without hand-editing
-  frontmatter (e.g. a "Move under…" picker in the details pane or command
-  palette) - v1 ships read/render support; authoring is currently
-  frontmatter-only.
+- ✅ **Parent-picker UI** - the Details panel gets a "Parent note (hierarchy)"
+  section: shows the current parent (clickable to open it, or a ⚠ + "Clear"
+  if it's unresolved), a "Remove" action, and a `<input list>` picker
+  (native browser autocomplete over every note's title, zero custom dropdown
+  code) to set a new one. Writes go through a new pure
+  `setFrontmatterField(content, key, value)` (add/replace/remove a single
+  scalar frontmatter field, preserving everything else byte-for-byte) - 9
+  unit tests, including value-quoting edge cases. Data-safety-critical fix
+  applied before shipping: the handler originally would have based the
+  rewrite on the note's last-_persisted_ content, which - since this picker
+  only ever appears for the currently-open note - would have silently
+  discarded any unsaved keystrokes in the editor the moment it was used;
+  fixed to rewrite from the live in-editor draft instead. Verified end-to-end
+  (set a real parent via the UI, confirmed the persisted file content, and
+  confirmed the Hierarchy tree view picks it up), not just unit-tested.
 
 ## Working agreement (every agent)
 
