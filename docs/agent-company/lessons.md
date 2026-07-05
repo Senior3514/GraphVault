@@ -2037,3 +2037,57 @@ the wrong source of truth. This is the same class of bug the autosave-on-
 tab-switch and beforeunload/`directFlush` logic elsewhere in this codebase
 already exists specifically to prevent - a new write path has to honor that
 same invariant, not just parrot the SHAPE of "read, modify, write."
+
+## A self-review caught a real round-trip bug in the frontmatter writer, hours after shipping it
+
+### What happened
+
+Doing a deliberate adversarial re-read of `setFrontmatterField`'s `quoteIfNeeded`
+helper (shipped a few PRs earlier this same session) turned up a genuine
+round-trip bug: it escaped an internal `"` as `\"` when WRITING a value that
+needed quoting - but `unquote()` (the reader half, already existing code) only
+ever strips a matching pair of _outer_ quote characters; it never un-escapes
+anything inside them. So a parent value like `Chapter 1: "The Big Plan"`
+(needs quoting because of the colon) would be written as
+`parent: "Chapter 1: \"The Big Plan\""`, then read back as
+`Chapter 1: \"The Big Plan\"` - literal backslashes baked into the string,
+not matching the original at all. Confirmed empirically with a real call
+through both `setFrontmatterField` and `splitFrontmatter`, not just reasoning
+about the code - the "obvious" fix (backslash-escape the quote) is exactly
+the kind of thing that looks correct on read-through but silently fails the
+one property that actually matters: does it read back the same value it
+wrote.
+
+### The fix
+
+Changed strategy entirely: instead of escaping, wrap the value in whichever
+quote character (`"` or `'`) does NOT appear in it, so nothing inside ever
+needs escaping - matching `unquote()`'s simplistic "strip the outer pair"
+behavior exactly, since there's genuinely nothing to escape when the chosen
+quote character never occurs inside the content. Falls back to double quotes
+(best-effort, not perfectly round-trippable) only for the rare case where a
+value contains BOTH quote characters at once. Also defensively flattens an
+embedded raw newline to a space - this line-based writer has no way to
+survive one (nothing downstream un-escapes it either), though no current
+caller can actually produce one (the picker is a single-line `<input>`).
+
+### Why this matters beyond the one bug
+
+This function was already shipped, merged, and covered by "passing" tests -
+the tests just didn't include a value containing a literal quote character,
+so nothing caught it before. The lesson isn't "write more tests" in the
+abstract; it's specifically: **when a function has a write side and a read
+side maintained as a pair, test the actual round trip with adversarial
+input for the read side's own known simplifications** - here, "the reader
+doesn't un-escape anything" was already documented in the reader's own
+history, which is exactly the clue that should have prompted testing a
+quote-containing value in the writer's own test suite the first time.
+
+### Rule for next time
+
+After shipping any new "write" counterpart to an existing "read" function,
+do one explicit pass asking "what does the read side assume that the write
+side must therefore guarantee - and did I test that specific guarantee with
+input designed to break it, not just input designed to exercise the happy
+path?" A green test suite proves the cases you thought to write, not the
+cases that actually matter.
