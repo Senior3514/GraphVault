@@ -75,7 +75,27 @@ a tag to filter the list; click again to clear the filter.
 Type `#` in the editor to open the **tag autocomplete**, which shows all tags
 that exist in your vault.
 
-## 5. Use the command palette
+## 5. Nest notes with a hierarchy (optional, CherryTree-style)
+
+Wikilinks and the graph are one way to connect notes. GraphVault also
+supports a second, independent way to organize them: explicit note-under-note
+nesting, regardless of which folder a note lives in. Add a `parent:` field
+to a note's frontmatter, pointing at another note's path or title:
+
+```markdown
+---
+parent: Project
+---
+
+# Backend
+```
+
+In the sidebar's **Notes** pane, switch the **Folders / Hierarchy** toggle to
+**Hierarchy** to see this tree instead of the folder view. A note with a
+`parent` that doesn't match any note gets a small ⚠ instead of being hidden,
+so a typo never silently loses your place in the tree.
+
+## 6. Use the command palette
 
 Press **Cmd/Ctrl+K** to open the command palette from any page in the app.
 
@@ -84,7 +104,7 @@ Press **Cmd/Ctrl+K** to open the command palette from any page in the app.
 - Built-in commands: Create new note, Go to Graph, Go to Vault, Go to Sync,
   Go to Settings, Toggle preview.
 
-## 6. See the graph
+## 7. See the graph
 
 Click **Graph** in the left sidebar (or press Cmd/Ctrl+K → "Go to Graph").
 
@@ -104,7 +124,7 @@ Things to try:
   threshold to make the layout work for your vault size.
 - **Zoom to fit**: click the "Fit" button to centre and scale the view.
 
-## 7. Export your vault
+## 8. Export your vault
 
 Go to **Settings** → **Import & export**.
 
@@ -115,7 +135,7 @@ Go to **Settings** → **Import & export**.
 
 Both exports run entirely in the browser; nothing is uploaded anywhere.
 
-## 8. Import notes
+## 9. Import notes
 
 In **Settings** → **Import & export**, click **Import…** and choose a file:
 
@@ -128,7 +148,7 @@ a note that has different content, the imported version is saved alongside it
 as a copy. You will see a summary: how many notes were added, how many were
 kept as copies, and how many were identical (skipped).
 
-## 9. Connect to a self-hosted sync server (optional)
+## 10. Connect to a self-hosted sync server (optional)
 
 This entire step is optional - GraphVault works fully offline with no account.
 Only do this if you want to sync your notes across your own devices through a
@@ -149,7 +169,7 @@ Go to **Sync Status** to check the server connection, run a manual sync, and
 review any conflicts. Conflicts are never silently overwritten - the losing
 side is saved alongside the winner as a conflict copy.
 
-## 10. Install as an app (optional)
+## 11. Install as an app (optional)
 
 GraphVault runs as a standalone app on desktop and mobile, installed straight
 from the browser - no app store, no download page required for this:
@@ -164,7 +184,7 @@ from the browser - no app store, no download page required for this:
 This is the same app, not a separate download - your vault and settings carry
 over automatically since it's the same origin.
 
-## 11. Try the AI assistant (optional, off by default)
+## 12. Try the AI assistant (optional, off by default)
 
 The assistant is fully opt-in. With it off (the default), GraphVault makes
 **zero** network requests for AI. To try it, go to **Settings → Advanced → AI

@@ -384,6 +384,36 @@ top-0 ...">` reported `y: -2000` after scrolling 2000px - it was scrolling
   scroll depth, and a real wheel-gesture scroll (not just a suggestible
   `scrollTo()` call) confirmed no horizontal drift on any route.
 
+## Milestone 24 - CherryTree-style note hierarchy 🟡
+
+Direct response to a request for "a combination of Obsidian and CherryTree":
+Obsidian's wikilink graph (already GraphVault's core identity) plus
+CherryTree's other core idea - deep, explicit note-under-note nesting,
+independent of where files live on disk.
+
+- ✅ **Note hierarchy engine + UI.** Any note can declare a `parent:`
+  frontmatter field (a path or a title) placing it under another note in a
+  tree, completely independent of the folder it physically lives in - a
+  note can have a folder, tags, wikilinks, AND a hierarchy parent, all
+  independently, none of which conflict.
+  - `@graphvault/engine`'s `buildNoteHierarchy` (+ `NoteHierarchyInput`,
+    `HierarchyNode`) - a third, independent graph model alongside the note
+    link graph and the code import graph. Cycle-safe (a note whose parent
+    chain loops back to itself is placed at the root, never dropped, never
+    an infinite loop) and orphan-safe (an unresolvable `parent` is flagged
+    - not silently ignored - and placed at the root).
+  - `apps/web`'s Notes pane gets a **Folders / Hierarchy** toggle
+    (persisted, SSR-hydration-safe): Folders is the existing file-tree view,
+    unchanged; Hierarchy renders the new `parent:`-based tree, with an
+    inline ⚠ on any note whose declared parent couldn't be resolved.
+  - Verified end-to-end with a real seeded vault (multi-level nesting +
+    a deliberately-broken parent), not just unit tests - screenshot +
+    real click-through confirmed the tree renders and navigates correctly.
+- ⬜ A UI affordance to set/change a note's parent without hand-editing
+  frontmatter (e.g. a "Move under…" picker in the details pane or command
+  palette) - v1 ships read/render support; authoring is currently
+  frontmatter-only.
+
 ## Working agreement (every agent)
 
 1. Inspect before changing; work in ownership-disjoint slices.

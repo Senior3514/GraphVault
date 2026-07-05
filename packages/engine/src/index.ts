@@ -17,6 +17,11 @@
  * same "feed in file content, get a graph back" shape, but for a source-code
  * import graph (file → file via `import`/`require`) rather than a note graph
  * (note → note via wikilinks). See {@link buildCodeGraph}.
+ *
+ * A third, independent model lives in {@link "./hierarchy.js"}: a
+ * CherryTree-style explicit note-parent/child tree via a `parent`
+ * frontmatter field, orthogonal to both the folder tree and the wikilink
+ * graph. See {@link buildNoteHierarchy}.
  */
 
 export * from './types.js';
@@ -41,3 +46,4 @@ export {
   type CodeGraphEdge,
   type CodeGraph,
 } from './codeGraph.js';
+export { buildNoteHierarchy, type HierarchyNode, type NoteHierarchyInput } from './hierarchy.js';
