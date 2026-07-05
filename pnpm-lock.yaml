@@ -31,16 +31,6 @@ importers:
         version: 8.61.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
   apps/desktop:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.5.0
-        version: 2.11.0
-      '@tauri-apps/plugin-dialog':
-        specifier: ^2.2.0
-        version: 2.7.1
-      '@tauri-apps/plugin-fs':
-        specifier: ^2.4.0
-        version: 2.5.1
     devDependencies:
       '@tauri-apps/cli':
         specifier: ^2.5.0
@@ -96,6 +86,12 @@ importers:
       '@graphvault/sync-core':
         specifier: workspace:*
         version: link:../../packages/sync-core
+      '@tauri-apps/api':
+        specifier: ^2.5.0
+        version: 2.11.0
+      '@tauri-apps/plugin-fs':
+        specifier: ^2.4.0
+        version: 2.5.1
       dompurify:
         specifier: ^3.2.4
         version: 3.4.10
@@ -856,9 +852,6 @@ packages:
     resolution: {integrity: sha512-bk3HemqvGRoy+5D/dVMUQHKMYLglD0jVnMm/0iGMH6ufZ+p8r14m6BpIixwij3PBvZdvORUp1YifTD8QxVZ1Nw==}
     engines: {node: '>= 10'}
     hasBin: true
-
-  '@tauri-apps/plugin-dialog@2.7.1':
-    resolution: {integrity: sha512-OK1UBXYt+ojcmxMktzzuyonYIFta8CmAASpX+CA+DTGK24KlHjhYI6x2iOJ/TjZF4N7/ACK1oFmEOjIY9IhzOQ==}
 
   '@tauri-apps/plugin-fs@2.5.1':
     resolution: {integrity: sha512-9Lz+Jopp6QyeEWhlpkMx4R/+P9HgR+AVAI4vOZhlT8Xaymtz8iVI/Ov984/XTqgJz/5gz5NretqPB/XEMS3NhQ==}
@@ -2814,10 +2807,6 @@ snapshots:
       '@tauri-apps/cli-win32-arm64-msvc': 2.11.2
       '@tauri-apps/cli-win32-ia32-msvc': 2.11.2
       '@tauri-apps/cli-win32-x64-msvc': 2.11.2
-
-  '@tauri-apps/plugin-dialog@2.7.1':
-    dependencies:
-      '@tauri-apps/api': 2.11.0
 
   '@tauri-apps/plugin-fs@2.5.1':
     dependencies:

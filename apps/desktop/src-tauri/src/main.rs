@@ -24,6 +24,7 @@ use tauri::Manager;
 #[tauri::command]
 async fn pick_vault_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
+    use tauri_plugin_fs::FsExt;
 
     // `pick_folder()` is callback-based, not `Future`-returning, in
     // tauri-plugin-dialog 2.x - it never had an `.await` to give (this command
@@ -43,13 +44,27 @@ async fn pick_vault_folder(app: tauri::AppHandle) -> Result<Option<String>, Stri
     // path (converting a `file://` URL via `Url::to_file_path()`); a bare
     // `Display`/`to_string()` would have left a URI unconverted for the Url
     // variant, which the caller (plain filesystem read/write) cannot use.
-    match path {
-        Some(p) => p
-            .into_path()
-            .map(|pb| Some(pb.to_string_lossy().into_owned()))
-            .map_err(|e| format!("Could not resolve picked folder to a path: {e}")),
-        None => Ok(None),
-    }
+    let Some(p) = path else {
+        return Ok(None);
+    };
+    let path_buf = p
+        .into_path()
+        .map_err(|e| format!("Could not resolve picked folder to a path: {e}"))?;
+
+    // The fs plugin's *static* scope (`tauri.conf.json` → `plugins.fs.scope`)
+    // is deliberately empty - no path is pre-approved at build time. This is
+    // the one and only place a path is ever granted: the folder the user just
+    // explicitly chose, via the native picker, moments ago. Without this call
+    // every subsequent `@tauri-apps/plugin-fs` read/write the web layer makes
+    // (via `TauriStorageAdapter`) is denied by the scope check, even though
+    // the `fs:read-all`/`fs:write-all` capability permits the *commands* -
+    // permission (which commands) and scope (which paths) are independent
+    // gates, and this is the scope one.
+    app.fs_scope()
+        .allow_directory(&path_buf, true)
+        .map_err(|e| format!("Could not grant filesystem access to the picked folder: {e}"))?;
+
+    Ok(Some(path_buf.to_string_lossy().into_owned()))
 }
 
 /// IPC command: return the Tauri app version from the bundle metadata.

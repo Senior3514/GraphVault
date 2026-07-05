@@ -154,12 +154,29 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
     also means the CI-based `desktop-release.yml` workflow was never actually
     going to succeed either, independent of the GitHub Actions billing block -
     it hit the identical bug. Both paths are real now.
-- 🟡 Tauri 2 shell scaffold (`apps/desktop`) wraps the web export and now
-  builds real installers (above). `TauriStorageAdapter` (native on-disk vault
-  storage, as opposed to the webview's default `localStorage`) is still an
-  unwired scaffold - see the adapter's own doc comment for the exact wiring
-  steps and the empty `fs` scope that still needs to be granted dynamically to
-  the user-picked folder.
+- ✅ Tauri 2 shell (`apps/desktop`) wraps the web export and builds real
+  installers (above). **Native on-disk vault storage is now wired
+  end-to-end**: `TauriStorageAdapter`
+  (`apps/web/lib/vault/storage/tauriAdapter.ts` - moved there from
+  `apps/desktop` so it bundles/code-splits exactly like every other storage
+  adapter) is registered in the adapter registry and reachable from Settings
+  → Storage location → "Open a vault folder (native)", using the same
+  copy-verify-activate `migrateAdapter()` path as WebDAV/S3/File System
+  Access. The `fs` plugin's static scope stays permanently empty (least
+  privilege); `pick_vault_folder` (`src-tauri/src/main.rs`) is the only place
+  a path is ever granted, via `app.fs_scope().allow_directory(path, true)`,
+  and only for the single folder the user just picked - added a
+  `capabilities/default.json` (`fs:read-all` / `fs:write-all` command
+  permissions, no pre-configured path) since the app previously had _zero_
+  capabilities and every fs-plugin call would have been denied at runtime.
+  **Known gap, documented not fabricated**: the scope grant lives in the
+  running process's memory only, so the folder isn't remembered across app
+  restarts yet. The standard fix (`tauri-plugin-persisted-scope`) was
+  evaluated and rejected - the only version compatible with this project's
+  `rust-version = "1.77"` pulls in a `tauri "^2.0.0"` / `wry "^0.44.0"` chain
+  that conflicts with the already-resolved `kuchikiki` crate and breaks
+  `cargo check` outright. Re-attempt once the `rust-version` floor is raised
+  or a compatible release ships.
 - ⬜ Native file watching; open an existing folder as a vault (web: "Open folder" ✅)
 
 ## Milestone 17 - Polish, onboarding & launch 🟡

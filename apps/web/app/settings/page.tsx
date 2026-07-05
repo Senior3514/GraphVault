@@ -34,6 +34,9 @@ import { useVaultContext } from '../../lib/vault/VaultProvider';
 import {
   FileSystemAdapter,
   fileSystemAdapter,
+  TauriStorageAdapter,
+  tauriStorageAdapter,
+  isTauriRuntime,
   getActiveAdapter,
   listAdapters,
   s3Adapter,
@@ -649,6 +652,15 @@ function StorageSection() {
   useEffect(() => {
     setFsApiAvailable(FileSystemAdapter.isApiAvailable());
   }, []);
+
+  // Same SSR-stable-then-resolve-after-mount pattern as `fsApiAvailable`
+  // above: `isTauriRuntime()` reads `window`, which differs between server
+  // and client render.
+  const [isTauri, setIsTauri] = useState(false);
+  useEffect(() => {
+    setIsTauri(isTauriRuntime());
+  }, []);
+
   const adapters = listAdapters();
   const vault = useVaultContext();
 
@@ -766,6 +778,8 @@ function StorageSection() {
     // Forget the persisted handle so we don't show the reconnect banner after
     // the user has deliberately chosen browser storage.
     void FileSystemAdapter.forgetPersistedHandle();
+    // Deactivate the Tauri native adapter too, if it was active.
+    tauriStorageAdapter.setVaultPath(null);
     setFolderDisconnected(false);
     // Also deactivate WebDAV if it was active.
     setActiveId('localStorage');
@@ -773,6 +787,40 @@ function StorageSection() {
     // Non-destructively surface the localStorage adapter's notes (previously
     // this skipped reload entirely, leaving stale notes from the old backend).
     void vault.reload();
+  };
+
+  // Desktop-only: open a real folder on disk via the native picker
+  // (`pick_vault_folder`, Tauri IPC). Not available in a plain browser.
+  const switchToTauriFolder = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      const newAdapter = await TauriStorageAdapter.pickFolder();
+      if (!newAdapter) {
+        setMsg({ kind: 'warn', text: 'Folder selection cancelled.' });
+        return;
+      }
+
+      // Migrate notes: copy → verify → activate (copy-verify-switch pattern).
+      const source = getActiveAdapter();
+      const result = await migrateAdapter(source, newAdapter);
+
+      tauriStorageAdapter.setVaultPath(newAdapter.path);
+      setActiveId('tauriFs');
+      setMsg({
+        kind: 'ok',
+        text: `Moved ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to "${result.to}". Source (${result.from}) preserved as backup - clear it manually when satisfied. This folder is not yet remembered across app restarts - you'll need to reopen it next time.`,
+      });
+
+      await vault.reload();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to open the vault folder.',
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const switchToWebDav = async () => {
@@ -980,6 +1028,18 @@ function StorageSection() {
         >
           {busy && activeId !== 'gcs' ? 'Migrating…' : 'Use Google Cloud Storage (server)'}
         </button>
+
+        {isTauri ? (
+          <button
+            type="button"
+            disabled={activeId === 'tauriFs' || busy}
+            onClick={() => void switchToTauriFolder()}
+            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            title="Store notes as real .md files on disk via the native folder picker. Not yet remembered across app restarts."
+          >
+            {busy && activeId !== 'tauriFs' ? 'Migrating…' : 'Open a vault folder (native)'}
+          </button>
+        ) : null}
 
         {fsApiAvailable ? (
           <>

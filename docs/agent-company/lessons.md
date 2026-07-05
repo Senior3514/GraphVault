@@ -1610,3 +1610,94 @@ tag, since that's what's authoritative on Vercel) against `/graph` and `/embed`
 specifically, since those are the routes that load `react-force-graph-2d`.
 Do not re-enable the CSP directive on the strength of `pnpm build` + unit
 tests alone - this class of bug is invisible to both.
+
+## Native desktop storage - wiring TauriStorageAdapter, and a real ACL/scope bug
+
+Now that the Tauri native build actually compiles (previous entry), the next
+logical step was to wire up the `TauriStorageAdapter` scaffold so the desktop
+app can save real `.md` files on disk instead of webview `localStorage`. This
+surfaced a second, independent runtime bug beyond the four build-time ones:
+
+1. **The app shipped with zero Tauri capabilities.** `src-tauri/capabilities/`
+   didn't exist, and Tauri 2 does NOT fall back to a permissive default in
+   that case - `cargo build`'s own generated
+   `gen/schemas/capabilities.json` was a literal empty `{}`. Every plugin
+   command (fs, dialog) would have been denied at the ACL layer regardless of
+   the separate scope problem below. Fixed by adding
+   `capabilities/default.json` granting `fs:read-all` / `fs:write-all` (the
+   permission set that enables the _commands_ with **no pre-configured
+   path** - verified by reading `tauri-plugin-fs`'s own
+   `permissions/read-all.toml` in the local cargo registry cache rather than
+   guessing at the identifier).
+2. **The static fs scope is deliberately empty; nothing ever grants the
+   picked folder into it at runtime.** `tauri.conf.json`'s
+   `plugins.fs.scope` is `{allow: [], deny: []}` by design (least privilege -
+   no path is accessible until the user picks one), but `pick_vault_folder`
+   was never updated to grant the runtime `Scope` object once a folder is
+   chosen, so every `@tauri-apps/plugin-fs` call would fail even with the ACL
+   fixed. Fixed with `tauri_plugin_fs::FsExt::fs_scope()` +
+   `.allow_directory(path, true)` inside the command, confirmed to exist by
+   reading the trait/impl directly in the cached crate source
+   (`~/.cargo/registry/src/.../tauri-plugin-fs-2.5.1/src/lib.rs`,
+   `tauri-2.11.5/src/scope/fs.rs`) rather than trusting memory of the API.
+
+Both were found and fixed the same way as the M16 build bugs: by reading the
+actual crate source in the local registry cache instead of assuming the
+"obvious" Tauri 2 API shape, then confirming with a real `cargo check`
+(capabilities.json regenerates as part of the build - inspecting
+`gen/schemas/capabilities.json` after the build is a fast way to confirm a
+capability was actually picked up, before ever launching the app).
+
+### Architecture decision: move the adapter into `apps/web`, not `apps/desktop`
+
+The original scaffold (`apps/desktop/src/tauriStorageAdapter.ts`) planned a
+cross-package dynamic import (`@graphvault/desktop/src/tauriStorageAdapter`)
+from the web layer. This was never actually wired, and going that route would
+have added a needless dependency edge (apps/web depending on apps/desktop,
+backwards from the usual package → app direction) plus package.json
+`exports`-map plumbing. Since the adapter's own `isAvailable()` already
+gates on `window.__TAURI__`, it's just as safe (and far simpler) to move it
+next to every other adapter in `apps/web/lib/vault/storage/` and add
+`@tauri-apps/api` + `@tauri-apps/plugin-fs` as ordinary (if Tauri-only-in-
+practice) dependencies of `apps/web`. This let `apps/desktop/package.json`
+shrink to just the Tauri CLI wrapper - no JS deps, no `tsconfig.json`, no
+`typecheck` script (confirmed `pnpm -r run typecheck` skips packages missing
+the script rather than failing).
+
+### Evaluated and rejected: `tauri-plugin-persisted-scope`
+
+The scope grant above only lives for the current process - relaunching the
+app forgets the picked folder. The official fix for exactly this is
+`tauri-plugin-persisted-scope`. Ran `cargo add` for real (not just read docs):
+the only version satisfying this project's `rust-version = "1.77"` floor is
+`0.1.3`, an early Tauri-v2-beta-era release whose own dependency chain
+(`tauri "^2.0.0"` → `wry "^0.44.0"`) conflicts with `kuchikiki` as already
+resolved by the current `tauri-plugin-dialog`, and `cargo check` fails
+outright. Reverted immediately (`git checkout -- Cargo.toml Cargo.lock`,
+confirmed `cargo check` clean again) rather than forcing it in. Documented
+as a known, honest gap in the roadmap/README instead of silently shipping a
+broken "remembers your folder" claim - re-attempt once newer releases relax
+their `rustc`/`tauri` floor, or once this project's own `rust-version` is
+raised.
+
+### Testing a dynamic-`import()`-of-a-real-native-package boundary
+
+`@tauri-apps/api`/`@tauri-apps/plugin-fs` throw outside an actual Tauri
+webview, so they can't be exercised from `node --test`. Rather than reach for
+`node:test`'s experimental `mock.module` (needs an extra CLI flag applied
+repo-wide to the whole `apps/web` test script), added a plain test-only
+override seam (`_setFsForTesting` / `_setInvokeForTesting`) matching the
+existing `_resetRegistry`-for-tests convention already used in
+`storage/index.ts` - simpler, no new test-runner flags, same pattern a future
+reader already recognizes.
+
+### Verification
+
+Full gauntlet green (typecheck/lint/format/tests/build:web/smoke:web - the
+new Settings code path that dynamically imports the Tauri packages was
+exercised for real via `pnpm run smoke:web`, confirming `/settings` still
+loads with zero client-side errors in headless Chromium). Additionally ran a
+full `cargo build --release` + `tauri build` a second time (same method as
+the M16 build-fix PR) and re-verified genuine `.deb`/`.rpm` output with
+`file` - the capability/scope additions don't regress the native build.
+tests alone - this class of bug is invisible to both.
