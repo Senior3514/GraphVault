@@ -2,9 +2,11 @@
  * Guards the one invariant that's easy to silently break: the `<meta>` CSP
  * (`lib/security/csp.ts`, rendered by `app/layout.tsx`) and the
  * `Content-Security-Policy` response header in the repo-root `vercel.json`
- * must stay byte-for-byte in sync (per the comment in both files - the
- * header is authoritative on Vercel, the `<meta>` tag is the fallback for
- * other static hosts).
+ * must stay in sync - with exactly one deliberate difference: `frame-ancestors`
+ * is present in the header (the header is the real enforcement point on
+ * Vercel) but absent from the `<meta>` variant, since browsers ignore
+ * `frame-ancestors` in `<meta>` per spec and log a console error for it if
+ * it's there anyway (per the comment in both files).
  *
  * Trusted Types (`require-trusted-types-for` / `trusted-types`) is
  * deliberately NOT part of this policy yet - see the long comment at the top
@@ -19,7 +21,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
-import { CSP, CSP_DIRECTIVES } from './csp';
+import { CSP, CSP_DIRECTIVES, CSP_META, CSP_META_DIRECTIVES } from './csp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // apps/web/lib/security -> repo root is four levels up.
@@ -37,26 +39,36 @@ function readVercelCspHeader(): string {
 }
 
 describe('CSP: <meta> (lib/security/csp.ts) vs vercel.json header', () => {
-  it('the two policies contain exactly the same set of directives', () => {
+  it('the header has every meta directive plus exactly frame-ancestors', () => {
     const headerDirectives = readVercelCspHeader()
       .split(';')
       .map((d) => d.trim())
       .filter(Boolean);
-    const metaDirectives = [...CSP_DIRECTIVES];
 
-    // Order-independent set comparison: a directive present in one but not
-    // the other means someone edited only one of the two files.
+    // Order-independent set comparison: a directive present in the header but
+    // missing from CSP_DIRECTIVES (or vice versa, other than frame-ancestors)
+    // means someone edited only one of the two files.
     const headerSet = new Set(headerDirectives);
-    const metaSet = new Set(metaDirectives);
+    const fullSet = new Set(CSP_DIRECTIVES);
     assert.deepEqual(
       [...headerSet].sort(),
-      [...metaSet].sort(),
-      'vercel.json Content-Security-Policy header and lib/security/csp.ts must declare the same directives - update both together',
+      [...fullSet].sort(),
+      'vercel.json Content-Security-Policy header and lib/security/csp.ts CSP_DIRECTIVES must declare the same directives - update both together',
     );
+
+    // The <meta> variant must be the header minus frame-ancestors - nothing more, nothing less.
+    const metaSet: Set<string> = new Set(CSP_META_DIRECTIVES);
+    assert.ok(!metaSet.has("frame-ancestors 'none'"), 'CSP_META must not include frame-ancestors');
+    for (const d of headerSet) {
+      if (d.startsWith('frame-ancestors')) continue;
+      assert.ok(metaSet.has(d), `CSP_META is missing a directive the header has: ${d}`);
+    }
+    assert.equal(metaSet.size, headerSet.size - 1);
   });
 
   it('CSP_DIRECTIVES.join("; ") matches the exported CSP string', () => {
     assert.equal(CSP, CSP_DIRECTIVES.join('; '));
+    assert.equal(CSP_META, CSP_META_DIRECTIVES.join('; '));
   });
 
   it('never weakens an existing directive to something more permissive', () => {
