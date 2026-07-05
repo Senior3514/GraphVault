@@ -269,24 +269,28 @@ export default function LandingPage() {
             <PromiseCard
               icon={<FileIcon />}
               accent="brand"
+              seed={0}
               title="Local-first, no lock-in"
               description="Your vault is plain Markdown. Unzip the export and you have readable .md files - no proprietary database, no import step."
             />
             <PromiseCard
               icon={<SyncIcon />}
               accent="violet"
+              seed={1}
               title="Self-hosted sync"
               description="One small open-source server on your own VPS. Per-device tokens, conflict-aware, content-addressed - it never silently loses a note."
             />
             <PromiseCard
               icon={<GraphIcon />}
               accent="emerald"
+              seed={2}
               title="A graph to think in"
               description="Every note and link becomes a navigable graph with live physics, typed relations, hover highlights, and filters - a first-class tool."
             />
             <PromiseCard
               icon={<ShieldIcon />}
               accent="amber"
+              seed={3}
               title="Security-conscious"
               description="TLS by default, hashed passwords, optional AES-256-GCM at-rest encryption, zero telemetry. Your notes are yours."
             />
@@ -475,22 +479,15 @@ export default function LandingPage() {
             />
 
             <div className="relative">
-              {/* Star animation row */}
-              <div className="mb-4 flex justify-center">
-                <div className="flex items-center gap-1" aria-label="Five star rating">
-                  {[...Array<null>(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="h-5 w-5 text-amber-400 motion-safe:animate-fade-in"
-                      style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
-                      aria-hidden="true"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
+              {/* A small constellation, not a fake review score - GraphVault
+                  has no star ratings to show, so a row of 5 filled stars here
+                  would only ever be decorative-and-misleading (and is the
+                  exact "app store CTA" cliche every dev-tool landing page
+                  reaches for). Five nodes joining into a little network reads
+                  as "your notes becoming a graph" instead - the same visual
+                  language as the hero and the graph section above. */}
+              <div className="mb-5 flex justify-center">
+                <MiniConstellationAccent />
               </div>
 
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -1006,11 +1003,15 @@ function PromiseCard({
   accent,
   title,
   description,
+  seed,
 }: {
   icon: React.ReactNode;
   accent: 'brand' | 'violet' | 'emerald' | 'amber';
   title: string;
   description: string;
+  /** Picks a `CONSTELLATION_LAYOUTS` entry so the 4 cards don't all bleed the
+   *  identical node pattern into their corner - each gets its own shape. */
+  seed: number;
 }) {
   const accentMap = {
     brand: 'border-accent-400/20 bg-accent-500/10 text-accent-300',
@@ -1020,16 +1021,161 @@ function PromiseCard({
   };
 
   return (
-    <div className="group rounded-xl border border-neutral-800 bg-neutral-900/50 p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900">
+    <div className="group relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/50 p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900">
+      {/* Corner constellation motif - ties every card back to the graph, the
+          product's actual visual signature, instead of a generic icon-chip
+          card design any SaaS template could have. Purely decorative. */}
+      <span
+        className={`pointer-events-none absolute inset-0 ${accentMap[accent].split(' ').pop()}`}
+      >
+        <CardConstellation seed={seed} />
+      </span>
       <span
         aria-hidden="true"
-        className={`flex h-10 w-10 items-center justify-center rounded-lg border ${accentMap[accent]}`}
+        className={`relative flex h-10 w-10 items-center justify-center rounded-lg border ${accentMap[accent]}`}
       >
         {icon}
       </span>
-      <h3 className="mt-4 text-base font-semibold text-neutral-100">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-neutral-400">{description}</p>
+      <h3 className="relative mt-4 text-base font-semibold text-neutral-100">{title}</h3>
+      <p className="relative mt-2 text-sm leading-relaxed text-neutral-400">{description}</p>
     </div>
+  );
+}
+
+/**
+ * Four small node-and-edge layouts (bottom-right corner accent for
+ * `PromiseCard`), reusing the same visual language as `HeroConstellation`
+ * and the graph view itself - deliberately not a fifth generic icon set.
+ */
+const CONSTELLATION_LAYOUTS: ReadonlyArray<{
+  nodes: ReadonlyArray<{ cx: number; cy: number; r: number }>;
+  edges: ReadonlyArray<readonly [number, number]>;
+}> = [
+  {
+    nodes: [
+      { cx: 78, cy: 22, r: 3.5 },
+      { cx: 96, cy: 46, r: 5 },
+      { cx: 68, cy: 58, r: 2.5 },
+      { cx: 100, cy: 78, r: 4 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [1, 3],
+    ],
+  },
+  {
+    nodes: [
+      { cx: 70, cy: 30, r: 4.5 },
+      { cx: 94, cy: 20, r: 2.5 },
+      { cx: 100, cy: 58, r: 3.5 },
+      { cx: 76, cy: 72, r: 2.5 },
+    ],
+    edges: [
+      [0, 1],
+      [0, 2],
+      [2, 3],
+    ],
+  },
+  {
+    nodes: [
+      { cx: 88, cy: 18, r: 3 },
+      { cx: 66, cy: 40, r: 5 },
+      { cx: 100, cy: 44, r: 2.5 },
+      { cx: 82, cy: 70, r: 3.5 },
+    ],
+    edges: [
+      [1, 0],
+      [1, 2],
+      [1, 3],
+    ],
+  },
+  {
+    nodes: [
+      { cx: 100, cy: 30, r: 3 },
+      { cx: 76, cy: 24, r: 2.5 },
+      { cx: 82, cy: 56, r: 4.5 },
+      { cx: 104, cy: 74, r: 3 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+    ],
+  },
+];
+
+function CardConstellation({ seed }: { seed: number }) {
+  const layout = CONSTELLATION_LAYOUTS[seed % CONSTELLATION_LAYOUTS.length]!;
+  return (
+    <svg
+      viewBox="0 0 112 88"
+      className="absolute -right-2 -top-2 h-28 w-28 opacity-[0.32] transition-opacity duration-300 group-hover:opacity-[0.55]"
+      aria-hidden="true"
+    >
+      {layout.edges.map(([a, b]) => {
+        const from = layout.nodes[a]!;
+        const to = layout.nodes[b]!;
+        return (
+          <line
+            key={`${a}-${b}`}
+            x1={from.cx}
+            y1={from.cy}
+            x2={to.cx}
+            y2={to.cy}
+            stroke="currentColor"
+            strokeWidth="1"
+          />
+        );
+      })}
+      {layout.nodes.map((n, i) => (
+        <circle key={i} cx={n.cx} cy={n.cy} r={n.r} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
+/** Five small nodes joining into a network - the GitHub-star CTA's brand-consistent
+ *  stand-in for a literal 5-star rating row (see the comment at its call site). */
+function MiniConstellationAccent() {
+  const nodes = [
+    { cx: 10, cy: 20, r: 3 },
+    { cx: 34, cy: 8, r: 4 },
+    { cx: 60, cy: 22, r: 5 },
+    { cx: 86, cy: 8, r: 4 },
+    { cx: 110, cy: 20, r: 3 },
+  ];
+  const edges: ReadonlyArray<readonly [number, number]> = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+  ];
+  return (
+    <svg viewBox="0 0 120 32" className="h-8 w-32 text-accent-400" aria-hidden="true">
+      {edges.map(([a, b]) => (
+        <line
+          key={`${a}-${b}`}
+          x1={nodes[a]!.cx}
+          y1={nodes[a]!.cy}
+          x2={nodes[b]!.cx}
+          y2={nodes[b]!.cy}
+          stroke="currentColor"
+          strokeOpacity="0.5"
+          strokeWidth="1.5"
+        />
+      ))}
+      {nodes.map((n, i) => (
+        <g
+          key={i}
+          className="motion-safe:animate-twinkle"
+          style={{ animationDelay: `${i * 180}ms`, transformOrigin: `${n.cx}px ${n.cy}px` }}
+        >
+          <circle cx={n.cx} cy={n.cy} r={n.r * 2.2} fill="currentColor" opacity="0.15" />
+          <circle cx={n.cx} cy={n.cy} r={n.r} fill="currentColor" />
+        </g>
+      ))}
+    </svg>
   );
 }
 
