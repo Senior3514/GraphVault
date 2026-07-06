@@ -93,7 +93,9 @@ export default function SyncStatusPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl overflow-auto px-8 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">Sync status</h1>
+      <h1 className="font-display text-2xl font-semibold tracking-tight text-neutral-100">
+        Sync status
+      </h1>
       <p className="mt-1 text-sm text-neutral-500">Self-hosted sync. Your notes, your server.</p>
 
       {/* ------------------------------------------------------------------ */}
