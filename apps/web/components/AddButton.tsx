@@ -251,7 +251,16 @@ export function AddButton({ onNoteCreated, variant = 'inline' }: AddButtonProps)
       <div
         className="fixed bottom-0 right-0 z-30 md:hidden"
         style={{
-          paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
+          // `fixed` positions this relative to the viewport, not the
+          // in-document-flow mobile pane-switcher nav bar (WorkspaceLayout.tsx)
+          // that sits at the real bottom of the screen - so without clearing
+          // its height explicitly, this FAB overlapped the nav bar's rightmost
+          // ("Details") tab by ~38px, silently eating its tap target. That nav
+          // bar's height is a stable, deliberately-fixed design constant
+          // (`min-h-[48px]` per tab + padding ≈ 54px) - measured in a real
+          // headless-Chromium check, not assumed. 70px = that ~54px plus the
+          // FAB's own original 16px breathing room.
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + 70px)',
           paddingRight: '16px',
         }}
       >
