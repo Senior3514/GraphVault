@@ -396,6 +396,21 @@ top-0 ...">` reported `y: -2000` after scrolling 2000px - it was scrolling
   internally-consistent restrained design (matches the sidebar's own
   neutral-active-state convention), not a bug, and a fuller redesign there
   needs more specific direction before reworking it.
+- ✅ **Fixed: the mobile "+" FAB overlapped the bottom nav bar's "Details"
+  tab.** Found via a real mobile-viewport (390×844) screenshot audit - the
+  first mobile check this whole session, everything prior was 1440px
+  desktop. Measured the actual boxes in headless Chromium: the FAB (`fixed
+bottom-0`, viewport-relative) and the mobile pane-switcher nav bar
+  (in-document-flow, 54px tall) overlapped by ~38px vertically, with the
+  FAB sitting entirely within the "Details" tab's horizontal range -
+  silently eating part of its tap target. Fixed by clearing the nav bar's
+  height in the FAB's bottom padding (measured, not guessed) and, since
+  focus mode already hides that same nav bar (distraction-free editing),
+  also hiding the FAB in focus mode - consistent with focus mode already
+  hiding every other piece of workspace chrome, and avoiding a new
+  "FAB floating with nothing to clear" gap in that mode. Verified with a
+  bounding-box measurement before (real overlap) and after (clean 16px
+  gap), not just a screenshot glance.
 
 ## Milestone 24 - CherryTree-style note hierarchy 🟡
 

@@ -270,7 +270,13 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <AssistantButton />
       {/* Mobile FAB: fast-capture "+ Add" in the thumb zone.
           Mounted only on the vault route where note-creation is meaningful.
-          The FAB is hidden on desktop (md:hidden inside AddButton).
+          The FAB is hidden on desktop (md:hidden inside AddButton), AND in
+          focus mode - distraction-free single-note editing hides the bottom
+          pane-switcher nav bar (see WorkspaceLayout.tsx), and a "create a
+          new note" affordance doesn't belong in that view anyway; without
+          this the FAB stayed mounted with no nav bar underneath it to clear,
+          leaving a large empty gap where the overlap-avoidance padding below
+          used to have something to clear.
           Gated on `hydrated` (same flag as the sidebar collapse state above):
           `usePathname()` does not reliably agree between the statically
           exported HTML and the first client render on this route, which
@@ -280,7 +286,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           re-rendered from scratch. Rendering nothing until after mount keeps
           the first paint identical in both environments; the FAB then
           appears via a normal (non-hydrating) update a frame later. */}
-      {hydrated && pathname === '/vault' && (
+      {hydrated && pathname === '/vault' && !focusMode && (
         <AddButton
           variant="fab"
           onNoteCreated={(path) => router.push(`/vault?note=${encodeURIComponent(path)}`)}

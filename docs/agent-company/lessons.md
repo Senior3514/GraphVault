@@ -2141,3 +2141,52 @@ page, take real screenshots of recently-changed surfaces before asking for
 clarification - a vague complaint after a feature ships is often pointing at
 a real, findable regression the feature made newly visible, not a
 subjective taste question. Ask only after a genuine look turns up nothing.
+
+## The whole session had only ever screenshotted desktop - mobile had a real overlap bug
+
+### What happened
+
+After several rounds of "make it beautiful" feedback and desktop-viewport
+screenshot audits (landing page, settings, vault workspace), realized every
+single visual check this entire session had used a 1440px desktop viewport.
+Took real mobile-viewport (390×844, `isMobile: true`, `hasTouch: true`)
+screenshots for the first time and found a genuine, concrete bug on the
+first page checked: the mobile "+" FAB (fast-capture new-note button)
+visibly overlapped the bottom pane-switcher nav bar's "Details" tab.
+
+### Root cause, confirmed by measurement not eyeballing
+
+Measured both elements' bounding boxes in headless Chromium rather than
+trusting the screenshot alone: the FAB (`position: fixed; bottom: 0`,
+positioned relative to the viewport) and the mobile nav bar (an ordinary
+in-document-flow `<nav>`, 54px tall, added later than the FAB in this
+project's history) overlapped by ~38px vertically - the FAB sat entirely
+within the "Details" tab's horizontal span, silently eating part of its tap
+target. `fixed` positioning doesn't know or care what's rendered in normal
+flow at the same screen location; two independently-positioned pieces of
+UI both claiming "the bottom of the screen" is exactly the kind of overlap
+that never shows up in isolated component review, only in an integrated,
+real-viewport screenshot.
+
+### The fix, plus a second related bug found along the way
+
+Cleared the nav bar's measured height (54px) plus original breathing room
+(16px) in the FAB's bottom padding - a real measured number, not a guess.
+While fixing this, noticed the FAB had no focus-mode awareness at all
+(`AppFrame.tsx`'s render condition was just `hydrated && pathname ===
+'/vault'`), while the nav bar it now had to clear correctly hides itself in
+focus mode (distraction-free editing already hides the sidebar/details/nav
+chrome). Left as-is, the FAB would have kept its now-larger padding with
+nothing underneath to clear in focus mode - a smaller but still-real
+"unexplained gap" bug. Fixed by hiding the FAB in focus mode too, matching
+the mode's existing "hide all workspace chrome" intent rather than adding
+special-cased conditional padding.
+
+### Rule for next time
+
+A "make it beautiful" mandate defaults to desktop-viewport screenshots
+because that's what's convenient to capture and look at - actively
+schedule a mobile-viewport pass as its own checklist item, not an
+afterthought, especially for any component using `position: fixed`
+(the single most common source of this exact class of overlap, since fixed
+elements are blind to whatever else occupies the same screen coordinates).
