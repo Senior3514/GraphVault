@@ -383,6 +383,19 @@ top-0 ...">` reported `y: -2000` after scrolling 2000px - it was scrolling
   sticky-breaking side effect. Verified: header now stays at `y: 0` at any
   scroll depth, and a real wheel-gesture scroll (not just a suggestible
   `scrollTo()` call) confirmed no horizontal drift on any route.
+- ✅ Page-title typography consistency: `Settings` and `Sync status` now use
+  `font-display` (Geist), matching the landing page's premium headings -
+  previously only the marketing page carried the brand's display typeface,
+  so the actual app felt visually disconnected from its own front door the
+  moment you opened Settings. Audited every app-internal `<h1>` first
+  (Graph's top-bar label and the vault tab title are compact "text-sm"
+  micro-labels, not page titles - correctly left as plain `font-sans`
+  rather than over-applying a display face to UI chrome that small).
+  Broader Settings-page visual polish (the section cards are plain and
+  uncolored) was surveyed but not changed - it's an intentional, already-
+  internally-consistent restrained design (matches the sidebar's own
+  neutral-active-state convention), not a bug, and a fuller redesign there
+  needs more specific direction before reworking it.
 
 ## Milestone 24 - CherryTree-style note hierarchy 🟡
 
