@@ -501,6 +501,24 @@ independent of where files live on disk.
   Fixed by stripping the frontmatter block (the already-tested
   `splitFrontmatter` from `lib/vault/parse.ts`) before handing content to
   the renderer - one core component, both preview call sites fixed at once.
+- ✅ **Fixed: tapping a note on mobile did nothing visible.** A real mobile
+  screenshot audit of the new Hierarchy tree (seeded with a nested vault via
+  `localStorage`, not the demo notes) found that on the single-pane mobile
+  layout, tapping any note in the Notes pane - Folders view or Hierarchy view,
+  same underlying `openPath` handler - highlighted it in the list but left
+  the user staring at the list; the opened note was rendered in the Editor
+  pane underneath, invisible until they separately tapped the "Editor" tab in
+  the bottom pane-switcher. `mobilePane` (which of Notes/Editor/Details is
+  visible) previously lived as component-local state inside
+  `WorkspaceLayout`, out of reach of `vault/page.tsx`'s `openPath` (which
+  fires from the note list, search, command palette, and wikilink
+  navigation - one choke point). Fixed by lifting `mobilePane` up into
+  `VaultPage` (now exported as `MobilePane` from `WorkspaceLayout.tsx`,
+  passed down as `mobilePane`/`onMobilePaneChange` props instead of internal
+  `useState`) and having `openPath` call `setMobilePane('editor')` - a no-op
+  on desktop, which ignores `mobilePane` entirely. Verified with a real
+  before/after screenshot (tapping a note now shows the note, with "Editor"
+  highlighted in the bottom nav), not just a code read.
 
 ## Working agreement (every agent)
 

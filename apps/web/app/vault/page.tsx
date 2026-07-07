@@ -22,7 +22,11 @@ import { NoteHierarchyTree } from '../../components/NoteHierarchyTree';
 import { NoteTree } from '../../components/NoteTree';
 import { SearchBox } from '../../components/SearchBox';
 import { TabBar } from '../../components/workspace/TabBar';
-import { PaneHeader, WorkspaceLayout } from '../../components/workspace/WorkspaceLayout';
+import {
+  PaneHeader,
+  WorkspaceLayout,
+  type MobilePane,
+} from '../../components/workspace/WorkspaceLayout';
 import { useLayout } from '../../lib/layout/useLayout';
 import { registerFlushOnExit } from '../../lib/vault/flushOnExit';
 import { VaultError } from '../../lib/vault/vault';
@@ -59,6 +63,12 @@ export default function VaultPage() {
 
   // Error banner
   const [error, setError] = useState<string | null>(null);
+
+  // Which pane is visible on mobile (<md). Lifted out of WorkspaceLayout so
+  // opening a note (from the list, search, a wikilink, ...) can jump straight
+  // to the editor pane - otherwise selecting a note on a phone silently did
+  // nothing visible, since the note list pane stayed on screen underneath it.
+  const [mobilePane, setMobilePane] = useState<MobilePane>('editor');
 
   // Note list pane: folder tree (default) vs. CherryTree-style note hierarchy.
   // Starts at the SSR-stable default and reads the persisted preference in an
@@ -254,6 +264,9 @@ export default function VaultPage() {
 
   const openPath = useCallback(
     (path: NotePath) => {
+      // On mobile, opening a note should always bring the editor into view -
+      // a no-op on desktop, which ignores `mobilePane` entirely.
+      setMobilePane('editor');
       const note = vault.getNote(path);
       const title = note?.parsed.title ?? path;
       // If tab already exists, switch; otherwise flush + open.
@@ -622,6 +635,8 @@ export default function VaultPage() {
       noteListSlot={noteListSlot}
       editorSlot={editorSlot}
       detailsSlot={detailsSlot}
+      mobilePane={mobilePane}
+      onMobilePaneChange={setMobilePane}
     />
   );
 }
