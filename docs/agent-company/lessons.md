@@ -2326,7 +2326,7 @@ already available and sufficient for the feature at hand.
   descendants, and `vault/page.tsx` is `WorkspaceLayout`'s ancestor, not its
   child.
 - **Fix / rule:** when a piece of UI state needs to be both owned by a
-  layout component AND mutated by a callback the layout's *parent* defines
+  layout component AND mutated by a callback the layout's _parent_ defines
   and passes down as a prop, the state must live in the parent, not the
   layout - lift it up, don't reach for context (context only helps for
   passing state DOWN to descendants of the provider, never up to whoever
