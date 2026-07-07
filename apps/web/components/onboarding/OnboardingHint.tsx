@@ -14,7 +14,9 @@
 
 import { useEffect, useState } from 'react';
 
-const DISMISSED_KEY = 'graphvault.onboarding.dismissed';
+import { ONBOARDING_HINT_DISMISSED_KEY, TOUR_DISMISSED_KEY } from './keys';
+
+export { ONBOARDING_HINT_DISMISSED_KEY };
 
 interface Tip {
   keys: string[];
@@ -33,7 +35,17 @@ export function OnboardingHint() {
   // Delay the show so it doesn't compete with the vault loading flash.
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(DISMISSED_KEY) === '1') return;
+      if (window.localStorage.getItem(ONBOARDING_HINT_DISMISSED_KEY) === '1') return;
+      // The guided Tour's first three steps (command palette, wikilinks,
+      // tags) cover this exact same ground, and both are mounted at once in
+      // AppFrame - without this check they render on screen simultaneously
+      // on a brand-new user's very first vault view, one card overlapping
+      // the other. Wait for the Tour to be dismissed (finished or skipped)
+      // before this lighter hint is even eligible to show; `Tour`'s own
+      // dismiss handler also marks this hint dismissed at the same time,
+      // since its content was just fully covered - this check is the
+      // defensive fallback for any path that doesn't go through that.
+      if (window.localStorage.getItem(TOUR_DISMISSED_KEY) !== '1') return;
     } catch {
       return; // storage unavailable - skip
     }
@@ -43,7 +55,7 @@ export function OnboardingHint() {
 
   function dismiss() {
     try {
-      window.localStorage.setItem(DISMISSED_KEY, '1');
+      window.localStorage.setItem(ONBOARDING_HINT_DISMISSED_KEY, '1');
     } catch {
       /* ignore */
     }
