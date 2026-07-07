@@ -211,6 +211,27 @@ export class TauriStorageAdapter implements StorageAdapter {
     }
   }
 
+  /**
+   * Watch the vault directory for changes made outside the app (an external
+   * editor, `git pull`, a sync client) and call `onChange` when they settle.
+   * Returns an unwatch function; call it to stop watching (e.g. on unmount
+   * or when the vault path changes).
+   *
+   * Uses the fs plugin's own debounced `watch` (not `watchImmediate`) with a
+   * deliberately generous delay: this app's own `save()` calls write to the
+   * same directory, so every autosave would otherwise also fire this
+   * watcher - debouncing coalesces a burst of our own writes (or a bulk
+   * external change, e.g. a git pull touching many files) into one
+   * `onChange` instead of one per file event. `onChange` is expected to be
+   * a non-destructive refresh (e.g. `reload()`), so firing on our own writes
+   * too is harmless, just redundant if not debounced.
+   */
+  async watch(onChange: () => void): Promise<() => void> {
+    const root = this._requirePath();
+    const { watch } = await fs();
+    return watch(root, () => onChange(), { recursive: true, delayMs: 800 });
+  }
+
   // ------------------------------------------------------------------
   // Internal
   // ------------------------------------------------------------------

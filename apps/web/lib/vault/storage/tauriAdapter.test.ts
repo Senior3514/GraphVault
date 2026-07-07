@@ -48,6 +48,9 @@ function makeFakeFs(initial: Record<string, string> = {}) {
     return [...seen.values()];
   }
 
+  const watchCalls: Array<{ path: string; cb: () => void; options?: unknown }> = [];
+  const unwatchCalls: number[] = [];
+
   const fake = {
     async readDir(dir: string) {
       return childrenOf(dir);
@@ -65,9 +68,15 @@ function makeFakeFs(initial: Record<string, string> = {}) {
     async remove(path: string) {
       if (!files.delete(path)) throw new Error(`ENOENT: ${path}`);
     },
+    async watch(path: string, cb: () => void, options?: unknown) {
+      watchCalls.push({ path, cb, options });
+      return () => {
+        unwatchCalls.push(watchCalls.length - 1);
+      };
+    },
   };
 
-  return { fake, files };
+  return { fake, files, watchCalls, unwatchCalls };
 }
 
 function makeNote(path: string, content = '# Test'): Note {
@@ -204,4 +213,54 @@ test('setVaultPath replaces the configured path', () => {
   assert.equal(adapter.path, '/new');
   adapter.setVaultPath(null);
   assert.equal(adapter.path, null);
+});
+
+// ---------------------------------------------------------------------------
+// watch
+// ---------------------------------------------------------------------------
+
+test('watch registers a recursive, debounced watch on the vault root', async () => {
+  const { fake, watchCalls } = makeFakeFs();
+  _setFsForTesting(fake as unknown as Parameters<typeof _setFsForTesting>[0]);
+
+  const adapter = new TauriStorageAdapter('/vault');
+  await adapter.watch(() => {});
+
+  assert.equal(watchCalls.length, 1);
+  assert.equal(watchCalls[0]!.path, '/vault');
+  assert.deepEqual(watchCalls[0]!.options, { recursive: true, delayMs: 800 });
+});
+
+test('watch invokes onChange when the underlying fs event fires', async () => {
+  const { fake, watchCalls } = makeFakeFs();
+  _setFsForTesting(fake as unknown as Parameters<typeof _setFsForTesting>[0]);
+
+  const adapter = new TauriStorageAdapter('/vault');
+  let changeCount = 0;
+  await adapter.watch(() => {
+    changeCount += 1;
+  });
+
+  watchCalls[0]!.cb();
+  watchCalls[0]!.cb();
+  assert.equal(changeCount, 2);
+});
+
+test('watch returns a working unwatch function', async () => {
+  const { fake, unwatchCalls } = makeFakeFs();
+  _setFsForTesting(fake as unknown as Parameters<typeof _setFsForTesting>[0]);
+
+  const adapter = new TauriStorageAdapter('/vault');
+  const unwatch = await adapter.watch(() => {});
+  assert.equal(unwatchCalls.length, 0);
+  unwatch();
+  assert.equal(unwatchCalls.length, 1);
+});
+
+test('watch throws a clear error when no vault path is configured', async () => {
+  const { fake } = makeFakeFs();
+  _setFsForTesting(fake as unknown as Parameters<typeof _setFsForTesting>[0]);
+
+  const adapter = new TauriStorageAdapter();
+  await assert.rejects(() => adapter.watch(() => {}), /no vault path configured/);
 });

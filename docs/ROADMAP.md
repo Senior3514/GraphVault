@@ -177,7 +177,27 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
   that conflicts with the already-resolved `kuchikiki` crate and breaks
   `cargo check` outright. Re-attempt once the `rust-version` floor is raised
   or a compatible release ships.
-- ⬜ Native file watching; open an existing folder as a vault (web: "Open folder" ✅)
+- ✅ **Native file watching.** `TauriStorageAdapter.watch()` uses the fs
+  plugin's own debounced `watch` (800ms) on the vault root, recursive - an
+  external editor / `git pull` / sync client changing files on disk now
+  refreshes the open vault without a manual reload. No Rust/capability
+  changes needed: `watch`/`unwatch` were already covered by the
+  `fs:read-all` grant from the earlier native-storage PR. Wired into
+  `useVault.ts` by piggybacking on the existing `reload()` call (which
+  already runs after every storage-adapter switch and on initial mount) to
+  decide whether to (re)watch, rather than adding a new call site; a
+  `useRef` indirection breaks the circular dependency between `reload`
+  needing to trigger a watcher sync and the sync needing to call `reload`
+  when a change fires. Debounced so the app's own `save()` writes to the
+  same directory don't cause a reload storm. Verified with unit tests
+  (registration args, change callback, unwatch, no-path error) - **the
+  actual native runtime behavior (a real external file edit triggering a
+  real reload in a running desktop app) was not verified in this sandboxed
+  session**: attempted to launch the compiled binary under Xvfb to test
+  this end-to-end, but background-process handling in this Bash
+  environment made that unreliable, and no X11 screenshot tool was
+  available in time to confirm a render either way. Documented honestly
+  rather than claimed as fully verified - re-check on a real desktop build.
 - ⬜ **Native mobile (Android + iOS)** - investigated, environment-blocked in
   this sandboxed session, not built. Tauri 2 supports both as additional
   build targets for this SAME project (same Rust core, same
