@@ -2294,3 +2294,55 @@ clean signal, the honest move is to say so and fall back to the
 established, working verification tier - not to keep spending effort
 chasing a nicer verification method when a real, if less complete, one is
 already available and sufficient for the feature at hand.
+
+## Mobile pane navigation - lifting ephemeral UI state out of its owner
+
+### Auditing a brand-new feature on mobile found a bug the feature didn't cause
+
+- **Symptom:** with the roadmap's unblocked ⬜ items all genuinely
+  environment/credential/business-blocked (native mobile, Google
+  Drive/OneDrive OAuth, live email OAuth, GraphVault Cloud, CSP Trusted
+  Types), the highest-value next move was a fresh real-screenshot audit of
+  the most recently shipped, least battle-tested surface: the CherryTree
+  hierarchy tree + parent picker. Seeded a real nested vault via
+  `localStorage['graphvault:vault:v1']` (had to find the actual key in
+  `localStorageAdapter.ts` - a guessed key silently seeds nothing and just
+  shows the demo vault, which looks plausible enough to miss if you don't
+  check the note count) and screenshotted desktop dark/light and mobile.
+- **What was found:** not a hierarchy-specific bug at all - tapping ANY note
+  in the mobile Notes pane (Folders view or Hierarchy view; both call the
+  same `openPath`) highlighted the row but never navigated to the Editor
+  pane. The note WAS opened underneath; the user just couldn't see it
+  without a second, undiscoverable tap on the bottom "Editor" tab. Existed
+  since the mobile single-pane layout shipped - just never caught by a
+  screenshot audit that went past the note-list view before.
+- **Root cause:** `mobilePane` (which of Notes/Editor/Details is visible)
+  was `useState` local to `WorkspaceLayout`, which only RENDERS
+  `noteListSlot`/`editorSlot`/`detailsSlot` - it doesn't create them. The
+  actual `onSelect` handler (`openPath`) is defined in the PARENT
+  (`vault/page.tsx`) and passed down as a prop inside those slot nodes, so
+  it runs outside `WorkspaceLayout`'s own component instance and has no way
+  to reach its internal state, context or not - React context flows to
+  descendants, and `vault/page.tsx` is `WorkspaceLayout`'s ancestor, not its
+  child.
+- **Fix / rule:** when a piece of UI state needs to be both owned by a
+  layout component AND mutated by a callback the layout's _parent_ defines
+  and passes down as a prop, the state must live in the parent, not the
+  layout - lift it up, don't reach for context (context only helps for
+  passing state DOWN to descendants of the provider, never up to whoever
+  handed the layout its slot content). Concretely: `WorkspaceLayout` traded
+  its internal `useState<MobilePane>('editor')` for `mobilePane`/
+  `onMobilePaneChange` props; `vault/page.tsx` now owns the state and calls
+  `setMobilePane('editor')` inside `openPath`, unconditionally - it's a
+  no-op on desktop, which never reads `mobilePane`, so no viewport
+  detection was needed. Verified with a real screenshot showing the note
+  content on screen and "Editor" highlighted in the bottom nav after a tap,
+  not just a code read.
+- **Debugging note:** a Playwright `page.locator('button:has-text("Hierarchy")')`
+  matched TWO buttons here (WorkspaceLayout dual-renders desktop and mobile
+  trees simultaneously, one hidden via `md:hidden`/`hidden md:flex` per an
+  earlier lesson) - `.first()` silently grabbed the `display:none` desktop
+  copy, so `.click()` hung waiting for actionability and `.boundingBox()`
+  returned `null`. Fix: filter with the `:visible` pseudo-class
+  (`'button:has-text("Hierarchy"):visible'`) whenever a dual-rendered layout
+  might produce more than one match for the same locator.

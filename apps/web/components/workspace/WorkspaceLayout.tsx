@@ -18,7 +18,7 @@
  * Children use <WorkspaceLayoutContext> to access layout actions.
  */
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, type ReactNode } from 'react';
 
 import { effectiveMaximized, type LayoutActions } from '../../lib/layout/useLayout';
 import type { MaximizedPane } from '../../lib/layout/types';
@@ -37,7 +37,7 @@ export function useWorkspace(): LayoutActions {
 
 // ---- Mobile pane tabs -------------------------------------------------------
 
-type MobilePane = 'notes' | 'editor' | 'details';
+export type MobilePane = 'notes' | 'editor' | 'details';
 
 // ---- WorkspaceLayout --------------------------------------------------------
 
@@ -46,6 +46,11 @@ interface WorkspaceLayoutProps {
   noteListSlot: ReactNode;
   editorSlot: ReactNode;
   detailsSlot: ReactNode;
+  /** Which pane is visible on mobile (<md). Lifted to the caller so opening a
+   *  note (e.g. from the note list, search, or a wikilink) can navigate to the
+   *  editor pane instead of leaving the user stuck on the list they tapped. */
+  mobilePane: MobilePane;
+  onMobilePaneChange(pane: MobilePane): void;
 }
 
 export function WorkspaceLayout({
@@ -53,6 +58,8 @@ export function WorkspaceLayout({
   noteListSlot,
   editorSlot,
   detailsSlot,
+  mobilePane,
+  onMobilePaneChange,
 }: WorkspaceLayoutProps) {
   const { layout, maximizePane, restorePane, setNoteListWidth, setDetailsWidth, togglePanel } =
     actions;
@@ -65,9 +72,6 @@ export function WorkspaceLayout({
   // defence-in-depth: useLayout also clears `maximized` on entering focus mode,
   // but a previously-persisted blank state must still render correctly.
   const maximized = effectiveMaximized(layout.maximized, focusMode);
-
-  // Mobile: which pane is currently visible
-  const [mobilePane, setMobilePane] = useState<MobilePane>('editor');
 
   // Which panes are visible in the current maximized state?
   // Focus mode hides the side panes entirely (without mutating the persisted
@@ -215,7 +219,7 @@ export function WorkspaceLayout({
               <button
                 key={id}
                 type="button"
-                onClick={() => setMobilePane(id)}
+                onClick={() => onMobilePaneChange(id)}
                 aria-label={label}
                 aria-current={mobilePane === id ? 'true' : undefined}
                 className={[
