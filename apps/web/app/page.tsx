@@ -67,8 +67,13 @@ export default function LandingPage() {
             other blurred elements (the aurora glow, `position: absolute`,
             costs nothing once scrolled past), this one is live for the whole
             page. A near-opaque solid background gives the same "floating
-            nav" look for a fraction of the compositing cost. */}
-        <header className="sticky top-0 z-40 border-b border-neutral-800/60 bg-neutral-950/95">
+            nav" look for a fraction of the compositing cost.
+            Fully opaque (not translucent): a real scrolled screenshot showed
+            section text/dividers faintly bleeding through the header at
+            94-95% opacity with no blur to obscure it - legible enough to
+            read as visual clutter. A solid background removes the ghosting
+            completely and is *cheaper* to composite than any alpha blend. */}
+        <header className="sticky top-0 z-40 border-b border-neutral-800/60 bg-neutral-950">
           <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex items-center gap-3">
               <Link
