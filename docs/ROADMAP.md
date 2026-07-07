@@ -471,6 +471,23 @@ bottom-0`, viewport-relative) and the mobile pane-switcher nav bar
   a `.isVisible()` assertion at every step confirming the hint never
   renders while the tour is open or immediately after - not just a static
   screenshot.
+- ✅ **Fixed: the landing page's sticky nav header let scrolled section text
+  faintly bleed through it.** Same fresh-eyes audit, next screenshot down
+  the page: at a real mouse-wheel-scrolled position, section headings and a
+  table divider from the content underneath were legible - faintly - right
+  through the header. Root cause: the header is intentionally translucent
+  (`bg-neutral-950/95`, a documented perf tradeoff to avoid
+  `backdrop-filter: blur()` scroll-jank on an element that's pinned for a
+  whole 4+ screen scroll - see the comment in `app/page.tsx`) but has no
+  blur to obscure what's behind it, unlike every other translucent
+  sticky/fixed surface in the app (which all already pair translucency with
+  `backdrop-blur-*`). Fixed by making the header fully opaque
+  (`bg-neutral-950`, no alpha) instead of adding blur - eliminates the
+  ghosting completely, is strictly _cheaper_ to composite than the alpha
+  blend it replaces, and doesn't touch the correct "no blur on this one"
+  performance decision at all. Verified with a real mouse-wheel scroll (not
+  `scrollTo()`) and a pixel-level crop of just the header region, before
+  (legible ghost text) and after (solid).
 
 ## Milestone 24 - CherryTree-style note hierarchy 🟡
 

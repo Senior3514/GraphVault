@@ -2390,3 +2390,50 @@ already available and sufficient for the feature at hand.
   not a static before/after screenshot pair, an assertion at every step of
   a multi-step flow, since the bug was specifically about TIMING/overlap
   across steps, not a single frame.
+
+## Translucent sticky header without blur - ghosting is legible, not just "a bit see-through"
+
+### A correct performance decision had an unintended visual side effect
+
+- **Symptom:** continuing the same fresh-eyes first-impression audit, the
+  NEXT screenshot down the landing page (scrolled ~2 viewport heights, via
+  a real `page.mouse.wheel()` gesture) showed section text and a table
+  divider from content scrolled underneath, faintly but legibly visible
+  right through the sticky nav header.
+- **Investigation discipline:** this exact header was the subject of an
+  earlier lesson this session (a genuinely-not-sticky bug, fixed via the
+  `overflow-x` on `body` vs `<main>` distinction) - so before touching
+  anything, re-verified from scratch rather than assuming a regression:
+  confirmed via `boundingBox()` (`y: 0`) and computed style that the header
+  IS correctly sticky here; the new symptom is unrelated (translucency, not
+  positioning). Read the code's own comment before "fixing" it - it
+  explained a deliberate, well-reasoned choice to skip `backdrop-blur` on
+  this specific header because `backdrop-filter` re-samples every frame
+  it's on screen, and this header is pinned for an entire 4+ screen scroll
+  (a documented real scroll-jank source on mobile Chrome/Safari) - unlike
+  every other blurred element on the page, which are `position: absolute`
+  and stop costing anything once scrolled past.
+- **Root cause:** the "skip blur" decision was correct, but the fallback
+  (`bg-neutral-950/95`, 95% opacity, no blur) still leaves 5% of whatever's
+  behind visible - enough to read short, high-contrast text through it.
+  Every OTHER translucent sticky/fixed surface in the app (command palette,
+  onboarding overlays, the download page's own sticky header) pairs
+  translucency with `backdrop-blur-*`; this was the one surface that had
+  translucency WITHOUT blur, because blur was correctly rejected but the
+  opacity was never revisited to compensate.
+- **Fix / rule:** when blur is correctly rejected for a performance reason,
+  don't leave the background partially transparent - make it fully opaque
+  instead. A solid background costs LESS to composite than an alpha blend
+  (no blending math at all) and completely eliminates the ghosting; it does
+  not reopen the performance tradeoff the original comment was protecting.
+  "Translucent-but-no-blur" is the one combination to avoid on any element
+  that's on screen for a long, continuous scroll - it's cheap to miss
+  because 95% opacity looks solid in a static screenshot at the top of the
+  page (nothing to bleed through yet) and only becomes visible once real
+  content is scrolling underneath it.
+- **Verification note:** confirmed with a real `page.mouse.wheel()` scroll
+  (not `scrollTo()`, per the standing lesson on that) and a tight pixel
+  crop of just the header region (`clip: {x,y,width,height}` in
+  `page.screenshot()`) rather than a full-page shot, since a 5% ghosting
+  effect is easy to miss at full-page thumbnail scale but obvious once
+  cropped tight.
