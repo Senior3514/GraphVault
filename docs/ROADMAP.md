@@ -447,6 +447,30 @@ bottom-0`, viewport-relative) and the mobile pane-switcher nav bar
   "FAB floating with nothing to clear" gap in that mode. Verified with a
   bounding-box measurement before (real overlap) and after (clean 16px
   gap), not just a screenshot glance.
+- ✅ **Fixed: a brand-new user's very first screen showed two onboarding
+  overlays stacked on top of each other, teaching the same three things
+  twice.** Direct response to feedback that the app "feels confusing and
+  cluttered" - a fresh-eyes screenshot of the actual first-run flow (not the
+  demo-seeded vault used for feature checks) confirmed it: after the
+  one-time "This space is yours alone" welcome modal, the 6-step guided
+  `Tour` opens - but the lightweight `OnboardingHint` "Quick start" card was
+  ALSO mounted and visible underneath it at the same time, both showing the
+  identical Cmd-K / `[[` / `#` tips simultaneously (the code even had a
+  comment claiming a z-index difference was enough to keep them from
+  "competing visually" - it wasn't; they were both plainly visible in the
+  same screenshot, one card overlapping the other). Fixed by having the two
+  coordinate through a small shared `components/onboarding/keys.ts`: the
+  hint now refuses to show until the tour has been dismissed, and the
+  tour's `dismiss()` marks the hint dismissed too (whether the user
+  finishes all 6 steps or closes it early) - since the tour's first three
+  steps already fully cover the hint's three tips, showing the hint
+  afterward would just repeat what the user was shown moments earlier. A
+  first-time user now sees exactly one onboarding surface, not two.
+  Verified with a real click-through of the entire flow in headless
+  Chromium (welcome modal → tour, all 6 steps → back to a clean vault) plus
+  a `.isVisible()` assertion at every step confirming the hint never
+  renders while the tour is open or immediately after - not just a static
+  screenshot.
 
 ## Milestone 24 - CherryTree-style note hierarchy 🟡
 

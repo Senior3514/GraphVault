@@ -17,17 +17,21 @@
  *
  * ## Architecture
  * - Pure client component with zero new dependencies.
- * - Mounted additively in AppFrame; does not replace OnboardingHint.
+ * - Mounted additively in AppFrame alongside OnboardingHint, but the two
+ *   coordinate via `./keys.ts` so they never show at the same time and the
+ *   hint's tips never repeat what the tour just covered - see `dismiss()`.
  * - The spotlight ring uses a fixed overlay with a CSS mask cutout.
  */
 
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { ONBOARDING_HINT_DISMISSED_KEY, TOUR_DISMISSED_KEY } from './keys';
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-export const TOUR_DISMISSED_KEY = 'graphvault.tour.dismissed';
+export { TOUR_DISMISSED_KEY };
 export const TOUR_OPEN_EVENT = 'graphvault.tour.open';
 
 // ---------------------------------------------------------------------------
@@ -256,6 +260,11 @@ export function Tour() {
   const dismiss = useCallback(() => {
     try {
       window.localStorage.setItem(TOUR_DISMISSED_KEY, '1');
+      // The tour's first three steps (command palette, wikilinks, tags)
+      // cover the exact same ground as OnboardingHint's three tips - mark it
+      // seen too so it doesn't repeat the same three things a moment later,
+      // whether the tour was finished or skipped early.
+      window.localStorage.setItem(ONBOARDING_HINT_DISMISSED_KEY, '1');
     } catch {
       /* ignore */
     }

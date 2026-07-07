@@ -2346,3 +2346,47 @@ already available and sufficient for the feature at hand.
   returned `null`. Fix: filter with the `:visible` pseudo-class
   (`'button:has-text("Hierarchy"):visible'`) whenever a dual-rendered layout
   might produce more than one match for the same locator.
+
+## Onboarding overlap - "additively mounted, never verified together"
+
+### A code comment asserted a fix that was never actually checked
+
+- **Symptom:** direct, blunt user feedback that the app "feels confusing and
+  cluttered" and looks generic next to competitors - not a specific bug
+  report, a holistic first-impression complaint. Screenshotting the ACTUAL
+  first-run flow (a genuinely empty vault, not the demo-seeded one used for
+  every other feature check this session) found it immediately: the
+  one-time "Private Vault" welcome modal, then the 6-step guided `Tour`,
+  with the lightweight `OnboardingHint` "Quick start" card ALSO visible on
+  screen underneath it - both teaching the identical Cmd-K / `[[` / `#`
+  tips at the same time, one card's edge overlapping the other's.
+- **Root cause:** `Tour.tsx`'s own doc comment read "Mounted additively in
+  AppFrame; does not replace OnboardingHint" and "Mounted after the hint so
+  they don't compete visually (tour has a higher z-index overlay)" - a
+  prior pass correctly solved WHICH ONE RENDERS ON TOP, but never asked
+  whether both should be visible at the same time at all, and never
+  actually screenshotted the result to check. A stacking-order fix reads as
+  a complete fix in the code; only a real screenshot of the live page shows
+  it's just two elements at different z-indices, both fully visible.
+- **Fix / rule:** when two UI surfaces cover overlapping content and can
+  both be triggered by the same event (first vault load), make them
+  actively coordinate, not just layer - extract the localStorage keys both
+  read/write into one small shared module (`components/onboarding/keys.ts`)
+  so neither has to import the other component (avoids a circular import
+  between two sibling components that both need each other's dismissed-
+  state key). The richer surface's dismiss handler marks the lighter
+  surface dismissed too - `Tour`'s `dismiss()` also sets
+  `ONBOARDING_HINT_DISMISSED_KEY`, since its first three steps already
+  cover everything the hint says. The lighter surface additionally guards
+  its own visibility on the richer one being dismissed, as a defensive
+  fallback for any path that doesn't go through the shared dismiss.
+- **Verification bar:** a `pnpm build` + unit tests passing does not catch
+  "two things visible at once that shouldn't be" - the components render
+  correctly in isolation; the bug only exists in their combination on a
+  live page. Verified this one with a real headless-Chromium click-through
+  of the entire first-run sequence (welcome modal → tour, all 6 steps →
+  back to a clean vault) plus a `.isVisible()` assertion at every step
+  confirming the hint never appears while the tour is open or right after -
+  not a static before/after screenshot pair, an assertion at every step of
+  a multi-step flow, since the bug was specifically about TIMING/overlap
+  across steps, not a single frame.
