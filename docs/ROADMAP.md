@@ -178,6 +178,22 @@ across web + mobile + desktop. The loop prioritizes the bets below in order:
   `cargo check` outright. Re-attempt once the `rust-version` floor is raised
   or a compatible release ships.
 - ⬜ Native file watching; open an existing folder as a vault (web: "Open folder" ✅)
+- ⬜ **Native mobile (Android + iOS)** - investigated, environment-blocked in
+  this sandboxed session, not built. Tauri 2 supports both as additional
+  build targets for this SAME project (same Rust core, same
+  `apps/web/out` frontend - not a separate codebase), but even scaffolding
+  (`tauri android init` / `tauri ios init`) requires platform tooling this
+  Linux sandbox cannot obtain: Android needs the official SDK from
+  `dl.google.com`, which this session's egress policy denies outright
+  (confirmed via a direct proxy-level `403`, not assumed); iOS needs Xcode,
+  which only runs on macOS - the installed Tauri CLI doesn't even expose an
+  `ios` subcommand on Linux. Exact setup steps for the owner (on a machine
+  with the real tooling) are in `docs/mobile-setup.md`, including a
+  worthwhile pre-decision: `tauri.conf.json`'s `identifier` becomes the
+  Android/iOS package name verbatim, and renaming it now (before any store
+  listing exists) is free but gets disruptive later - not changed in this
+  pass since neither platform could be rebuilt here to confirm the rename
+  is safe.
 
 ## Milestone 17 - Polish, onboarding & launch 🟡
 

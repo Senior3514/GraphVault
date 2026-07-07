@@ -2190,3 +2190,57 @@ schedule a mobile-viewport pass as its own checklist item, not an
 afterthought, especially for any component using `position: fixed`
 (the single most common source of this exact class of overlap, since fixed
 elements are blind to whatever else occupies the same screen coordinates).
+
+## Native mobile: investigated for real, correctly concluded it can't be built here
+
+### What happened
+
+User first asked whether a Google AI Studio "Gemini builds Android apps in
+Kotlin" tool was worth using to get a mobile app. Gave an honest recommendation
+against it: a from-scratch native Kotlin app would throw away this project's
+entire "one codebase across web + mobile + desktop" architecture for a result
+already substantially covered by the installable PWA - a native app-store
+presence, if genuinely wanted, belongs on Tauri Mobile (same framework
+already proven working for desktop this session), not a disconnected rewrite.
+
+User then explicitly asked to build native mobile. Investigated what's
+actually achievable in this sandboxed session **before** writing any code or
+claiming progress - same discipline as the earlier desktop-build investigation:
+
+- `tauri android init` requires the official Android SDK to already exist
+  locally - it refuses to even scaffold the project without it, let alone
+  build. Getting the SDK requires downloading from `dl.google.com`.
+- Tested that download directly rather than assuming: `curl` to
+  `dl.google.com` returned a `403`, and the proxy's own status log confirmed
+  it as a policy denial (`"gateway answered 403 to CONNECT (policy denial or
+upstream failure)"`) - the exact same class of hard, non-negotiable block
+  as the AppImage `AppRun` binary earlier this session. Checked for an
+  alternative (Ubuntu `apt` ships scattered AOSP utility libraries under
+  `android-*` package names) and confirmed they don't substitute for the
+  official SDK layout Tauri's tooling expects.
+- `tauri ios` isn't even a recognized subcommand on this Linux CLI build -
+  iOS requires Xcode, which is an Apple-platform-only restriction with zero
+  workaround on Linux, so the CLI doesn't pretend otherwise.
+
+### What shipped instead of a build I couldn't verify
+
+`docs/mobile-setup.md` - exact steps for the owner to run on a real machine
+(Android Studio/SDK+NDK on any OS, or Xcode on a Mac), explaining precisely
+why this reuses the existing Rust core + web frontend rather than being a
+separate codebase, plus one concrete decision worth making before either
+`init` command runs: `tauri.conf.json`'s `identifier` becomes the Android/iOS
+package name verbatim, and renaming it now (before any store listing exists)
+is free but gets disruptive later - flagged, not silently decided either way,
+since the change couldn't be verified against a working build in this session.
+
+### Rule for next time
+
+"Environment-blocked" is a legitimate, complete answer when it's backed by an
+actual attempted command and a real error message (or a direct network test
+against the proxy's own status log) - not a guess that something "probably
+won't work here." The difference between "I assume this needs X" and "I ran
+the command, here's the exact error, here's the proxy's own confirmation of
+why" is the difference between a shrug and a trustworthy report. Investigate
+until you hit the real wall, then stop and document it - don't fabricate
+partial progress (a scaffold that can't ever compile is not a deliverable),
+and don't retry a confirmed policy denial hoping a different URL works.
