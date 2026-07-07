@@ -2244,3 +2244,53 @@ why" is the difference between a shrug and a trustworthy report. Investigate
 until you hit the real wall, then stop and document it - don't fabricate
 partial progress (a scaffold that can't ever compile is not a deliverable),
 and don't retry a confirmed policy denial hoping a different URL works.
+
+## Tried to unlock real native-GUI testing (Xvfb) - honest about where it fell short
+
+### What happened
+
+While picking the next task after the mobile investigation, noticed this
+sandbox has `Xvfb`/`xvfb-run` pre-installed - never used this session.
+Reasoned that if the compiled Tauri desktop binary could actually be
+launched under a virtual display, it would unlock testing REAL native GUI
+behavior (not just "cargo build succeeded") for the first time - a
+meaningfully higher verification bar than anything achieved for the desktop
+app so far.
+
+Attempted it: started `Xvfb`, launched the previously-built binary against
+that `DISPLAY`, tried to screenshot the result. Two problems, in order:
+
+1. No X11 screenshot tool was installed (`import`/`scrot`/`xwd`/`feh`/
+   `maim` all missing) - installed ImageMagick's `import` via `apt` to fix
+   this (worked fine, no network dependency issue).
+2. Backgrounding both `Xvfb` and the app binary with `&` inside one Bash
+   tool call, then running further commands (`sleep`, screenshot) in the
+   same call, produced empty logs and no screenshot, with odd/inconsistent
+   exit codes across two attempts. Never got a clean signal on whether the
+   app window actually rendered.
+
+### What was decided, and why
+
+Did not keep pushing on this - recognized it had become a time sink with an
+uncertain payoff (the Bash tool's process-lifecycle handling for detached
+background GUI processes isn't reliable here, at least not without more
+investment than this task warranted), and pivoted to implementing native
+file watching using the SAME lower-risk verification tier already proven
+for the rest of this session's Tauri work: real `@tauri-apps/plugin-fs`
+API (confirmed via its actual `.d.ts`, not memory), a test-seam-based unit
+test suite, and an honest note in the roadmap that the real native runtime
+behavior (a live desktop app picking up an external file edit) was not,
+and could not be, verified end-to-end in this sandbox.
+
+### Rule for next time
+
+Not every capability gap is worth chasing to the bottom in the same
+session it's discovered. `Xvfb` being present was a genuine, reasonable
+thing to try - and worth trying again later, possibly with `xvfb-run`
+(which manages the display lifecycle in one command, rather than manual
+`Xvfb & ... DISPLAY=...`) instead of hand-rolling process backgrounding.
+But once a quick, reasonable attempt hits friction with no clear path to a
+clean signal, the honest move is to say so and fall back to the
+established, working verification tier - not to keep spending effort
+chasing a nicer verification method when a real, if less complete, one is
+already available and sufficient for the feature at hand.

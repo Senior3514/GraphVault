@@ -34,6 +34,7 @@ import { computeBacklinks, type Backlink } from './links';
 import { NoteSearchIndex, type SearchResult } from './search';
 import { AdapterVaultStore } from './store';
 import { LOCAL_STORAGE_KEY } from './storage/localStorageAdapter';
+import { tauriStorageAdapter } from './storage/tauriAdapter';
 import { aggregateTags, notesWithTag as notesWithTagOp, type TagCount } from './tags';
 import type { IndexedNote, Note, NotePath } from './types';
 import {
@@ -434,7 +435,60 @@ export function useVault(): UseVault {
     const loaded = await source.load();
     setRawNotes(loaded);
     setReady(true);
+    // Keep the native-fs watcher in sync with whatever adapter/path is
+    // active now - see the effect below for what this actually does.
+    void syncWatcherRef.current();
   }, []);
+
+  // ---------------------------------------------------------------------
+  // Native file watching (Tauri desktop only - a no-op everywhere else).
+  //
+  // Lets an external editor / `git pull` / sync client change files on disk
+  // while the vault is open, without requiring a manual reload. Piggybacks
+  // on `reload()` to decide whether to (re)watch rather than adding a new
+  // call site: `reload()` already runs after every storage-adapter switch
+  // (Settings calls it right after `switchToTauriFolder`/`switchToLocalStorage`
+  // succeed) and once on initial mount, which are exactly the moments the
+  // active adapter/path can change. `syncWatcherRef` breaks the circular
+  // dependency between `reload` (defined above, needs to trigger a sync) and
+  // the sync function itself (needs to call `reload` when a change fires).
+  const syncWatcherRef = useRef<() => Promise<void>>(async () => {});
+  const watchStateRef = useRef<{ path: string | null; unwatch: (() => void) | null }>({
+    path: null,
+    unwatch: null,
+  });
+
+  useEffect(() => {
+    syncWatcherRef.current = async () => {
+      const active = tauriStorageAdapter.isAvailable();
+      const currentPath = active ? tauriStorageAdapter.path : null;
+      if (watchStateRef.current.path === currentPath) return; // already watching the right thing (or nothing)
+
+      watchStateRef.current.unwatch?.();
+      watchStateRef.current = { path: currentPath, unwatch: null };
+
+      if (currentPath) {
+        try {
+          const unwatch = await tauriStorageAdapter.watch(() => void reload());
+          // The path may have changed again while `watch()` was resolving;
+          // only keep this watcher if it's still the one we want.
+          if (watchStateRef.current.path === currentPath) {
+            watchStateRef.current.unwatch = unwatch;
+          } else {
+            unwatch();
+          }
+        } catch {
+          // Watching is best-effort - the vault still works via manual reload
+          // (the Settings "Storage location" panel, or any future reload).
+        }
+      }
+    };
+    void syncWatcherRef.current();
+    return () => {
+      watchStateRef.current.unwatch?.();
+      watchStateRef.current = { path: null, unwatch: null };
+    };
+  }, [reload]);
 
   const restoreFromSnapshot = useCallback(
     async (snapshotId: string): Promise<boolean> => {
