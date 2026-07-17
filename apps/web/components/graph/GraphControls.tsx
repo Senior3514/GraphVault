@@ -183,7 +183,15 @@ export function GraphControls({
           <SegButton active={colorMode === 'cluster'} onClick={() => onColorModeChange('cluster')}>
             Cluster
           </SegButton>
+          <SegButton active={colorMode === 'folder'} onClick={() => onColorModeChange('folder')}>
+            Folder
+          </SegButton>
         </div>
+        {colorMode === 'folder' && (
+          <p className="mt-1.5 text-[11px] leading-snug text-neutral-600">
+            Colour by the folder each note lives in - a visual map of your vault&apos;s structure.
+          </p>
+        )}
         {colorMode === 'cluster' && (
           <p className="mt-1.5 text-[11px] leading-snug text-neutral-600">
             Colour by connected component - nodes that link to each other share a colour.

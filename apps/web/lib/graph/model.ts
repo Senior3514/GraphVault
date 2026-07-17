@@ -90,7 +90,7 @@ export function distinctSorted(values: Iterable<string>): string[] {
 export type NodeCategory = 'note' | 'attachment' | 'unresolved';
 
 /** The way nodes are coloured on the canvas. */
-export type ColorMode = 'type' | 'tag' | 'cluster';
+export type ColorMode = 'type' | 'tag' | 'cluster' | 'folder';
 
 /**
  * Colour + label for each node category. The legend renders straight from this
@@ -249,6 +249,12 @@ export function buildRenderModel(
       color = colorForKey(tagKey);
     } else if (colorMode === 'cluster') {
       color = clusterNodeColor?.get(n.id) ?? GRAPH_NEUTRAL;
+    } else if (colorMode === 'folder') {
+      // `n.folder` is `''` for vault-root notes - colorForKey treats an empty
+      // key as "no key" and returns the neutral swatch, matching how tag mode
+      // treats untagged notes. Every other distinct folder path gets its own
+      // stable hash colour, same mechanism as tag colouring.
+      color = colorForKey(n.folder);
     } else {
       color = colorForCategory('note');
     }

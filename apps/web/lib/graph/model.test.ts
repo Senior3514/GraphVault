@@ -111,3 +111,15 @@ test('buildRenderModel colour-by-tag uses the first tag, placeholders stay typed
   assert.equal(a.color, colorForKey('project'));
   assert.equal(ghost.color, colorForCategory('unresolved'));
 });
+
+test('buildRenderModel colour-by-folder colours by the containing folder, root is neutral', () => {
+  const nodes: GraphNode[] = [
+    { id: 'notes/a.md', path: 'notes/a.md', title: 'a', tags: [], folder: 'notes' },
+    { id: 'root.md', path: 'root.md', title: 'root', tags: [], folder: '' },
+  ];
+  const model = buildRenderModel(nodes, [], { colorMode: 'folder' });
+  const a = model.nodes.find((n) => n.id === 'notes/a.md')!;
+  const root = model.nodes.find((n) => n.id === 'root.md')!;
+  assert.equal(a.color, colorForKey('notes'));
+  assert.equal(root.color, GRAPH_NEUTRAL);
+});

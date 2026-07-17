@@ -7,6 +7,8 @@
  * - "tag" mode: lists the active tag colours.
  * - "cluster" mode: lists the discovered connected-component clusters, largest
  *   first, with a grey "Isolated" row for singleton nodes.
+ * - "folder" mode: lists the distinct folders notes live in - a direct visual
+ *   map of the vault's directory structure, coloured the same way tags are.
  * - "groups" overlay: when user-defined groups are active, an additional
  *   "Groups" section is appended above the base-mode legend so the canvas
  *   colour meaning is always visible regardless of mode.
@@ -29,6 +31,8 @@ export interface GraphLegendProps {
   categories: NodeCategory[];
   /** Tags available for the legend (tag mode). */
   tags: string[];
+  /** Distinct folder paths available for the legend (folder mode). */
+  folders: string[];
   /** Cluster info for the legend (cluster mode). */
   clusterInfo?: ClusterColorInfo | null;
   /** Active user-defined groups (shown as an overlay legend section). */
@@ -46,6 +50,7 @@ export function GraphLegend({
   colorMode,
   categories,
   tags,
+  folders,
   clusterInfo,
   groups = [],
   aiClusterNames,
@@ -55,7 +60,9 @@ export function GraphLegend({
       ? legendForType(categories)
       : colorMode === 'cluster'
         ? legendForClusters(clusterInfo, aiClusterNames)
-        : legendForTags(tags);
+        : colorMode === 'folder'
+          ? legendForFolders(folders)
+          : legendForTags(tags);
 
   const groupItems = groupLegendEntries(groups);
 
@@ -127,6 +134,21 @@ function legendForTags(tags: string[]): { title: string; items: LegendItem[] } {
   }));
   items.push({ key: '__untagged__', label: 'untagged', color: GRAPH_NEUTRAL });
   return { title: 'Tags', items };
+}
+
+function legendForFolders(folders: string[]): { title: string; items: LegendItem[] } {
+  // Keep the legend compact, same cap as tag mode; the long tail still
+  // renders correctly on the canvas, just isn't individually listed here.
+  const shown = folders.slice(0, 8);
+  const items: LegendItem[] = shown.map((folder) => ({
+    key: folder || '__root__',
+    // The vault root has an empty folder path - colorForKey resolves it to
+    // the same neutral swatch as "untagged" in tag mode, so label it plainly
+    // rather than showing a blank row.
+    label: folder || '(root)',
+    color: colorForKey(folder),
+  }));
+  return { title: 'Folders', items };
 }
 
 function legendForClusters(

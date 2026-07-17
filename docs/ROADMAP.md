@@ -516,6 +516,29 @@ bottom-0`, viewport-relative) and the mobile pane-switcher nav bar
   real rendered content, clicking an in-preview wikilink re-selects the
   target node without changing the URL, and the lazy-loaded preview still
   renders correctly on both desktop and the mobile drawer.
+- ✅ **Graph: "Folder" colour-by mode - a direct visual map of the vault's
+  folder structure.** Direct response to a reference image of an AI
+  "memory" system organised as a branching folder tree, with the ask to
+  add "folder mapping" to GraphVault. A literal alternate tree-layout
+  rendering mode was considered and explicitly scoped down: it would mean
+  overriding the force simulation's `fx`/`fy` for every node via a new
+  layout algorithm, touching the already-tuned, stability-sensitive canvas
+  renderer for a payoff that colour-based clustering already delivers with
+  a fraction of the risk. Added `'folder'` as a fourth `ColorMode`
+  (alongside the existing Type / Tag / Cluster) - notes are coloured by
+  `GraphNode.folder` using the same deterministic `colorForKey` hash tag
+  mode already uses, so folders instantly read as distinct visual clusters
+  without moving a single node. Root-level notes (`folder === ''`) get the
+  neutral swatch, mirroring how untagged notes are already handled in tag
+  mode. The legend gained a matching `legendForFolders` (same 8-item cap
+  and pattern as the tag legend), and reused the `facets.folders` list the
+  filter panel's existing "Folders" section already computed - zero new
+  data derivation needed. **Perf-budgeted**: +1kB on the graph route
+  (174kB → 175kB, no new dependency, just a few new branches in
+  already-shipped code). Verified with a real seeded 3-folder vault in
+  headless Chromium: switching to Folder mode instantly recolours the
+  canvas into three visually distinct clusters plus a neutral root node,
+  with a legend that matches exactly.
 
 ## Milestone 24 - CherryTree-style note hierarchy 🟡
 

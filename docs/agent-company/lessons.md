@@ -2555,3 +2555,39 @@ m.MarkdownPreview), { ssr: false, loading: () => <small fallback/> })`)
   the "Loading preview…" fallback never even showed up in a real headless
   Chromium screenshot taken 900ms after clicking a node - the chunk was
   small enough to resolve before that).
+
+## Graph folder colour mode - scoping down from a risky idea to a safe one with the same payoff
+
+### The literal ask ("folder mapping, tree diagram") had a much cheaper equivalent
+
+- **Context:** a reference image showed an AI "memory" system as a
+  branching folder-tree diagram, with the ask to add "folder mapping" to
+  GraphVault's graph. The literal read - a genuine alternate tree-layout
+  rendering mode (like the earlier competitor demo's "Force Graph /
+  Sequential Layout / Radial Layout" toggle) - would mean computing
+  per-node `(x,y)` positions from folder nesting and overriding `fx`/`fy`
+  on every node, touching `ForceGraphCanvas`, the single most
+  stability-sensitive component in the app (its own doc comments catalogue
+  multiple past bugs around stale refs, rebuild-on-hover, DPR scaling).
+- **Rule:** before building the literal, riskiest interpretation of a
+  request, ask what OUTCOME it's actually after. Here the outcome is "I can
+  see my vault's folder structure at a glance in the graph" - and colour
+  is a complete answer to that on its own; a physical tree layout adds
+  navigational value ("show me the hierarchy path") that wasn't actually
+  requested. Scoped to the cheaper option and shipped it in one slice
+  instead of a multi-slice layout-engine project.
+- **Implementation:** `'folder'` added as a 4th `ColorMode`, using
+  `colorForKey(n.folder)` - the EXACT same hash-to-colour function tag mode
+  already uses, so no new colour-assignment logic existed to get wrong.
+  Root notes (`folder === ''`) fall through `colorForKey`'s existing
+  `if (!key) return NEUTRAL` branch for free, matching how untagged notes
+  are already drawn in tag mode - found this by reading `colorForKey`
+  before writing a single line of the new branch, not after.
+- **Reuse found by reading the page top-to-bottom first:** `graph/page.tsx`
+  already computed `facets.folders` (a sorted distinct-folder list) for the
+  existing "Folders" FILTER section - the exact data the new legend needed,
+  zero new derivation. Grepping for what a feature request touches BEFORE
+  writing code, not after, is what surfaced this - the alternative (writing
+  a fresh `Set<string>` folder collector inside `GraphLegend.tsx`) would
+  have duplicated existing logic and could have silently drifted from the
+  filter panel's own folder list over time.
