@@ -488,6 +488,34 @@ bottom-0`, viewport-relative) and the mobile pane-switcher nav bar
   performance decision at all. Verified with a real mouse-wheel scroll (not
   `scrollTo()`) and a pixel-level crop of just the header region, before
   (legible ghost text) and after (solid).
+- ✅ **Graph node panel: inline note preview - read without leaving the
+  graph.** Direct response to a competitor demo (an open-source codebase
+  graph tool) whose standout idea was: click a node, see the actual content
+  right next to the graph, no navigation away. GraphVault's own `NodePanel`
+  had exactly this gap - it showed title/tags/backlinks but the only way to
+  read a note's actual content was "Open note", which fully left `/graph`
+  for `/vault`. Added a **Preview** section (desktop side panel + mobile
+  bottom drawer) that renders the selected note's real content inline via
+  the same `MarkdownPreview` the vault editor uses - frontmatter stripped,
+  wikilinks clickable. Clicking a wikilink inside the preview stays
+  in-graph when the target is part of the current view (re-selects that
+  node, so you can hop root -> child -> grandchild reading as you go,
+  matching the reference demo's "no navigation" feel) or falls back to
+  opening it in the vault editor when it's filtered out of the current
+  graph. Zero privacy impact - purely a client-side render of content
+  already in the browser, unrelated to (and visually separated from) the
+  AI sections below it, which keep their existing "titles and topology
+  only, confirm-before-send" contract untouched.
+  **Perf-budgeted**: the markdown renderer (DOMPurify + parser) added ~23kB
+  to the graph route's First Load JS as a plain import, even though
+  `NodePanel` never mounts until a node is selected - dynamically imported
+  it (`next/dynamic`, `ssr:false`, matching `ForceGraphCanvas`'s existing
+  lazy boundary) with a one-line "Loading preview..." fallback, bringing
+  the route back to +1kB over its pre-change baseline (174kB -> 175kB).
+  Verified end-to-end in real headless Chromium: selecting a node shows
+  real rendered content, clicking an in-preview wikilink re-selects the
+  target node without changing the URL, and the lazy-loaded preview still
+  renders correctly on both desktop and the mobile drawer.
 
 ## Milestone 24 - CherryTree-style note hierarchy 🟡
 

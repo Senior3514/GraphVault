@@ -329,6 +329,7 @@ export default function GraphPage() {
   const searchMatchCount = searchIds?.size ?? null;
 
   const selectedNode = selectedId ? index.nodes.get(selectedId) : undefined;
+  const selectedNoteContent = selectedNode ? vault.getNote(selectedNode.path)?.content : undefined;
 
   // Mobile node-panel drawer a11y: trap focus + Esc-to-close, but only while a
   // node is selected AND we're on a small screen (the drawer is the only one
@@ -369,6 +370,20 @@ export default function GraphPage() {
     },
     [router],
   );
+
+  // A wikilink clicked inside the node panel's inline preview: stay in-graph
+  // when the target is part of the current index (just re-select it), or
+  // fall back to opening it in the vault editor when it isn't - e.g. the
+  // note exists but is filtered out of the current graph view.
+  const handlePreviewNavigate = (target: string) => {
+    const resolved = vault.resolveLink(target);
+    if (!resolved) return;
+    if (index.nodes.has(resolved)) {
+      handleSelect(resolved);
+    } else {
+      openNote(resolved);
+    }
+  };
 
   const handlePhysicsChange = (patch: Partial<GraphPhysics>) => {
     setPhysics((prev) => clampPhysics(prev, patch));
@@ -678,11 +693,14 @@ export default function GraphPage() {
           <div className="hidden md:flex">
             <NodePanel
               node={selectedNode}
+              noteContent={selectedNoteContent}
               index={index}
               isLocalFocus={mode === 'local'}
               onFocusLocal={handleFocusLocal}
               onSelect={handleSelect}
               onOpen={openNote}
+              resolvePreviewLink={vault.resolveLink}
+              onPreviewNavigate={handlePreviewNavigate}
               aiSettings={aiEnabled ? aiSettings : undefined}
               serverOpts={serverOpts}
             />
@@ -710,11 +728,14 @@ export default function GraphPage() {
             </div>
             <NodePanel
               node={selectedNode}
+              noteContent={selectedNoteContent}
               index={index}
               isLocalFocus={mode === 'local'}
               onFocusLocal={handleFocusLocal}
               onSelect={handleSelect}
               onOpen={openNote}
+              resolvePreviewLink={vault.resolveLink}
+              onPreviewNavigate={handlePreviewNavigate}
               aiSettings={aiEnabled ? aiSettings : undefined}
               serverOpts={serverOpts}
             />

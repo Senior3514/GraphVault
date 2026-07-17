@@ -2437,3 +2437,121 @@ already available and sufficient for the feature at hand.
   `page.screenshot()`) rather than a full-page shot, since a 5% ghosting
   effect is easy to miss at full-page thumbnail scale but obvious once
   cropped tight.
+
+## Environment reset mid-session - local git state is disposable, GitHub is the source of truth
+
+### A long-idle session's local checkout silently reverted to its original clone state
+
+- **Symptom:** partway through a session with real gaps between turns (PR CI
+  waits, webhook-driven check-ins), a plain `git log --oneline -3` suddenly
+  showed commits from WEEKS before the current work, on branch
+  `claude/graphvault-project-setup-hlv492` instead of `main` - despite a
+  `git checkout main` having explicitly succeeded a few tool calls earlier
+  in the same conversation. `node_modules` and the workspace packages'
+  built `dist/` output were also gone, causing a wall of `Cannot find
+module '@graphvault/shared'`-style typecheck errors that looked like a
+  real regression at first glance.
+- **Root cause (inferred, not directly observable):** this environment's
+  container can be reclaimed after a period of inactivity and a fresh one
+  provisioned with a clean clone of the repo at its originally-assigned
+  branch - the local checkout is not guaranteed to survive real-world idle
+  gaps within one logical session, even though the conversation continues.
+- **Diagnosis discipline that mattered:** before touching anything, checked
+  `git status` (clean - no uncommitted work to lose) and `git fetch origin
+main && git log --oneline origin/main -5` (showed every merged PR from
+  this session, in order, exactly as expected). This confirmed the local
+  checkout was stale, not that work had been lost - GitHub, not the local
+  clone, is the actual source of truth once a PR is merged. Recovery was
+  simply `git checkout main && git reset --hard origin/main`, then
+  `pnpm install` and `pnpm --filter <pkg> build` for the workspace packages
+  `apps/web` depends on (`shared`, `engine`, `sync-core` - NOT the full
+  `pnpm -r build`, which also tries to build `apps/desktop`'s native Tauri
+  binary and fails on missing system libs unrelated to any web change).
+- **Rule:** if git state looks wrong mid-session (unexpected branch, old
+  commits, missing `node_modules`), do not assume corruption or panic -
+  check `origin/<branch>` first. Local repo/dependency state in this
+  environment is cheap to regenerate and never the thing to protect; only
+  uncommitted working-tree changes are irreplaceable, so `git status`
+  first, always, before any reset.
+
+## Video-frame research + graph competitive feature (inline preview)
+
+### Extracting frames from an uploaded video is a real, usable research technique
+
+- **Context:** user shared a screen-recording video with "make it as good as
+  this" and no other description. The upload was an `.mp4`; this
+  environment has no video-viewing tool, but `ffmpeg` (installable via
+  `apt-get install -y -qq ffmpeg`, worked fully offline against the local
+  mirror once `apt-get update` refreshed stale index files) can extract
+  `fps=1` frames as PNGs (`ffmpeg -i video.mp4 -vf fps=1 frame-%03d.png`),
+  which the existing Read-tool image support can then actually see. For a
+  32-second clip this produced 32 frames - enough to reconstruct the full
+  feature set being demonstrated (a competitor's open-source codebase-graph
+  tool: multiple layout algorithms, a live Cypher-style query panel, and -
+  the standout idea - click a node to open its actual source inline next
+  to the graph, no navigation away).
+- **Rule:** treat an uploaded video the same as a screenshot - actually look
+  at it before speculating about its contents from the caption/filename
+  alone. `ffprobe -show_entries format=duration` first to size the
+  extraction; `fps=1` is plenty for a UI walkthrough (nothing changes
+  faster than once a second in a product demo) and keeps the frame count
+  reviewable by hand.
+
+### Translating a competitor's idea into an OWN, bounded feature - not a wholesale copy
+
+- **Rule:** "make it as good as this" from a reference video is a direction,
+  not a spec. Extract the single most reproducible, highest-leverage idea
+  rather than attempting the whole feature set in one slice - here, "click
+  a node, read its content right there" mapped cleanly onto GraphVault's
+  existing `NodePanel` (which already showed title/tags/backlinks but never
+  content, forcing a full navigation to `/vault` just to read a note) via
+  one new `<section>` reusing the ALREADY-TESTED `MarkdownPreview`
+  component and its frontmatter-stripping fix from earlier this session.
+  Multiple layout algorithms and a Cypher query language from the same
+  video were consciously NOT attempted here - each is its own bounded
+  slice, not something to bolt on opportunistically while implementing an
+  unrelated idea from the same reference.
+- **Wikilink navigation inside an embedded preview needs its own resolve
+  policy:** the natural, most "stay in the moment" behavior for a click on
+  a wikilink inside the graph's inline preview is to re-select that node
+  IN-GRAPH (no navigation, matching the reference demo's whole premise)
+  when the target exists in the current graph index, falling back to
+  `openNote()` (leaving for `/vault`) only when it doesn't - e.g. filtered
+  out of the current view. `GraphNode.id === path` in this engine (v0), so
+  `index.nodes.has(resolvedPath)` is a direct, correct membership check
+  with no extra lookup needed.
+
+### Perf-budget discipline: measure the actual delta, don't assume a small component is cheap
+
+- **Symptom:** adding one `<MarkdownPreview>` import to `NodePanel.tsx`
+  (itself a small, already-existing component) grew the `/graph` route's
+  First Load JS by ~23kB (174kB -> 197kB) - NOT because `MarkdownPreview`
+  itself is heavy, but because it statically imports `renderMarkdown`,
+  which pulls in DOMPurify + a markdown parser that the graph route had
+  never needed before. `NodePanel` is only ever rendered once a node is
+  selected (`{selectedNode && <NodePanel .../>}`), but a plain top-level
+  `import` still bundles its entire transitive dependency tree into the
+  route's INITIAL JS, regardless of whether that conditional ever renders
+  true on a given page load.
+- **Diagnosis method:** `pnpm run build:web` prints the route table, but to
+  find WHICH dependency caused a delta, inspect
+  `.next/app-build-manifest.json` for the route's chunk list, `wc -c` each
+  chunk file to find the newly-large one, then `grep -o "DOMPurify\|<lib
+name>"` inside it to confirm what's actually in there - matching this
+  project's own `gv-perf-budget` skill's documented method. Confirmed the
+  delta was real (not a measurement artifact) by `git stash`-ing the
+  change, rebuilding for a clean baseline number, then `git stash pop` and
+  rebuilding again to compare like-for-like.
+- **Fix / rule:** dynamically import the specific heavy leaf dependency
+  (`next/dynamic(() => import('../MarkdownPreview').then(m =>
+m.MarkdownPreview), { ssr: false, loading: () => <small fallback/> })`)
+  rather than restructuring the whole consuming component's import
+  boundary. This is more surgical than lazy-loading all of `NodePanel`
+  (which is cheap and fine to load eagerly) and mirrors the existing
+  lazy-loading pattern already used one level up for `ForceGraphCanvas` in
+  `graph/page.tsx`. Result: route grew only +1kB over its pre-change
+  baseline (174kB -> 175kB) instead of +23kB, with the deferred chunk
+  fetching in well under a perceptible delay on node selection (verified:
+  the "Loading preview…" fallback never even showed up in a real headless
+  Chromium screenshot taken 900ms after clicking a node - the chunk was
+  small enough to resolve before that).
