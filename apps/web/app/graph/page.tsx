@@ -654,6 +654,7 @@ export default function GraphPage() {
                 colorMode={colorMode}
                 categories={model.presentCategories}
                 tags={facets.tags}
+                folders={facets.folders}
                 clusterInfo={clusterInfo}
                 groups={groups}
                 aiClusterNames={aiClusterNames.length > 0 ? aiClusterNames : undefined}
