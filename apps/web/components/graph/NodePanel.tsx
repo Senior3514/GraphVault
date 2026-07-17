@@ -1,9 +1,15 @@
 'use client';
 
 /**
- * Selection side panel. Shows the selected note's title, tags and backlinks
- * (resolved inbound edges from the engine index) plus controls to open the note
- * in `/vault` or focus a local graph around it.
+ * Selection side panel. Shows the selected note's title, tags, an inline
+ * rendered content preview, and backlinks (resolved inbound edges from the
+ * engine index) plus controls to open the note in `/vault` or focus a local
+ * graph around it.
+ *
+ * The inline preview lets you actually read a note without leaving the
+ * graph - clicking a wikilink inside it re-selects that node in-graph when
+ * it's part of the current view, or falls back to opening it in the vault
+ * editor when it isn't (e.g. filtered out).
  *
  * M21 AI additions (gated behind aiEnabled - hidden when AI is off):
  *  - "Suggest related" - surfaces vault notes the AI thinks are related but
@@ -14,13 +20,18 @@
  * Privacy invariant: these sections are hidden entirely when AI is off.
  * When shown, only note TITLES and link topology are sent - never bodies.
  * The "what we'll send" notice is shown before the first request fires.
+ * (The inline preview below is unrelated to AI - it's a pure client-side
+ * render of content already in the browser, same as the vault editor's own
+ * preview pane; nothing is sent anywhere.)
  */
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { colorForKey } from '../../lib/graph/model';
 import type { GraphEdge, GraphIndex, GraphNode } from '@graphvault/engine';
 import type { AISettings } from '../../lib/ai/types';
 import { chat, type ServerProviderOptions } from '../../lib/ai/providers';
+import type { ResolveTarget } from '../../lib/markdown/render';
 import {
   buildRelatedNotesPrompt,
   parseRelatedNotes,
@@ -30,8 +41,23 @@ import {
   type RelatedNoteSuggestion,
 } from '../../lib/ai/graph-prompts';
 
+// The markdown renderer (DOMPurify + the markdown parser) is real weight that
+// the graph route otherwise never needs on first load - NodePanel only
+// mounts once a node is selected. Dynamically importing it keeps that cost
+// out of the route's First Load JS entirely; it fetches on first selection
+// instead. `ssr: false` matches the rest of this route's lazy boundaries
+// (see `ForceGraphCanvas` in graph/page.tsx) - nothing here can render
+// server-side anyway, since `selectedNode` starts `null` on every load.
+const MarkdownPreview = dynamic(() => import('../MarkdownPreview').then((m) => m.MarkdownPreview), {
+  ssr: false,
+  loading: () => <p className="px-4 py-3 text-xs text-neutral-600">Loading preview&hellip;</p>,
+});
+
 export interface NodePanelProps {
   node: GraphNode;
+  /** The selected note's raw content (frontmatter included - `MarkdownPreview`
+   *  strips it), or `undefined` if it couldn't be found in the vault. */
+  noteContent: string | undefined;
   index: GraphIndex;
   /** Whether the local-graph view is currently centred on this node. */
   isLocalFocus: boolean;
@@ -39,6 +65,11 @@ export interface NodePanelProps {
   onSelect: (id: string) => void;
   /** Open the note in the vault editor (the page owns the URL shape). */
   onOpen: (path: string) => void;
+  /** Resolve a wikilink target clicked inside the preview to a note path. */
+  resolvePreviewLink: ResolveTarget;
+  /** A wikilink inside the preview was clicked - the page decides whether
+   *  to re-select in-graph or fall back to opening the note. */
+  onPreviewNavigate: (target: string) => void;
   /** AI settings - when kind === 'off' the AI sections are hidden entirely. */
   aiSettings?: AISettings;
   /**
@@ -50,11 +81,14 @@ export interface NodePanelProps {
 
 export function NodePanel({
   node,
+  noteContent,
   index,
   isLocalFocus,
   onFocusLocal,
   onSelect,
   onOpen,
+  resolvePreviewLink,
+  onPreviewNavigate,
   aiSettings,
   serverOpts,
 }: NodePanelProps) {
@@ -113,6 +147,25 @@ export function NodePanel({
           </button>
         </div>
       </div>
+
+      <section className="max-h-80 overflow-y-auto border-b border-neutral-800">
+        <h3 className="px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          Preview
+        </h3>
+        {noteContent === undefined ? (
+          <p className="px-4 pb-3 pt-2 text-xs text-neutral-600">Note content unavailable.</p>
+        ) : noteContent.trim().length === 0 ? (
+          <p className="px-4 pb-3 pt-2 text-xs text-neutral-600">This note is empty.</p>
+        ) : (
+          <div className="text-sm">
+            <MarkdownPreview
+              markdown={noteContent}
+              resolve={resolvePreviewLink}
+              onNavigate={onPreviewNavigate}
+            />
+          </div>
+        )}
+      </section>
 
       <Section title={`Backlinks (${backlinks.length})`}>
         {backlinks.length === 0 ? (
