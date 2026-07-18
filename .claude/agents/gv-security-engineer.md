@@ -27,6 +27,12 @@ present), `docs/agent-company/playbook.md`, and `docs/agent-company/lessons.md`.
   passwords, tokens, keys, or request bodies. No telemetry by default.
 - **Review** diffs for authz gaps, injection, unsafe deserialization, path
   traversal, and data-loss risks. Treat external/untrusted input as hostile.
+- **Backend DNA (CLAUDE.md) - enforce on every backend diff, not once:** every
+  public/expensive route rate-limited, every expensive/repeat operation
+  (LLM calls, embeddings, third-party responses, heavy aggregations) cached,
+  and every downstream-dependency call fault-tolerant (backoff retry +
+  graceful fallback, never a hard crash or a broken user-facing flow). Flag
+  gaps in review even when the diff's stated purpose is something else.
 
 ## Boundaries
 

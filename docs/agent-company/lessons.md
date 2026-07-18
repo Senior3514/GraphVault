@@ -2591,3 +2591,37 @@ m.MarkdownPreview), { ssr: false, loading: () => <small fallback/> })`)
   a fresh `Set<string>` folder collector inside `GraphLegend.tsx`) would
   have duplicated existing logic and could have silently drifted from the
   filter panel's own folder list over time.
+
+## Owner directive adopted as standing policy - "Backend DNA"
+
+### A one-time instruction becomes durable only if it's written into the files agents actually read
+
+- **Directive:** the owner asked for a permanent, silent habit on every
+  backend change: (1) rate limiting on public/expensive routes, (2) caching
+  on expensive/repeat operations (LLM calls, embeddings, slow third-party
+  responses, heavy DB aggregations), (3) fault tolerance on downstream
+  calls (backoff retry + graceful fallback, never a hard crash). Bias
+  toward the simplest correct pipeline - no speculative abstraction.
+- **Rule for turning a one-off instruction into a durable practice:** a
+  chat-only acknowledgment doesn't survive a compaction, a new session, or
+  a different agent picking up the next task - it has to land in the files
+  that get read at the START of relevant work. Added it to `CLAUDE.md`
+  under a new "Backend DNA" section (the file explicitly "orients any
+  contributor... before making changes" - the correct home for a standing
+  rule), then propagated it into the THREE agent definitions that actually
+  touch or gate backend code: `gv-server-engineer.md` (author it),
+  `gv-security-engineer.md` (harden/review it), `gv-qa-reviewer.md` (block
+  ship on it). A rule that lives in only one of those three would get
+  missed whenever a different one of them handles the next backend slice.
+- **Honesty check before writing the doc:** audited what already exists
+  rather than assuming the checklist was either fully solved or fully
+  missing. Found: rate limiting IS already applied (auth/inbox/snapshots
+  via the existing `@fastify/rate-limit` setup in `app.ts`) - documented as
+  "extend this pattern," not "add this from scratch." Caching is NOT
+  applied anywhere yet, notably the AI proxy's provider calls
+  (`apps/server/src/routes/ai.ts`) - documented as a known, real gap to
+  address on the next relevant change, not glossed over. The existing
+  "never blind-retry on a data conflict" rule in the sync service is a
+  DIFFERENT thing (a data-safety invariant about conflicting writes, not
+  resilience against a downstream dependency failing) - called out
+  explicitly so the two don't get conflated by a future reader.

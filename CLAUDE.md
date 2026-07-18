@@ -74,6 +74,37 @@ README.md   CLAUDE.md   DESIGN.md
 - No external telemetry by default.
 - Conventional, descriptive commit messages.
 
+## Backend DNA (owner directive - apply silently on every backend change)
+
+Before shipping or modifying any backend component (`apps/server/`, any proxy
+route, any service that calls a third party or does heavy work), confirm all
+three - not as a one-time pass, but as a standing habit for every future change:
+
+1. **Rate limiting** - is this endpoint protected against high-frequency abuse?
+   Token-bucket/leaky-bucket limiting on public and expensive routes (the
+   codebase already does this for auth/inbox/snapshots via `app.ts`'s
+   `@fastify/rate-limit` setup - extend the same pattern to new routes, stricter
+   on auth-adjacent and unauthenticated endpoints).
+2. **Caching** - can this expensive operation be cached? Cache LLM calls,
+   embeddings, slow third-party API responses, and heavy DB aggregations. Avoid
+   redundant calls for the same user/input; keep queries and payloads lean.
+   (Not yet applied to the AI proxy's provider calls - a real gap, not a solved
+   problem; look here first when touching `apps/server/src/routes/ai.ts` or
+   similar.)
+3. **Fault tolerance** - if a downstream dependency (third-party API, internal
+   service) fails, does the system degrade gracefully? Retries with exponential
+   backoff plus a fallback path - never a hard crash or a broken user-facing
+   flow. (Distinct from the sync protocol's "never blind-retry on a data
+   conflict" rule, which is a data-safety invariant, not this - both apply,
+   they answer different questions.)
+
+Bias toward simplicity: solve the actual problem with a clear, deterministic,
+fast pipeline - no speculative abstraction layers. Performance is a feature; a
+slow correct answer is only half-solved.
+
+`gv-server-engineer` and `gv-security-engineer` own enforcing this; `gv-qa-reviewer`
+checks for it before anything ships.
+
 ## Agent company
 
 This project is operated by a dedicated, in-repo "company" of specialist agents
