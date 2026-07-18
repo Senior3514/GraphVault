@@ -39,8 +39,14 @@
  *     (belt-and-suspenders redaction on both buffered and SSE error paths).
  *   - The client receives the completion text, the upstream model string, and
  *     token/cost usage (so it can render a budget meter) - never upstream headers
- *     or the raw provider JSON. Prompts and responses are NOT persisted; only the
- *     request count and dollar cost go into the durable spend window.
+ *     or the raw provider JSON. Prompts and responses are NEVER written to durable
+ *     storage; only the request count and dollar cost go into the durable spend
+ *     window. The buffered `chat()` path does hold recent prompts/responses in a
+ *     small in-process, short-TTL cache (`aiCache.ts`, Backend DNA - avoid
+ *     redundant upstream calls on an identical repeat request) - bounded,
+ *     process-memory-only, never disk-persisted, and gone within minutes; a cache
+ *     hit is returned to the SAME user's request only and bypasses the request/
+ *     spend cap entirely, since it never touches the upstream provider.
  *   - No telemetry; the server makes no other outbound calls.
  */
 
@@ -54,6 +60,7 @@ import type {
 } from '@graphvault/shared';
 import { AppError, badRequest, notFound } from '../errors.js';
 import { guardedFetch } from './ssrf.js';
+import { AiResponseCache } from './aiCache.js';
 import type { AiConfigRecord, Storage } from '../store/types.js';
 import type { AiChatMessage } from '@graphvault/shared';
 
@@ -185,6 +192,9 @@ const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-4o-mini';
 // ---------------------------------------------------------------------------
 
 export class AiService {
+  /** Backend DNA: short-TTL cache for buffered chat() responses - see aiCache.ts. */
+  private readonly responseCache = new AiResponseCache();
+
   constructor(
     private readonly storage: Storage,
     private readonly serverKey?: Buffer,
@@ -363,6 +373,12 @@ export class AiService {
    *
    * Returns `{ content, model, usage }` - never the raw key or upstream headers.
    *
+   * Backend DNA: an identical repeat request (same user, same resolved model,
+   * same messages) within a short window is served from `responseCache`
+   * instead of calling the upstream provider again - it bypasses the cap
+   * check and spend commit entirely below, since it never touches the
+   * provider and therefore costs nothing.
+   *
    * @throws 404 if AI is not configured for this user.
    * @throws 400 if the upstream returns a non-200 or malformed response.
    * @throws 429 if a daily cap (request or spend) is exceeded.
@@ -376,6 +392,10 @@ export class AiService {
       userId,
       modelOverride,
     );
+
+    const cacheKey = AiResponseCache.key(userId, model, messages);
+    const cached = this.responseCache.get(cacheKey);
+    if (cached) return cached;
 
     // Pre-check caps AFTER resolving the config (so we 404 a missing config) but
     // BEFORE the upstream call. The cost is unknown until generation completes,
@@ -440,7 +460,9 @@ export class AiService {
     // Commit the real provider-reported cost (0 when the gateway reports none).
     await this.commitSpend(userId, usage);
 
-    return { content, model: upstreamModel, usage };
+    const result = { content, model: upstreamModel, usage };
+    this.responseCache.set(cacheKey, result);
+    return result;
   }
 
   // ---- Streaming chat (SSE translating relay; docs/ai-bff.md §2.5) ----

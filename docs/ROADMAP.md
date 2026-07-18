@@ -342,6 +342,27 @@ device unless the user enables a provider.
   **Resources** - notes as attachable `graphvault://note/<path>` resources (list +
   read, text/markdown). **Prompts** - `summarize_note`, `find_connections`,
   `search_and_synthesize` templates that embed real vault context)
+- ✅ **AI proxy response cache** - the buffered `POST /v1/ai/chat` path (used by
+  the batch analysis features: related notes, gap finding, cluster naming) now
+  short-circuits an identical repeat request (same user, resolved model, and
+  message list) from a small in-process, 5-minute-TTL, 500-entry-bounded cache
+  instead of calling the upstream provider again - e.g. re-clicking "Suggest
+  related notes" on the same unchanged note. A cache hit bypasses the daily
+  request/spend cap check entirely, since it never touches the provider and
+  costs nothing. Streaming chat is deliberately NOT cached - it exists for the
+  live "watch it type" assistant panel UX, where instantly replaying a cached
+  response would just read as a glitch. First concrete application of the new
+  standing **Backend DNA** policy (see `CLAUDE.md`): rate limiting, caching,
+  and fault tolerance are now a silent checklist applied to every backend
+  change going forward, not a one-time pass - propagated into the
+  `gv-server-engineer`, `gv-security-engineer`, and `gv-qa-reviewer` agent
+  definitions so it survives across sessions and different agents picking up
+  backend work. Verified with both a pure unit-test suite for the cache
+  module (determinism, cross-user/cross-model isolation, TTL expiry, bounded
+  FIFO eviction) and a real end-to-end integration test counting actual
+  upstream-transport invocations through the live route (proves the wiring,
+  not just the cache class, works: identical repeat call → 1 upstream call
+  total; a genuinely different prompt from the same user → 2).
 
 ## Milestone 22 - Connectors (email & everything, privacy-graded) 🟡
 

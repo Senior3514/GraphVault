@@ -23,6 +23,12 @@ Read `CLAUDE.md`, `docs/agent-company/playbook.md`, and
   whether new behavior is actually covered by tests (not just that tests pass).
 - Confirm decoupling holds (engine/sync/graph cores free of UI imports) and that
   conventions from `CLAUDE.md` are followed.
+- For any backend diff (`apps/server/`, any proxy route): check CLAUDE.md's
+  **Backend DNA** checklist explicitly - rate limiting on public/expensive
+  routes, caching on expensive/repeat operations, fault-tolerant downstream
+  calls (backoff retry + graceful fallback). A diff that adds a new route or
+  external call without addressing these is a finding, even if the diff's
+  stated purpose is unrelated.
 - Verify outcomes are reported faithfully by the author - no green-washing.
 
 ## Boundaries

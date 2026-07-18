@@ -228,6 +228,67 @@ test('POST /v1/ai/chat - proxies to upstream and returns content', async () => {
   assert.ok(!res.body.includes('test-api-key-openrouter'), 'key must not leak in chat response');
 });
 
+test('POST /v1/ai/chat - Backend DNA: an identical repeat request is served from cache, not the upstream', async () => {
+  const tok = await freshUser();
+  await saveConfig(`Bearer ${tok}`, {
+    apiKey: 'cache-test-key',
+    gateway: 'openrouter',
+    dailyRequestCap: 1000,
+  });
+
+  let upstreamCalls = 0;
+  const restore = __setTransportForTests((async () => {
+    upstreamCalls += 1;
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { content: 'cached-worthy answer' } }],
+        model: 'mock/model-v1',
+        usage: { cost: 0.01 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  }) as GuardedTransport);
+
+  try {
+    const payload = { messages: [{ role: 'user', content: 'same question twice' }] };
+    const headers = { Authorization: `Bearer ${tok}`, 'content-type': 'application/json' };
+
+    const first = await app.inject({ method: 'POST', url: '/v1/ai/chat', headers, payload });
+    assert.equal(first.statusCode, 200, `first call: ${first.body}`);
+    assert.equal(upstreamCalls, 1, 'first call should hit the upstream');
+
+    const second = await app.inject({ method: 'POST', url: '/v1/ai/chat', headers, payload });
+    assert.equal(second.statusCode, 200, `second call: ${second.body}`);
+    assert.equal(
+      upstreamCalls,
+      1,
+      'identical repeat call must be served from cache, not the upstream',
+    );
+    assert.deepEqual(
+      JSON.parse(second.body),
+      JSON.parse(first.body),
+      'cached response must match the original',
+    );
+
+    // A different prompt from the SAME user must still hit the upstream - the
+    // cache must never return a stale answer to a genuinely different question.
+    const different = await app.inject({
+      method: 'POST',
+      url: '/v1/ai/chat',
+      headers,
+      payload: { messages: [{ role: 'user', content: 'a completely different question' }] },
+    });
+    assert.equal(different.statusCode, 200, `different-prompt call: ${different.body}`);
+    assert.equal(
+      upstreamCalls,
+      2,
+      "a genuinely different prompt must not be served from the first prompt's cache entry",
+    );
+  } finally {
+    restore();
+  }
+});
+
 test('POST /v1/ai/chat - 401 without auth token', async () => {
   const res = await app.inject({
     method: 'POST',
