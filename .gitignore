@@ -50,3 +50,6 @@ coverage/
 
 # Transient agent screenshot/verification helpers
 scripts/_*
+
+# Claude Code notebook credentials - bearer token + password, never commit.
+ops/.secrets/
