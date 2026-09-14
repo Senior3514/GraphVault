@@ -24,12 +24,12 @@
   "bin": {
     "graphvault-mcp": "./dist/index.js"
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/lib.js",
+  "types": "./dist/lib.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/lib.d.ts",
+      "default": "./dist/lib.js"
     }
   },
   "files": [

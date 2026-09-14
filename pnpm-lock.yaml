@@ -49,9 +49,15 @@ importers:
       '@fastify/rate-limit':
         specifier: ^10.1.1
         version: 10.3.0
+      '@graphvault/mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
       '@graphvault/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.22.0
+        version: 1.29.0(zod@3.25.76)
       argon2:
         specifier: ^0.44.0
         version: 0.44.0

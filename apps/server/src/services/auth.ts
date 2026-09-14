@@ -65,6 +65,23 @@ export class AuthService {
     return { user, device };
   }
 
+  /**
+   * Mint a vault-sync bearer token for an ALREADY-authenticated user, bound to
+   * a fresh device record. Used by the remote MCP-over-HTTP route: an OAuth
+   * access token proves who the caller is, but the existing `/v1/*` sync
+   * routes are authenticated with this normal bearer-token scheme, so each
+   * MCP session needs one of these to reuse them unchanged.
+   *
+   * Throws 401 if `userId` doesn't resolve to a real user (should never
+   * happen in practice - the caller already resolved it from a verified
+   * OAuth token).
+   */
+  async issueServiceToken(userId: string, deviceName: string): Promise<AuthToken> {
+    const user = await this.storage.getUserById(userId);
+    if (!user) throw unauthorized('Unknown user');
+    return this.issueTokenForNewDevice(user, deviceName);
+  }
+
   private async issueTokenForNewDevice(
     user: UserRecord,
     deviceName: string | undefined,

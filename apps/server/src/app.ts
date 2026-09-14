@@ -19,6 +19,8 @@ import { registerClipRoutes } from './routes/clip.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerInboxRoutes } from './routes/inbox.js';
+import { registerOAuthRoutes } from './routes/oauth.js';
+import { registerMcpRoutes } from './routes/mcp.js';
 import { DEFAULT_INBOX_AUDIT_CAP } from './services/inbox.js';
 import type { Storage } from './store/types.js';
 import type { SnapshotStore } from './store/snapshot-store.js';
@@ -126,6 +128,15 @@ export async function buildApp(
   // Some clients PUT blobs with no/other content types; accept raw bytes too.
   app.addContentTypeParser('*', { parseAs: 'buffer' }, (_req, body, done) => done(null, body));
 
+  // OAuth's /oauth/authorize (HTML form submit) and /oauth/token (spec-mandated
+  // per RFC 6749 §4.1.3) both use the standard HTML form encoding. Decode to a
+  // plain string here; the oauth routes parse it with URLSearchParams.
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_req, body, done) => done(null, body),
+  );
+
   // --- storage + services ---
   let storageHandle: StorageHandle | undefined;
   let storage: Storage;
@@ -153,6 +164,7 @@ export async function buildApp(
           maxAuditEntries: DEFAULT_INBOX_AUDIT_CAP,
         }
       : undefined,
+    oauth: config.mcpRemoteEnabled ? { publicUrl: config.publicUrl ?? '' } : undefined,
   });
 
   app.addHook('onClose', async () => {
@@ -244,6 +256,13 @@ export async function buildApp(
       enabled: config.inboxEnabled,
       maxBytes: config.inboxMaxBytes,
     },
+    // Remote MCP connector (OAuth authorization server + MCP-over-HTTP). Off
+    // by default. Only non-sensitive posture flags are exposed (no client
+    // secrets - there are none, clients are always public/PKCE-only - no
+    // tokens, no user data).
+    mcpRemote: {
+      enabled: config.mcpRemoteEnabled,
+    },
   }));
 
   // --- Milestone 2: auth, vaults, sync, blobs ---
@@ -275,6 +294,13 @@ export async function buildApp(
   //     Enabled by default; an inbound token must be minted by an authenticated
   //     user before the public POST /v1/inbox/:token endpoint can create a note.
   registerInboxRoutes(app, services, config);
+
+  // --- Remote MCP connector: OAuth 2.1 authorization server + MCP-over-HTTP.
+  //     Off by default (GRAPHVAULT_MCP_REMOTE_ENABLED) - new attack surface
+  //     (a full authorization server) stays invisible until an operator opts in
+  //     and sets GRAPHVAULT_PUBLIC_URL. See docs/deployment.md.
+  registerOAuthRoutes(app, services, config);
+  registerMcpRoutes(app, services, config);
 
   return app;
 }

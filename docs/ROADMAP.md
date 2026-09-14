@@ -342,6 +342,13 @@ device unless the user enables a provider.
   **Resources** - notes as attachable `graphvault://note/<path>` resources (list +
   read, text/markdown). **Prompts** - `summarize_note`, `find_connections`,
   `search_and_synthesize` templates that embed real vault context)
+- ✅ Remote MCP connector — use a self-hosted vault as a Claude.ai "custom
+  connector" (`GRAPHVAULT_MCP_REMOTE_ENABLED`, off by default): a self-hosted
+  OAuth 2.1 authorization server (`/oauth/*`, dynamic client registration,
+  PKCE-mandatory, own login+consent page, short-lived rotating tokens — no
+  external identity provider) plus MCP-over-HTTP (`/mcp`, Streamable HTTP),
+  reusing every `@graphvault/mcp` tool/resource/prompt unmodified. See
+  `docs/deployment.md`.
 - ✅ **AI proxy response cache** - the buffered `POST /v1/ai/chat` path (used by
   the batch analysis features: related notes, gap finding, cluster naming) now
   short-circuits an identical repeat request (same user, resolved model, and

@@ -173,7 +173,7 @@ publicly, which reintroduces the exposure this deployment avoids.
 
 - **No versioned DB migrations.** The repo ships `schema.prisma` with no
   `prisma/migrations/`, so the container runs `prisma db push
-  --accept-data-loss` on start. Idempotent and fine for a personal vault, but
+--accept-data-loss` on start. Idempotent and fine for a personal vault, but
   it has no rollback story and can drop columns on a schema change. Committing
   real migrations and switching to `migrate deploy` is the fix.
 - **MCP has no auth of its own** - it inherits whatever `GRAPHVAULT_TOKEN`
