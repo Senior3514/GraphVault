@@ -33,6 +33,29 @@ export function preflightConfig(config: ServerConfig, nodeEnv: string): Prefligh
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  // The remote-MCP OAuth server cannot construct correct metadata/redirect
+  // URLs without knowing its own public origin - this is a functional
+  // requirement, not just hardening, so it is checked unconditionally (even
+  // outside production) rather than gated behind the `nodeEnv` early return.
+  if (config.mcpRemoteEnabled && (config.publicUrl ?? '').trim() === '') {
+    errors.push(
+      'GRAPHVAULT_MCP_REMOTE_ENABLED is true but GRAPHVAULT_PUBLIC_URL is unset. ' +
+        "Set it to this server's own externally-reachable HTTPS origin " +
+        '(e.g. https://vault.example.com) - every OAuth metadata and redirect ' +
+        'URL is derived from it.',
+    );
+  }
+  if (
+    config.mcpRemoteEnabled &&
+    (config.publicUrl ?? '').trim() !== '' &&
+    !/^https:\/\//i.test(config.publicUrl!.trim())
+  ) {
+    errors.push(
+      `GRAPHVAULT_PUBLIC_URL (${config.publicUrl}) must start with https:// - ` +
+        'a remote OAuth connector must never be advertised over plaintext.',
+    );
+  }
+
   if (nodeEnv !== 'production') {
     return { errors, warnings };
   }

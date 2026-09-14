@@ -165,6 +165,54 @@ export interface FileChange {
   deleted: boolean;
 }
 
+/**
+ * A dynamically-registered OAuth client (RFC 7591) - e.g. a remote MCP
+ * connector like Claude.ai's "custom connector" self-registering against
+ * this server. `clientSecretHash` is null for a public client (PKCE-only,
+ * no secret); when present, only the SHA-256 hash is stored, same as every
+ * other secret in this store.
+ */
+export interface OAuthClientRecord {
+  clientId: string;
+  clientSecretHash: string | null;
+  clientName: string;
+  redirectUris: string[];
+  createdAt: string; // ISO-8601
+}
+
+/**
+ * A short-lived, single-use authorization code (RFC 6749 §4.1 + PKCE, RFC
+ * 7636). Only the SHA-256 hash of the raw code is stored; `codeChallenge` is
+ * the PKCE S256 challenge supplied at `/oauth/authorize` time, verified
+ * against the client's `code_verifier` at token-exchange time.
+ */
+export interface OAuthAuthorizationCodeRecord {
+  codeHash: string;
+  clientId: string;
+  userId: string;
+  redirectUri: string;
+  codeChallenge: string;
+  scope: string;
+  expiresAt: number; // unix epoch seconds
+  createdAt: string; // ISO-8601
+}
+
+/**
+ * One issued access+refresh token pair. Only hashes are stored. A refresh
+ * exchange rotates the entire row (the old one is deleted, a new one
+ * created) rather than reusing the access-token slot, so a stolen and
+ * already-used refresh token is detectable (its row is simply gone).
+ */
+export interface OAuthTokenRecord {
+  accessTokenHash: string;
+  refreshTokenHash: string;
+  clientId: string;
+  userId: string;
+  scope: string;
+  accessExpiresAt: number; // unix epoch seconds
+  createdAt: string; // ISO-8601
+}
+
 export interface Storage {
   // --- users ---
   createUser(input: { id: string; email: string; passwordHash: string }): Promise<UserRecord>;
@@ -228,6 +276,24 @@ export interface Storage {
   getAiConfig(userId: string): Promise<AiConfigRecord | null>;
   upsertAiConfig(record: AiConfigRecord): Promise<void>;
   deleteAiConfig(userId: string): Promise<void>;
+
+  // --- OAuth (remote MCP connector authorization server) ---
+  createOAuthClient(record: OAuthClientRecord): Promise<void>;
+  getOAuthClientById(clientId: string): Promise<OAuthClientRecord | null>;
+
+  createOAuthAuthorizationCode(record: OAuthAuthorizationCodeRecord): Promise<void>;
+  /**
+   * Atomically fetch-and-delete a code by its hash (single-use). Returns
+   * null if it doesn't exist (already consumed, or never issued) - the
+   * caller is responsible for separately checking `expiresAt`.
+   */
+  consumeOAuthAuthorizationCode(codeHash: string): Promise<OAuthAuthorizationCodeRecord | null>;
+
+  createOAuthToken(record: OAuthTokenRecord): Promise<void>;
+  getOAuthTokenByAccessHash(accessTokenHash: string): Promise<OAuthTokenRecord | null>;
+  getOAuthTokenByRefreshHash(refreshTokenHash: string): Promise<OAuthTokenRecord | null>;
+  /** Delete a token row by its access-token hash (revocation, or superseded by rotation). */
+  deleteOAuthTokenByAccessHash(accessTokenHash: string): Promise<void>;
 }
 
 export interface ChangesPage {

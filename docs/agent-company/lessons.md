@@ -809,3 +809,86 @@ tagKey, path, ...}` then call `computeGroupColors(proxyNodes, groups)`. The
 - **Rule:** a global Esc handler (exit focus mode) must check for an open
   `[role="dialog"][aria-modal="true"]` and bail if present, so Esc closes the
   palette/drawer/modal first instead of an unexpected mode change.
+
+## Wave 22 — remote MCP connector (OAuth 2.1 authorization server + MCP-over-HTTP)
+
+### A remote MCP client needs a genuinely different transport, not a config flag
+
+- **Rule:** the existing `@graphvault/mcp` stdio server cannot be "pointed at a
+  URL" — `StdioServerTransport` is a local-subprocess transport, full stop.
+  A Claude.ai "custom connector" requires a REMOTE server (`StreamableHTTPServerTransport`)
+  plus a real OAuth 2.1 authorization server (metadata, DCR, PKCE-mandatory
+  authorize/token/revoke). Verify this distinction directly in the SDK's
+  installed `dist` (grep for `StdioServerTransport` imports) before assuming a
+  "just add an env var" fix exists.
+
+### Reusable tool logic + swappable transport is a real, checkable architecture win
+
+- **Rule:** because `@graphvault/mcp`'s `registerTools`/`bindTools`/`VaultManager`/etc.
+  were already written as plain functions over a generic `McpServer`, with zero
+  stdio-specific code outside `index.ts`, adding a second (HTTP) transport needed
+  ZERO changes to that logic — only a new library entrypoint (`lib.ts`) since the
+  package's `exports` map had pointed `"."` at the CLI script (which runs `main()`
+  as an import-time side effect). Splitting "library surface" from "bin script" in
+  `package.json` (`main`/`exports` → `lib.js`, `bin` stays on `index.js`) is the
+  general fix whenever a previously CLI-only package needs to become an importable
+  dependency.
+
+### Reuse `GraphVaultClient`'s injectable `fetchImpl` to bridge into the SAME app, not a real loopback call
+
+- **Rule:** `GraphVaultClient` (from `@graphvault/mcp`) is hard-wired to call the
+  sync server's own `/v1/*` routes over HTTP with a bearer token — exactly what
+  the new MCP-over-HTTP route also needs, but a REAL network loopback call from
+  inside a route handler doesn't work under `app.inject()`-based tests (no bound
+  socket) and adds a pointless round trip in production. Since `ClientOptions.fetchImpl`
+  is already injectable (built for testing), point it at a small shim that drives
+  `app.inject()` directly and wraps the result back into a real `Response` —
+  works identically in tests and production, and required zero changes to the
+  reused client/vault-manager/tool code.
+
+### Two auth systems, cleanly separated: OAuth proves identity, a normal sync token does the work
+
+- **Rule:** don't try to make an OAuth access token flow through the existing
+  bearer-token-checked `/v1/*` routes directly — mint an ordinary, short-lived
+  vault-sync token (`AuthService.issueServiceToken`, a thin public wrapper around
+  the existing private `issueTokenForNewDevice`) for the OAuth-verified `userId`
+  on each MCP-over-HTTP request, and hand THAT to `GraphVaultClient`. Keeps the
+  OAuth authorization server fully decoupled from the sync protocol's own auth.
+
+### New auth surface still gets the existing feature-flag/preflight/rate-limit treatment
+
+- **Rule:** an OAuth authorization server is real new attack surface — gate it
+  behind an explicit opt-in flag (off by default, routes unregistered entirely
+  when off, same as snapshots/inbox), add a preflight check that refuses to boot
+  if the flag is on without the required `GRAPHVAULT_PUBLIC_URL` (https-only), and
+  give `/oauth/authorize` + `/oauth/token` their own stricter rate limit (same
+  shape as the existing `/v1/auth/*` cap). OAuth error responses use the
+  spec-mandated `{error, error_description}` shape, never this app's own
+  `{error: {code, message}}` envelope — render them inline in the route, not via
+  the shared `AppError` error handler.
+
+### `@hono/node-server`'s post-response drain timer is a real, known incompatibility with `app.inject()` — fix the root cause, not the symptom
+
+- **Rule:** `StreamableHTTPServerTransport` bridges Node req/res via
+  `@hono/node-server`, which ~500ms after a response finishes tries to drain any
+  request body it doesn't think was read (it can't see that Fastify already
+  consumed it before invoking the route) and calls `request.socket.destroySoon()`
+  if the drain "times out." A real `net.Socket` has that method — harmless in
+  production. Fastify's `light-my-request` (`app.inject()`) supplies a plain-
+  `EventEmitter` mock socket that doesn't, so the SAME call throws asynchronously,
+  long after the triggering test finished — which Node's test runner reports as
+  "activity after the test ended" and fails the file, and which a plain
+  `process.on('uncaughtException')` handler does NOT stop (the test runner's own
+  detection intercepts it first). The actual fix: add a harmless fallback
+  `destroySoon` to `EventEmitter.prototype` only if one isn't already defined,
+  scoped to the test file's lifetime — `net.Socket.prototype` defines its own
+  `destroySoon` closer in the prototype chain, so real sockets are never affected.
+
+### `StreamableHTTPServerTransport` may answer with SSE OR plain JSON for the same call — parse both
+
+- **Rule:** a single, non-streaming JSON-RPC request/response through the SDK's
+  Streamable HTTP transport can come back as `content-type: application/json`
+  OR as a one-event `text/event-stream` body (`event: message\ndata: {...}\n\n`),
+  non-deterministically between otherwise-identical calls. A test (or any client)
+  reading the response must check `content-type` and unwrap the SSE `data:` line
+  when present, rather than assuming `res.json()` always works.

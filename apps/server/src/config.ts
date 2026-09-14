@@ -146,6 +146,25 @@ export interface ServerConfig {
   inboxMaxBytes: number;
   /** Stricter per-window cap for `POST /v1/inbox/:token` to deter abuse. */
   inboxRateLimitMax: number;
+  /**
+   * Remote MCP connector (e.g. Claude.ai's "custom connector"): exposes an
+   * OAuth 2.1 authorization server (DCR, authorize, token, revoke) plus an
+   * MCP-over-HTTP endpoint. When false (the default) every `/oauth/*`,
+   * `/.well-known/oauth-authorization-server`, and `/mcp` route returns 404 -
+   * new attack surface (an authorization server) stays invisible until an
+   * operator explicitly opts in.
+   */
+  mcpRemoteEnabled: boolean;
+  /**
+   * This server's own externally-reachable origin (e.g.
+   * `https://vault.example.com`), required when `mcpRemoteEnabled` is true -
+   * every OAuth metadata/redirect URL is derived from it. There is no
+   * GraphVault-hosted default; every deployment is self-hosted on the
+   * operator's own domain.
+   */
+  publicUrl: string | undefined;
+  /** Stricter per-window cap for `/oauth/token` and `/oauth/authorize` (credential/code-guessing defense). */
+  oauthRateLimitMax: number;
 }
 
 function storageBackend(value: string | undefined): StorageBackend {
@@ -184,5 +203,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     inboxEnabled: bool(env.GRAPHVAULT_INBOX_ENABLED, true),
     inboxMaxBytes: num(env.GRAPHVAULT_INBOX_MAX_BYTES, 1_000_000),
     inboxRateLimitMax: num(env.GRAPHVAULT_INBOX_RATE_LIMIT_MAX, 30),
+    mcpRemoteEnabled: bool(env.GRAPHVAULT_MCP_REMOTE_ENABLED, false),
+    publicUrl: env.GRAPHVAULT_PUBLIC_URL,
+    oauthRateLimitMax: num(env.GRAPHVAULT_OAUTH_RATE_LIMIT_MAX, 20),
   };
 }

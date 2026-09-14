@@ -8,6 +8,9 @@ import type {
   FileChange,
   FileRecord,
   GcsConfigRecord,
+  OAuthAuthorizationCodeRecord,
+  OAuthClientRecord,
+  OAuthTokenRecord,
   S3ConfigRecord,
   Storage,
   TokenRecord,
@@ -39,6 +42,9 @@ interface PrismaLike {
   fileVersion: any;
   revision: any;
   blob: any;
+  oAuthClient: any;
+  oAuthAuthorizationCode: any;
+  oAuthToken: any;
   $transaction<T>(fn: (tx: PrismaLike) => Promise<T>): Promise<T>;
   $disconnect(): Promise<void>;
 }
@@ -322,6 +328,83 @@ export class PrismaStorage implements Storage {
   async deleteAiConfig(userId: string): Promise<void> {
     this._aiConfigs.delete(userId);
   }
+
+  // ---- OAuth (remote MCP connector) ----
+
+  async createOAuthClient(record: OAuthClientRecord): Promise<void> {
+    await this.db.oAuthClient.create({
+      data: {
+        clientId: record.clientId,
+        clientSecretHash: record.clientSecretHash,
+        clientName: record.clientName,
+        redirectUris: record.redirectUris,
+        createdAt: new Date(record.createdAt),
+      },
+    });
+  }
+
+  async getOAuthClientById(clientId: string): Promise<OAuthClientRecord | null> {
+    const row = await this.db.oAuthClient.findUnique({ where: { clientId } });
+    return row ? mapOAuthClient(row) : null;
+  }
+
+  async createOAuthAuthorizationCode(record: OAuthAuthorizationCodeRecord): Promise<void> {
+    await this.db.oAuthAuthorizationCode.create({
+      data: {
+        codeHash: record.codeHash,
+        clientId: record.clientId,
+        userId: record.userId,
+        redirectUri: record.redirectUri,
+        codeChallenge: record.codeChallenge,
+        scope: record.scope,
+        expiresAt: BigInt(record.expiresAt),
+        createdAt: new Date(record.createdAt),
+      },
+    });
+  }
+
+  async consumeOAuthAuthorizationCode(
+    codeHash: string,
+  ): Promise<OAuthAuthorizationCodeRecord | null> {
+    // Atomic fetch-and-delete: single-use codes must never be exchanged twice,
+    // even under concurrent requests - delete first (deleteMany reports 0 rows
+    // if another request already consumed it) and only then read.
+    return this.db.$transaction(async (tx) => {
+      const row = await tx.oAuthAuthorizationCode.findUnique({ where: { codeHash } });
+      if (!row) return null;
+      const deleted = await tx.oAuthAuthorizationCode.deleteMany({ where: { codeHash } });
+      if (deleted.count === 0) return null; // a concurrent request won the race
+      return mapOAuthAuthorizationCode(row);
+    });
+  }
+
+  async createOAuthToken(record: OAuthTokenRecord): Promise<void> {
+    await this.db.oAuthToken.create({
+      data: {
+        accessTokenHash: record.accessTokenHash,
+        refreshTokenHash: record.refreshTokenHash,
+        clientId: record.clientId,
+        userId: record.userId,
+        scope: record.scope,
+        accessExpiresAt: BigInt(record.accessExpiresAt),
+        createdAt: new Date(record.createdAt),
+      },
+    });
+  }
+
+  async getOAuthTokenByAccessHash(accessTokenHash: string): Promise<OAuthTokenRecord | null> {
+    const row = await this.db.oAuthToken.findUnique({ where: { accessTokenHash } });
+    return row ? mapOAuthToken(row) : null;
+  }
+
+  async getOAuthTokenByRefreshHash(refreshTokenHash: string): Promise<OAuthTokenRecord | null> {
+    const row = await this.db.oAuthToken.findUnique({ where: { refreshTokenHash } });
+    return row ? mapOAuthToken(row) : null;
+  }
+
+  async deleteOAuthTokenByAccessHash(accessTokenHash: string): Promise<void> {
+    await this.db.oAuthToken.deleteMany({ where: { accessTokenHash } });
+  }
 }
 
 interface VersionRow {
@@ -340,6 +423,64 @@ function mapFileState(path: string, v: VersionRow): FileState {
     mtime: Number(v.mtime),
     deleted: v.deleted,
     revision: v.revision,
+  };
+}
+
+function mapOAuthClient(row: {
+  clientId: string;
+  clientSecretHash: string | null;
+  clientName: string;
+  redirectUris: string[];
+  createdAt: Date | string;
+}): OAuthClientRecord {
+  return {
+    clientId: row.clientId,
+    clientSecretHash: row.clientSecretHash,
+    clientName: row.clientName,
+    redirectUris: row.redirectUris,
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+function mapOAuthAuthorizationCode(row: {
+  codeHash: string;
+  clientId: string;
+  userId: string;
+  redirectUri: string;
+  codeChallenge: string;
+  scope: string;
+  expiresAt: bigint;
+  createdAt: Date | string;
+}): OAuthAuthorizationCodeRecord {
+  return {
+    codeHash: row.codeHash,
+    clientId: row.clientId,
+    userId: row.userId,
+    redirectUri: row.redirectUri,
+    codeChallenge: row.codeChallenge,
+    scope: row.scope,
+    expiresAt: Number(row.expiresAt),
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+function mapOAuthToken(row: {
+  accessTokenHash: string;
+  refreshTokenHash: string;
+  clientId: string;
+  userId: string;
+  scope: string;
+  accessExpiresAt: bigint;
+  createdAt: Date | string;
+}): OAuthTokenRecord {
+  return {
+    accessTokenHash: row.accessTokenHash,
+    refreshTokenHash: row.refreshTokenHash,
+    clientId: row.clientId,
+    userId: row.userId,
+    scope: row.scope,
+    accessExpiresAt: Number(row.accessExpiresAt),
+    createdAt: toIso(row.createdAt),
   };
 }
 

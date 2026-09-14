@@ -8,6 +8,9 @@ import type {
   FileChange,
   FileRecord,
   GcsConfigRecord,
+  OAuthAuthorizationCodeRecord,
+  OAuthClientRecord,
+  OAuthTokenRecord,
   S3ConfigRecord,
   Storage,
   TokenRecord,
@@ -36,6 +39,12 @@ export class InMemoryStorage implements Storage {
   private readonly azureConfigs = new Map<string, AzureConfigRecord>();
   private readonly gcsConfigs = new Map<string, GcsConfigRecord>();
   private readonly aiConfigs = new Map<string, AiConfigRecord>();
+  private readonly oauthClients = new Map<string, OAuthClientRecord>();
+  /** codeHash -> record (deleted on first, and only, consumption). */
+  private readonly oauthCodes = new Map<string, OAuthAuthorizationCodeRecord>();
+  /** accessTokenHash -> record; refreshTokenHash is looked up via oauthTokensByRefresh. */
+  private readonly oauthTokens = new Map<string, OAuthTokenRecord>();
+  private readonly oauthTokensByRefresh = new Map<string, string>(); // refreshTokenHash -> accessTokenHash
 
   private static now(): string {
     return new Date().toISOString();
@@ -221,5 +230,51 @@ export class InMemoryStorage implements Storage {
 
   async deleteAiConfig(userId: string): Promise<void> {
     this.aiConfigs.delete(userId);
+  }
+
+  // ---- OAuth (remote MCP connector) ----
+
+  async createOAuthClient(record: OAuthClientRecord): Promise<void> {
+    this.oauthClients.set(record.clientId, { ...record });
+  }
+
+  async getOAuthClientById(clientId: string): Promise<OAuthClientRecord | null> {
+    const record = this.oauthClients.get(clientId);
+    return record ? { ...record } : null;
+  }
+
+  async createOAuthAuthorizationCode(record: OAuthAuthorizationCodeRecord): Promise<void> {
+    this.oauthCodes.set(record.codeHash, { ...record });
+  }
+
+  async consumeOAuthAuthorizationCode(
+    codeHash: string,
+  ): Promise<OAuthAuthorizationCodeRecord | null> {
+    const record = this.oauthCodes.get(codeHash);
+    if (!record) return null;
+    this.oauthCodes.delete(codeHash);
+    return { ...record };
+  }
+
+  async createOAuthToken(record: OAuthTokenRecord): Promise<void> {
+    this.oauthTokens.set(record.accessTokenHash, { ...record });
+    this.oauthTokensByRefresh.set(record.refreshTokenHash, record.accessTokenHash);
+  }
+
+  async getOAuthTokenByAccessHash(accessTokenHash: string): Promise<OAuthTokenRecord | null> {
+    const record = this.oauthTokens.get(accessTokenHash);
+    return record ? { ...record } : null;
+  }
+
+  async getOAuthTokenByRefreshHash(refreshTokenHash: string): Promise<OAuthTokenRecord | null> {
+    const accessTokenHash = this.oauthTokensByRefresh.get(refreshTokenHash);
+    if (!accessTokenHash) return null;
+    return this.getOAuthTokenByAccessHash(accessTokenHash);
+  }
+
+  async deleteOAuthTokenByAccessHash(accessTokenHash: string): Promise<void> {
+    const record = this.oauthTokens.get(accessTokenHash);
+    if (record) this.oauthTokensByRefresh.delete(record.refreshTokenHash);
+    this.oauthTokens.delete(accessTokenHash);
   }
 }

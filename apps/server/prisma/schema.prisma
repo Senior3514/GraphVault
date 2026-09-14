@@ -133,3 +133,60 @@ model Blob {
 
   @@map("blobs")
 }
+
+// --- Remote MCP connector: OAuth 2.1 authorization server ------------------
+// Lets a remote MCP client (e.g. Claude.ai's "custom connector") register
+// itself (RFC 7591 dynamic client registration), run the user through a
+// login+consent screen, and exchange a PKCE-verified authorization code for
+// short-lived access + refresh tokens - all served by this same self-hosted
+// instance, no external identity provider. Secrets are hashed the same way
+// the existing auth Token model already does; only the hash is ever persisted.
+// Given a full Prisma implementation (unlike some newer per-user config
+// tables that still live in a process-lifetime map - see store/prisma.ts),
+// since a Claude.ai connector losing its authorization on every server
+// restart would defeat the point of a persistent connection.
+
+model OAuthClient {
+  id               String   @id @default(uuid())
+  clientId         String   @unique @map("client_id")
+  // Null for a public client (PKCE-only, no secret) - MCP clients commonly
+  // register this way. When present, only the hash is stored.
+  clientSecretHash String?  @map("client_secret_hash")
+  clientName       String   @map("client_name")
+  redirectUris     String[] @map("redirect_uris")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("oauth_clients")
+}
+
+// Short-lived, single-use. Consumed atomically at the token endpoint.
+model OAuthAuthorizationCode {
+  codeHash      String   @id @map("code_hash")
+  clientId      String   @map("client_id")
+  userId        String   @map("user_id")
+  redirectUri   String   @map("redirect_uri")
+  codeChallenge String   @map("code_challenge")
+  scope         String
+  expiresAt     BigInt   @map("expires_at") // unix epoch seconds
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([clientId])
+  @@map("oauth_authorization_codes")
+}
+
+// One row per issued access+refresh token pair; refresh rotates the whole
+// row (old row deleted, new one created) so a stolen, already-used refresh
+// token is detectable.
+model OAuthToken {
+  accessTokenHash  String   @id @map("access_token_hash")
+  refreshTokenHash String   @unique @map("refresh_token_hash")
+  clientId         String   @map("client_id")
+  userId           String   @map("user_id")
+  scope            String
+  accessExpiresAt  BigInt   @map("access_expires_at") // unix epoch seconds
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([clientId])
+  @@map("oauth_tokens")
+}

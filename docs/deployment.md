@@ -131,6 +131,50 @@ survive restarts) and proxied via `/v1/storage/{s3,webdav,azure,gcs}`. See
 `apps/server/README.md` for the per-provider config fields. `GET /v1/server-info`
 reports which proxies are available under `storageProxies`.
 
+### Remote MCP connector (optional): use your vault from Claude.ai
+
+Off by default. When enabled, your server exposes a self-hosted OAuth 2.1
+authorization server (`/oauth/*`, `/.well-known/oauth-authorization-server`)
+plus an MCP-over-HTTP endpoint (`/mcp`), so you can add **your own vault** as a
+Claude.ai "custom connector" - no separate service to run, no third-party
+relay, nothing hosted by GraphVault. This is the same tool/resource/prompt
+surface the stdio `@graphvault/mcp` package gives Claude Desktop, reachable
+remotely instead.
+
+**Requirements**: your server must already be reachable over HTTPS on a real
+domain (this is inherent to OAuth redirects and to Claude.ai calling your
+server directly - there is no way around having a public HTTPS origin for
+this specific feature, unlike the rest of GraphVault's self-hosted setup).
+
+1. Set two extra variables in `.env`:
+
+   | Variable                          | Default   | Meaning                                                                                                                                                                                 |
+   | --------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `GRAPHVAULT_MCP_REMOTE_ENABLED`   | `false`   | Enables `/oauth/*` and `/mcp`. Leave off unless you want this.                                                                                                                          |
+   | `GRAPHVAULT_PUBLIC_URL`           | _(unset)_ | Your server's own externally-reachable HTTPS origin, e.g. `https://vault.example.com`. Required when the above is `true` - the server refuses to boot without it (see Troubleshooting). |
+   | `GRAPHVAULT_OAUTH_RATE_LIMIT_MAX` | `20`      | Optional: per-window request cap on `/oauth/authorize` and `/oauth/token`.                                                                                                              |
+
+2. Restart the server (`docker compose up -d`).
+3. In Claude.ai, add a **custom connector** and enter
+   `https://vault.example.com` (your `GRAPHVAULT_PUBLIC_URL`) as the server
+   URL. Claude.ai discovers every endpoint automatically from
+   `/.well-known/oauth-authorization-server` and self-registers (RFC 7591) -
+   there is no client ID/secret to copy anywhere.
+4. Claude.ai opens your server's login page (served by your own instance -
+   your password never touches Claude.ai or any third party). Sign in with
+   your GraphVault account and approve the connection.
+5. Claude can now read (and, if you grant it, write) notes in your **first
+   vault** (by creation order) via the same `list_notes` / `read_note` /
+   `search_notes` / `graph_neighbors` / `create_note` / etc. tools the stdio
+   MCP server exposes. Multi-vault connector selection is not yet supported.
+
+Every dynamically-registered client is a **public client** (PKCE-only, no
+secret) - this is deliberate (OAuth 2.1 baseline; nothing to safely deliver a
+secret to in the first place) and matches how MCP clients commonly register.
+Access tokens are short-lived (1 hour) and auto-refresh; revoking access is a
+matter of disconnecting the connector in Claude.ai (or calling
+`POST /oauth/revoke` yourself).
+
 ## Reverse proxy / TLS
 
 Run the server behind a TLS-terminating proxy. `docker-compose.yml` includes a
@@ -238,6 +282,10 @@ service_healthy` gate normally prevents this, but a misconfigured
   confirm the `ports:` mapping (or that the proxy is the intended entry point).
 - **CORS errors in the web client** — set `GRAPHVAULT_CORS_ORIGIN` to the web
   app's exact origin.
+- **Server refuses to boot with a `GRAPHVAULT_PUBLIC_URL` error** — you set
+  `GRAPHVAULT_MCP_REMOTE_ENABLED=true` without `GRAPHVAULT_PUBLIC_URL` (or set
+  it to a non-`https://` value). Set it to your server's own externally-
+  reachable HTTPS origin, e.g. `https://vault.example.com`.
 
 ## Web app (Vercel)
 
