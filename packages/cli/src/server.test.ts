@@ -133,6 +133,36 @@ describe('createVaultApiServer', () => {
     assert.ok(body.results.length <= 1);
   });
 
+  it('GET /search?limit=0 → empty results (zero is valid)', async () => {
+    const r = await fetch(`${base}/search?q=engine&limit=0`);
+    assert.equal(r.status, 200);
+    const body = await json(r);
+    assert.equal(body.results.length, 0);
+  });
+
+  it('GET /search?limit=99999 → clamped to at most 500', async () => {
+    const r = await fetch(`${base}/search?q=engine&limit=99999`);
+    assert.equal(r.status, 200);
+    const body = await json(r);
+    // Only a few notes exist; the point is the request is accepted and the
+    // effective slice is capped (<= 500), never unbounded.
+    assert.ok(body.results.length <= 500);
+  });
+
+  it('GET /search?limit=-1 → 400 BAD_REQUEST', async () => {
+    const r = await fetch(`${base}/search?q=engine&limit=-1`);
+    assert.equal(r.status, 400);
+    const body = await json(r);
+    assert.equal(body.error.code, 'BAD_REQUEST');
+  });
+
+  it('GET /search?limit=abc → 400 BAD_REQUEST (NaN)', async () => {
+    const r = await fetch(`${base}/search?q=engine&limit=abc`);
+    assert.equal(r.status, 400);
+    const body = await json(r);
+    assert.equal(body.error.code, 'BAD_REQUEST');
+  });
+
   it('GET /search without q → 400', async () => {
     const r = await fetch(`${base}/search`);
     assert.equal(r.status, 400);

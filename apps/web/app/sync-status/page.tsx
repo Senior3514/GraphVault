@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Sync status overview — wired to the real sync engine and auth state.
+ * Sync status overview - wired to the real sync engine and auth state.
  *
  * - Server health is checked via the existing `GraphVaultClient`.
  * - Auth state is read from `useAuth`: shows whether the user is signed in and
@@ -93,7 +93,9 @@ export default function SyncStatusPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl overflow-auto px-8 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">Sync status</h1>
+      <h1 className="font-display text-2xl font-semibold tracking-tight text-neutral-100">
+        Sync status
+      </h1>
       <p className="mt-1 text-sm text-neutral-500">Self-hosted sync. Your notes, your server.</p>
 
       {/* ------------------------------------------------------------------ */}
@@ -203,7 +205,7 @@ export default function SyncStatusPage() {
           {sync.lastSyncAt ? (
             <>
               Last synced <span className="text-neutral-200">{formatTime(sync.lastSyncAt)}</span>
-              {sync.status === 'synced' && ' — up to date.'}
+              {sync.status === 'synced' && ' - up to date.'}
             </>
           ) : (
             'Never synced. Connect to your server and run a sync to reconcile this vault.'
@@ -258,7 +260,7 @@ export default function SyncStatusPage() {
       {/* Stats                                                               */}
       {/* ------------------------------------------------------------------ */}
       <section className="mt-6 grid grid-cols-3 gap-4">
-        <Stat label="Notes in vault" value={vault.ready ? String(vault.notes.length) : '—'} />
+        <Stat label="Notes in vault" value={vault.ready ? String(vault.notes.length) : '-'} />
         <Stat
           label="Pending changes"
           value={String(sync.pendingCount)}

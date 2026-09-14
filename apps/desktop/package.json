@@ -4,15 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build",
-    "typecheck": "echo '[desktop] no TypeScript sources in src-tauri; web layer typechecked separately' && exit 0"
+    "build": "tauri build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.5.0"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2.5.0",
-    "@tauri-apps/plugin-fs": "^2.4.0",
-    "@tauri-apps/plugin-dialog": "^2.2.0"
   }
 }

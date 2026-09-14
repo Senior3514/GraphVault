@@ -1,7 +1,7 @@
 /**
  * Tests for EncryptedVaultStore.
  *
- * Runs in Node 22+ via `node --test` (no browser required — uses the built-in
+ * Runs in Node 22+ via `node --test` (no browser required - uses the built-in
  * WebCrypto available in Node 22+).
  *
  * Test matrix:
@@ -103,14 +103,14 @@ test('round-trip: empty notes array', async () => {
 test('round-trip: notes with unicode content', async () => {
   const storage = makeStorage();
   const store = makeStore(storage);
-  const notes = [makeNote('unicode.md', '# 日本語 — héllo wörld 🔐')];
+  const notes = [makeNote('unicode.md', '# 日本語 - héllo wörld 🔐')];
   await store.save(notes);
   const loaded = await store.load();
   assert.equal(loaded[0].content, notes[0].content);
 });
 
 // ---------------------------------------------------------------------------
-// Wrong passphrase rejection — no data loss
+// Wrong passphrase rejection - no data loss
 // ---------------------------------------------------------------------------
 
 test('wrong passphrase: load throws VaultDecryptionError', async () => {
@@ -139,7 +139,7 @@ test('wrong passphrase: original data is unmodified after failed load', async ()
   const wrongStore = makeStore(storage, 'wrong-passphrase');
   await assert.rejects(() => wrongStore.load());
 
-  // Storage must be byte-for-byte identical — no mutation on failed load.
+  // Storage must be byte-for-byte identical - no mutation on failed load.
   const rawAfter = storage._map.get(TEST_KEY);
   assert.equal(rawAfter, rawBefore, 'storage must not be mutated on failed load');
 
@@ -191,7 +191,7 @@ test('setPassphrase(): restores ability to load after lock', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// encryptExisting — enable encryption on plaintext blob
+// encryptExisting - enable encryption on plaintext blob
 // ---------------------------------------------------------------------------
 
 test('encryptExisting: encrypts plaintext blob in place', async () => {
@@ -224,7 +224,7 @@ test('encryptExisting: idempotent on already-encrypted blob', async () => {
   const store = makeStore(storage, 'pass');
   await store.save([makeNote('a.md')]);
 
-  // Call encryptExisting again — should not throw and should return notes.
+  // Call encryptExisting again - should not throw and should return notes.
   const result = await store.encryptExisting();
   assert.equal(result.length, 1);
   assert.equal(result[0].path, 'a.md');
@@ -239,7 +239,7 @@ test('encryptExisting: handles empty storage (no data)', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// decryptExisting — disable encryption
+// decryptExisting - disable encryption
 // ---------------------------------------------------------------------------
 
 test('decryptExisting: decrypts and writes plaintext back', async () => {

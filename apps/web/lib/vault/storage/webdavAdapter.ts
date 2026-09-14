@@ -1,5 +1,5 @@
 /**
- * WebDAV-backed {@link StorageAdapter} — M18.
+ * WebDAV-backed {@link StorageAdapter} - M18.
  *
  * Privacy model: the browser NEVER talks directly to a WebDAV server.
  * All operations are proxied through the user's self-hosted GraphVault server
@@ -10,7 +10,7 @@
  *
  * Storage format: all notes are serialised as a single JSON document stored
  * at a well-known path on the WebDAV server (`graphvault-vault.json`). This
- * keeps the proxy surface minimal and auditable — one PUT per save, one GET
+ * keeps the proxy surface minimal and auditable - one PUT per save, one GET
  * per load.
  *
  * Availability guard: the adapter is available only when the user is signed in
@@ -23,6 +23,7 @@
  * pattern as other adapter migrations (see `migrationHelper.ts`).
  */
 
+import { AUTH_TOKEN_STORAGE_KEY, SERVER_URL_STORAGE_KEY } from '../../api/storageKeys';
 import type { Note } from '../types';
 import type { StorageAdapter } from './index';
 
@@ -33,12 +34,6 @@ import type { StorageAdapter } from './index';
 /** The single file path used to store the vault JSON on the WebDAV server. */
 export const WEBDAV_VAULT_FILENAME = 'graphvault-vault.json';
 
-/** sessionStorage key where the bearer token is stored by useAuth. */
-const SESSION_TOKEN_KEY = 'gv:auth:token';
-
-/** sessionStorage key where the server URL is stored by useServerSettings. */
-const SESSION_SERVER_URL_KEY = 'gv:serverUrl';
-
 /** Fallback server URL (matches the client default). */
 const DEFAULT_SERVER_URL = 'http://127.0.0.1:4000';
 
@@ -46,19 +41,21 @@ const DEFAULT_SERVER_URL = 'http://127.0.0.1:4000';
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Read the bearer token from sessionStorage (the key `useAuth` writes). */
 function getToken(): string | null {
   try {
     if (typeof sessionStorage === 'undefined') return null;
-    return sessionStorage.getItem(SESSION_TOKEN_KEY);
+    return sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
+/** Read the server URL from localStorage (the key `useServerSettings` writes). */
 function getServerUrl(): string {
   try {
-    if (typeof sessionStorage === 'undefined') return DEFAULT_SERVER_URL;
-    return sessionStorage.getItem(SESSION_SERVER_URL_KEY) ?? DEFAULT_SERVER_URL;
+    if (typeof localStorage === 'undefined') return DEFAULT_SERVER_URL;
+    return localStorage.getItem(SERVER_URL_STORAGE_KEY) ?? DEFAULT_SERVER_URL;
   } catch {
     return DEFAULT_SERVER_URL;
   }
@@ -128,7 +125,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
    *   1. We are in a browser (not SSR/Node).
    *   2. A bearer token is present in sessionStorage (user is signed in).
    *
-   * The server-side WebDAV config is checked lazily — `isAvailable()` must be
+   * The server-side WebDAV config is checked lazily - `isAvailable()` must be
    * synchronous and cannot make a network request.
    */
   isAvailable(): boolean {
@@ -155,11 +152,11 @@ export class WebDavStorageAdapter implements StorageAdapter {
       });
     } catch (err) {
       throw new Error(
-        `WebDAV adapter: network error loading vault — ${err instanceof Error ? err.message : String(err)}`,
+        `WebDAV adapter: network error loading vault - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
-    // 404 means the vault does not exist yet on WebDAV — treat as empty.
+    // 404 means the vault does not exist yet on WebDAV - treat as empty.
     if (res.status === 404) {
       return [];
     }
@@ -174,7 +171,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
       return deserialise(text);
     } catch (err) {
       throw new Error(
-        `WebDAV adapter: vault document is corrupt — ${err instanceof Error ? err.message : String(err)}`,
+        `WebDAV adapter: vault document is corrupt - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
@@ -201,7 +198,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
       });
     } catch (err) {
       throw new Error(
-        `WebDAV adapter: network error saving vault — ${err instanceof Error ? err.message : String(err)}`,
+        `WebDAV adapter: network error saving vault - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
@@ -228,7 +225,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Ignore the response — DELETE is best-effort in clear().
+      // Ignore the response - DELETE is best-effort in clear().
     } catch {
       // Network errors in clear() are silently ignored.
     }
@@ -239,7 +236,7 @@ export class WebDavStorageAdapter implements StorageAdapter {
  * Singleton adapter instance. Registered in the adapter registry by
  * `store.ts` so it is available to Settings and the vault provider.
  *
- * It does NOT auto-register itself here — registration happens in `store.ts`
+ * It does NOT auto-register itself here - registration happens in `store.ts`
  * so the module graph stays acyclic.
  */
 export const webdavAdapter = new WebDavStorageAdapter();

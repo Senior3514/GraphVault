@@ -25,9 +25,9 @@ export interface NoteInput {
 
 /**
  * The kind of a link/edge.
- * - `wikilink`   — `[[Target]]` style.
- * - `markdown`   — `[text](relative.md)` style.
- * - any other string — a typed relation declared in frontmatter
+ * - `wikilink`   - `[[Target]]` style.
+ * - `markdown`   - `[text](relative.md)` style.
+ * - any other string - a typed relation declared in frontmatter
  *   (e.g. `references`, `supports`), preserved verbatim.
  */
 export type LinkType = 'wikilink' | 'markdown' | (string & {});

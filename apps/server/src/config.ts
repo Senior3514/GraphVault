@@ -17,7 +17,7 @@ function bool(value: string | undefined, fallback: boolean): boolean {
 /**
  * Decode and validate the optional at-rest encryption key. When set it must be
  * base64-encoded and decode to exactly 32 bytes (AES-256). A malformed key is a
- * fatal misconfiguration — fail fast rather than silently store plaintext.
+ * fatal misconfiguration - fail fast rather than silently store plaintext.
  */
 function encryptionKey(value: string | undefined): Buffer | undefined {
   if (value === undefined || value.trim() === '') return undefined;
@@ -117,7 +117,7 @@ export interface ServerConfig {
   maxParamLength: number;
   /**
    * Opt-in public graph-snapshot store. When false (the default) every
-   * `/v1/snapshots*` route returns 404 — the feature is invisible. Snapshots are
+   * `/v1/snapshots*` route returns 404 - the feature is invisible. Snapshots are
    * unauthenticated public read-only shares of an opaque, already-encoded graph
    * payload, so the feature is off unless an operator explicitly enables it.
    */

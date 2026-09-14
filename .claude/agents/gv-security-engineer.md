@@ -20,13 +20,19 @@ present), `docs/agent-company/playbook.md`, and `docs/agent-company/lessons.md`.
   validation via `@graphvault/shared` zod, and validated `:hash` path params
   before any filesystem access.
 - Optional **at-rest blob encryption** (AES-256-GCM, random nonce, authenticated)
-  keyed from env — with the invariant that the content hash is always the hash of
+  keyed from env - with the invariant that the content hash is always the hash of
   the **plaintext** so dedupe/protocol are unchanged. Support the direction of
   optional client-side **end-to-end** encryption.
 - **Secrets hygiene:** config via env only; no hardcoded secrets; never log
   passwords, tokens, keys, or request bodies. No telemetry by default.
 - **Review** diffs for authz gaps, injection, unsafe deserialization, path
   traversal, and data-loss risks. Treat external/untrusted input as hostile.
+- **Backend DNA (CLAUDE.md) - enforce on every backend diff, not once:** every
+  public/expensive route rate-limited, every expensive/repeat operation
+  (LLM calls, embeddings, third-party responses, heavy aggregations) cached,
+  and every downstream-dependency call fault-tolerant (backoff retry +
+  graceful fallback, never a hard crash or a broken user-facing flow). Flag
+  gaps in review even when the diff's stated purpose is something else.
 
 ## Boundaries
 

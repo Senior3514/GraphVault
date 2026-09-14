@@ -16,9 +16,9 @@
  *     contacts the WebDAV server directly (avoids CORS, keeps creds off client).
  *
  * Proxy scope:
- *   - GET  /v1/storage/webdav/proxy/*path  — download a file from WebDAV
- *   - PUT  /v1/storage/webdav/proxy/*path  — upload a file to WebDAV
- *   - DELETE /v1/storage/webdav/proxy/*path — delete a file from WebDAV
+ *   - GET  /v1/storage/webdav/proxy/*path  - download a file from WebDAV
+ *   - PUT  /v1/storage/webdav/proxy/*path  - upload a file to WebDAV
+ *   - DELETE /v1/storage/webdav/proxy/*path - delete a file from WebDAV
  *   - PROPFIND (via special GET ?propfind=1) is NOT proxied; the adapter stores
  *     notes as a flat JSON document at a single well-known path to keep the
  *     proxy minimal and auditable.
@@ -27,6 +27,7 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import type { WebDavConfigInfo, WebDavConfigRequest } from '@graphvault/shared';
 import { badRequest, notFound } from '../errors.js';
+import { guardedFetch } from './ssrf.js';
 import type { Storage, WebDavConfigRecord } from '../store/types.js';
 
 // ---------------------------------------------------------------------------
@@ -93,13 +94,40 @@ function decryptPassword(ciphertext: string, userId: string, serverKey?: Buffer)
 // ---------------------------------------------------------------------------
 
 /**
+ * Return true when `s` contains a dot-dot path traversal in any encoding.
+ *
+ * `webdavProxyPathSchema` is the first line of defence, but `joinWebDavUrl` is
+ * the second (belt-and-suspenders). Fastify decodes path parameters only once,
+ * so a double-encoded input `%252e%252e` arrives here as `%2e%2e`.  The old
+ * `includes('..')` check missed that because `%2e%2e` contains no literal dots.
+ * The fix: also reject percent-encoded dot forms and fully-decoded traversal.
+ */
+function containsTraversal(s: string): boolean {
+  if (s.includes('..')) return true;
+  const lower = s.toLowerCase();
+  if (lower.includes('%2e') || lower.includes('%252e')) return true;
+  // Iteratively decode (handles any depth) and re-check.
+  let decoded = s;
+  try {
+    let prev = '';
+    while (decoded !== prev) {
+      prev = decoded;
+      decoded = decodeURIComponent(decoded);
+    }
+  } catch {
+    return true; // malformed percent sequence - reject for safety
+  }
+  return decoded.includes('..');
+}
+
+/**
  * Join the stored base URL with a vault-relative proxy path, preventing any
  * path traversal. The base URL is the canonical WebDAV root that the user
  * configured; the proxy path is the vault-relative portion from the client.
  *
  * Rules:
  * - The base URL must end with `/` (we normalise it).
- * - The proxy path must not contain `..` or start with `/`.
+ * - The proxy path must not contain `..` in any encoding, or start with `/`.
  * - The result is always a descendant of the base URL.
  */
 export function joinWebDavUrl(base: string, proxyPath: string): string {
@@ -107,9 +135,8 @@ export function joinWebDavUrl(base: string, proxyPath: string): string {
   const normalised = base.endsWith('/') ? base : `${base}/`;
   // Strip any leading slashes from proxy path.
   const clean = proxyPath.replace(/^\/+/, '');
-  // Guard against path traversal once more (belt-and-suspenders; the zod
-  // schema already validated this on the way in).
-  if (clean.includes('..')) {
+  // Guard against path traversal in ALL encodings (literal, single-, double-).
+  if (containsTraversal(clean)) {
     throw new Error('Path traversal in WebDAV proxy path');
   }
   return `${normalised}${clean}`;
@@ -145,7 +172,7 @@ export class WebDavService {
 
   /**
    * Return the non-secret config info for the user. Returns null if not
-   * configured — callers should convert this to a 404.
+   * configured - callers should convert this to a 404.
    */
   async getConfigInfo(userId: string): Promise<WebDavConfigInfo | null> {
     const record = await this.storage.getWebDavConfig(userId);
@@ -187,7 +214,7 @@ export class WebDavService {
 
     let res: Response;
     try {
-      res = await fetch(targetUrl, {
+      res = await guardedFetch(targetUrl, {
         method: 'GET',
         headers: { Authorization: `Basic ${credentials}` },
       });
@@ -220,14 +247,14 @@ export class WebDavService {
 
     let res: Response;
     try {
-      res = await fetch(targetUrl, {
+      res = await guardedFetch(targetUrl, {
         method: 'PUT',
         headers: {
           Authorization: `Basic ${credentials}`,
           'Content-Type': contentType,
           'Content-Length': String(body.length),
         },
-        body: body,
+        body,
       });
     } catch (err) {
       throw badRequest(`WebDAV PUT failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -248,7 +275,7 @@ export class WebDavService {
 
     let res: Response;
     try {
-      res = await fetch(targetUrl, {
+      res = await guardedFetch(targetUrl, {
         method: 'DELETE',
         headers: { Authorization: `Basic ${credentials}` },
       });
@@ -256,7 +283,7 @@ export class WebDavService {
       throw badRequest(`WebDAV DELETE failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 204 = deleted, 404 = already gone — both acceptable.
+    // 204 = deleted, 404 = already gone - both acceptable.
     if (!res.ok && res.status !== 404) {
       throw badRequest(`WebDAV DELETE returned ${res.status}`);
     }

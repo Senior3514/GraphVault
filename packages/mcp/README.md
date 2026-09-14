@@ -5,7 +5,11 @@ server** that exposes a self-hosted GraphVault vault to external agents (for
 example, Claude Desktop). The **read** tools are always available; **conflict-safe
 write** tools are enabled only when a device id is configured.
 
-> **Data safety:** the read tools can only explore your vault — list, read,
+> **Package status:** this package is publish-ready but not yet published to
+> the npm registry, so the `npx @graphvault/mcp` commands below will work once
+> it is. Until then, use the "From a local checkout" instructions.
+
+> **Data safety:** the read tools can only explore your vault - list, read,
 > search, traverse the link graph. The write tools are **off by default** and
 > are registered only when `GRAPHVAULT_DEVICE_ID` is set. Every write is
 > **conflict-safe**: it uploads content by hash and pushes with the file's
@@ -24,7 +28,7 @@ write** tools are enabled only when a device id is configured.
 | `search_notes`    | `query`, `limit?`  | notes matching title/tags/links/body, with `matched` fields |
 | `get_backlinks`   | `path`             | notes that link to `path`                                   |
 | `graph_neighbors` | `path`, `depth?`   | local subgraph (`nodes`, `edges`) within `depth` hops       |
-| `vault_stats`     | —                  | `{ notes, tags, links, unresolved, writesEnabled }`         |
+| `vault_stats`     | -                  | `{ notes, tags, links, unresolved, writesEnabled }`         |
 
 ### Write (only when `GRAPHVAULT_DEVICE_ID` is set)
 
@@ -38,7 +42,7 @@ write** tools are enabled only when a device id is configured.
 All write paths must be vault-relative (no `/`, `.`, or `..` segments) and end
 in `.md`/`.markdown`. On a conflict the tool returns a clear error naming the
 conflict kind (`STALE_BASE` / `CONTENT_CONFLICT` / `DELETE_EDIT_CONFLICT` /
-`MISSING_BLOB`) and instructs the agent to re-read and retry — it never retries
+`MISSING_BLOB`) and instructs the agent to re-read and retry - it never retries
 blindly. After a successful write the index cache is invalidated so later reads
 reflect the change.
 
@@ -55,12 +59,12 @@ Resources are **read-only** and always available.
 
 - **URI scheme:** `graphvault://note/<vault-relative-path>`, where each path
   segment is percent-encoded so slashes separate path levels and characters like
-  spaces or `#` round-trip safely — e.g. `notes/graph theory.md` becomes
+  spaces or `#` round-trip safely - e.g. `notes/graph theory.md` becomes
   `graphvault://note/notes/graph%20theory.md`.
 - **List:** enumerates every note in the cached vault index, each with its `uri`,
   `name` (the vault-relative path), `title`, and `mimeType: text/markdown`.
 - **Read:** returns the note's raw Markdown as the resource contents
-  (`mimeType: text/markdown`). The path is validated from the URI — traversal
+  (`mimeType: text/markdown`). The path is validated from the URI - traversal
   (`..`), absolute, and non-note URIs are rejected, and an unknown note returns a
   clear not-found error.
 
@@ -108,8 +112,21 @@ this must match a device registered for `GRAPHVAULT_TOKEN`.
 
 ## Running
 
+No install step needed - `npx` fetches and runs the published package:
+
 ```bash
-# From a built checkout:
+GRAPHVAULT_SERVER_URL=https://vault.example.com \
+GRAPHVAULT_TOKEN=your-token \
+GRAPHVAULT_VAULT_ID=your-vault-id \
+  npx @graphvault/mcp
+```
+
+The process speaks MCP over stdio; all diagnostics go to **stderr** so they
+never corrupt the protocol stream on stdout.
+
+### From a local checkout (contributors)
+
+```bash
 pnpm --filter @graphvault/mcp build
 
 GRAPHVAULT_SERVER_URL=https://vault.example.com \
@@ -118,21 +135,18 @@ GRAPHVAULT_VAULT_ID=your-vault-id \
   node packages/mcp/dist/index.js
 ```
 
-The process speaks MCP over stdio; all diagnostics go to **stderr** so they
-never corrupt the protocol stream on stdout.
-
 ## Claude Desktop configuration
 
 Add an entry to your Claude Desktop MCP config
-(`claude_desktop_config.json` — on macOS at
+(`claude_desktop_config.json` - on macOS at
 `~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "graphvault": {
-      "command": "node",
-      "args": ["/absolute/path/to/GraphVault/packages/mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@graphvault/mcp"],
       "env": {
         "GRAPHVAULT_SERVER_URL": "https://vault.example.com",
         "GRAPHVAULT_TOKEN": "your-token",
@@ -147,8 +161,10 @@ To also enable the conflict-safe write tools, add `GRAPHVAULT_DEVICE_ID` (the
 device id bound to your token) to the `env` block above. Without it, only the
 read tools are registered.
 
-If the package is installed globally (it exposes a `graphvault-mcp` bin), you
-can instead use `"command": "graphvault-mcp"` with no `args`.
+Running from a local checkout instead? Use
+`"command": "node", "args": ["/absolute/path/to/GraphVault/packages/mcp/dist/index.js"]`,
+or install the package globally and use `"command": "graphvault-mcp"` with no
+`args`.
 
 Restart Claude Desktop; the GraphVault tools appear in the tool picker, your
 notes appear as attachable **resources**, and the **prompts** above appear as
@@ -169,4 +185,4 @@ fake server (hash computation, no-clobber create, missing-note rejection,
 surfaced as an error, and writes-disabled), the resource handlers (URI
 round-trip, list enumeration, read content + mimeType, traversal/unknown URI
 rejection), and the prompt builders (each embeds the expected note context;
-unknown path errors cleanly) — no network or live server required.
+unknown path errors cleanly) - no network or live server required.

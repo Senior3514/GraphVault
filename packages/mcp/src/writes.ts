@@ -11,7 +11,7 @@
  *      server only fast-forward accepts when `baseRevision === server.revision`;
  *      otherwise it returns a conflict and does NOT clobber.
  *   4. If the push reports any conflict, we surface a clear tool error naming
- *      the conflict kind and telling the agent to re-read and retry — we never
+ *      the conflict kind and telling the agent to re-read and retry - we never
  *      retry blindly with a bumped base, which would overwrite a concurrent
  *      edit.
  *

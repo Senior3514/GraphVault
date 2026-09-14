@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * /share — PWA share_target receiver + web+graphvault:// protocol handler.
+ * /share - PWA share_target receiver + web+graphvault:// protocol handler.
  *
  * ## Entry points
  *
@@ -30,7 +30,7 @@
  *
  * All inputs are untrusted strings from external apps. They are stored
  * verbatim as Markdown and later rendered through the DOMPurify-sanitised
- * `MarkdownPreview` path — the same pipeline used for every user note.
+ * `MarkdownPreview` path - the same pipeline used for every user note.
  * No further sanitisation is applied here.
  *
  * ## Static export
@@ -122,7 +122,7 @@ export default function SharePage() {
     );
   }
 
-  // Loading / creating state — show a minimal indicator.
+  // Loading / creating state - show a minimal indicator.
   return (
     <div className="flex min-h-screen items-center justify-center bg-neutral-950">
       <ProtocolHandlerRegistrar />

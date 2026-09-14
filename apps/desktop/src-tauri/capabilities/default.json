@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the main window. Grants the fs plugin's read/write commands, but NOT any path - the static scope in tauri.conf.json (plugins.fs.scope) is empty, and the only path ever added to it is the single folder the user explicitly chooses via the pick_vault_folder command (see src/main.rs), granted dynamically at runtime with app.fs_scope().allow_directory(). Least privilege: no path is accessible until the user picks one.",
+  "windows": ["main"],
+  "permissions": ["core:default", "fs:read-all", "fs:write-all"]
+}

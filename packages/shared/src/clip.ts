@@ -6,7 +6,7 @@ import { z } from 'zod';
  * The server fetches the URL (no browser CORS), strips the HTML to Markdown,
  * and returns a structured note. The client creates the note via vault.importNotes().
  *
- * Privacy posture: `server` — the outbound HTTP request goes through the
+ * Privacy posture: `server` - the outbound HTTP request goes through the
  * self-hosted GraphVault server, not the browser. No third-party services
  * are involved beyond the target URL itself.
  */
@@ -29,7 +29,7 @@ export type ClipRequest = z.infer<typeof clipRequestSchema>;
 export const clipResponseSchema = z.object({
   /** Page title (from <title> or first <h1>, or the URL as fallback). */
   title: z.string(),
-  /** Converted Markdown content. Treat as untrusted — pass through DOMPurify. */
+  /** Converted Markdown content. Treat as untrusted - pass through DOMPurify. */
   markdown: z.string(),
   /** The canonical URL that was actually fetched (after redirects). */
   sourceUrl: z.string(),

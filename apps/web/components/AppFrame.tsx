@@ -23,63 +23,13 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
-/**
- * Traps keyboard focus inside `containerRef` while `active` is true.
- * Returns focus to `restoreRef` when deactivated.
- */
-function useFocusTrap(
-  containerRef: React.RefObject<HTMLElement | null>,
-  active: boolean,
-  restoreRef?: React.RefObject<HTMLElement | null>,
-) {
-  useEffect(() => {
-    if (!active || !containerRef.current) return;
-    const container = containerRef.current;
-
-    // Focus the first focusable element when the trap activates.
-    const focusable = container.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (focusable.length > 0) {
-      focusable[0].focus();
-    }
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-      const all = Array.from(
-        container.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((el) => !el.closest('[hidden]') && el.offsetParent !== null);
-      if (all.length === 0) return;
-      const first = all[0];
-      const last = all[all.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      // Restore focus when trap deactivates.
-      restoreRef?.current?.focus?.();
-    };
-  }, [active, containerRef, restoreRef]);
-}
-
+import { useFocusTrap } from '../lib/a11y/useFocusTrap';
 import { AddButton } from './AddButton';
 import { BackupHistory } from './BackupHistory';
 import { CommandPalette } from './CommandPalette';
 import { NavIcon } from './NavIcon';
 import { OnboardingHint } from './onboarding/OnboardingHint';
+import { PrivateVaultWelcome } from './onboarding/PrivateVaultWelcome';
 import { Tour } from './onboarding/Tour';
 import { Sidebar } from './Sidebar';
 import { useLayout } from '../lib/layout/useLayout';
@@ -92,8 +42,9 @@ const COLLAPSE_KEY = 'graphvault.sidebar.collapsed';
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // The marketing landing page stands alone.
-  if (pathname === '/') {
+  // The marketing landing page and the public download page stand alone - they
+  // bring their own full-bleed chrome and need no vault sidebar shell.
+  if (pathname === '/' || pathname === '/download' || pathname === '/download/') {
     return <>{children}</>;
   }
 
@@ -143,7 +94,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     try {
       setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === '1');
     } catch {
-      /* storage unavailable — fall back to expanded */
+      /* storage unavailable - fall back to expanded */
     }
     setHydrated(true);
   }, []);
@@ -175,7 +126,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   // Cmd/Ctrl+Shift+F toggles focus mode (distraction-free editing). Verified
   // not to collide: Cmd/Ctrl+K (palette), +B (sidebar), +E (preview/split),
   // and Cmd/Ctrl+Shift+A (AI assistant) are the only other global chords.
-  // Esc exits focus mode (but only when no overlay — palette/drawer/etc. —
+  // Esc exits focus mode (but only when no overlay - palette/drawer/etc. -
   // is consuming Escape; those mount their own handlers and stopPropagation
   // isn't used, so we guard by checking focusMode is on and let other Esc
   // handlers run first by not preventing default unless we act).
@@ -236,7 +187,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main content row: desktop sidebar + page content                    */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Desktop sidebar — hidden on mobile via `hidden md:flex`, and
+        {/* Desktop sidebar - hidden on mobile via `hidden md:flex`, and
             hidden entirely in focus mode. */}
         {!focusMode && (
           <div className="hidden md:flex">
@@ -244,7 +195,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Page content — `id` is the skip-link target from layout.tsx */}
+        {/* Page content - `id` is the skip-link target from layout.tsx */}
         <div id="main-content" className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {children}
         </div>
@@ -284,7 +235,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           aria-pressed={true}
           aria-label="Exit focus mode"
           title="Exit focus mode (Esc)"
-          className="fixed right-3 top-3 z-50 flex items-center gap-2 rounded-full border border-neutral-700/80 bg-neutral-900/80 px-3 py-1.5 text-xs text-neutral-300 shadow-lg backdrop-blur transition-colors hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 motion-reduce:transition-none"
+          className="fixed right-3 top-3 z-50 flex items-center gap-2 rounded-full border border-neutral-700/80 bg-neutral-900/80 px-3 py-1.5 text-xs text-neutral-300 shadow-lg backdrop-blur transition-colors hover:bg-neutral-800 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 motion-reduce:transition-none"
           style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
         >
           <FocusExitIcon />
@@ -296,17 +247,21 @@ function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <CommandPalette />
-      {/* Version history / backup restore modal — opened via CommandPalette or
+      {/* Version history / backup restore modal - opened via CommandPalette or
           the OPEN_BACKUP_HISTORY_EVENT custom event. Mounted once so the IDB
           load is shared across all triggers. */}
       <BackupHistory />
+      {/* First-entry framing: a one-time modal that makes the public-page →
+          private-vault transition explicit ("this space lives only on this
+          device"). Shown once, before the lighter OnboardingHint tips. */}
+      <PrivateVaultWelcome />
       {/* Onboarding hint: shown only on first use, persisted-dismissed in localStorage */}
       <OnboardingHint />
       {/* Guided tour: multi-step coachmark shown on first run, re-openable via
           the graphvault.tour.open custom event. Mounted after the hint so they
           don't compete visually (tour has a higher z-index overlay). */}
       <Tour />
-      {/* AI assistant panel — toggleable, off by default, privacy-first.
+      {/* AI assistant panel - toggleable, off by default, privacy-first.
           Wrapped in Suspense because it reads useSearchParams() (current note),
           which requires a boundary for the static export to prerender. */}
       <Suspense fallback={null}>
@@ -315,8 +270,23 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <AssistantButton />
       {/* Mobile FAB: fast-capture "+ Add" in the thumb zone.
           Mounted only on the vault route where note-creation is meaningful.
-          The FAB is hidden on desktop (md:hidden inside AddButton). */}
-      {pathname === '/vault' && (
+          The FAB is hidden on desktop (md:hidden inside AddButton), AND in
+          focus mode - distraction-free single-note editing hides the bottom
+          pane-switcher nav bar (see WorkspaceLayout.tsx), and a "create a
+          new note" affordance doesn't belong in that view anyway; without
+          this the FAB stayed mounted with no nav bar underneath it to clear,
+          leaving a large empty gap where the overlap-avoidance padding below
+          used to have something to clear.
+          Gated on `hydrated` (same flag as the sidebar collapse state above):
+          `usePathname()` does not reliably agree between the statically
+          exported HTML and the first client render on this route, which
+          otherwise threw a real, reproducible hydration-mismatch error
+          (React #418) on every fresh load of /vault - visible to the user as
+          a content flash while React discarded the server HTML and
+          re-rendered from scratch. Rendering nothing until after mount keeps
+          the first paint identical in both environments; the FAB then
+          appears via a normal (non-hydrating) update a frame later. */}
+      {hydrated && pathname === '/vault' && !focusMode && (
         <AddButton
           variant="fab"
           onNoteCreated={(path) => router.push(`/vault?note=${encodeURIComponent(path)}`)}
@@ -346,7 +316,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
           type="button"
           onClick={onMenuOpen}
           aria-label="Open navigation menu"
-          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           <HamburgerIcon />
         </button>
@@ -355,7 +325,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
           onClick={() => window.history.back()}
           aria-label="Go back"
           title="Back"
-          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           <BackIcon />
         </button>
@@ -376,7 +346,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
           href="/"
           aria-label="Home"
           title="Home"
-          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           <NavIcon glyph="home" className="h-5 w-5" />
         </Link>
@@ -384,7 +354,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
           type="button"
           onClick={open}
           aria-label="Open command palette"
-          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
         >
           <SearchIcon />
         </button>
@@ -394,7 +364,7 @@ function MobileTopBar({ onMenuOpen }: { onMenuOpen: () => void }) {
 }
 
 function FocusExitIcon() {
-  // "Collapse / exit fullscreen" glyph — inward-pointing corners.
+  // "Collapse / exit fullscreen" glyph - inward-pointing corners.
   return (
     <svg
       viewBox="0 0 20 20"

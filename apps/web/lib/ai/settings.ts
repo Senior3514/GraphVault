@@ -1,13 +1,13 @@
 /**
  * Persistence helpers for AISettings.
  *
- * Storage strategy — sessionStorage (not localStorage):
+ * Storage strategy - sessionStorage (not localStorage):
  *  - Settings are cleared automatically when the tab or browser closes.
  *  - No API keys are stored here. For `server` mode the key lives on the GV
  *    server, encrypted at rest. For `local` mode no key is needed (Ollama / any
  *    local OpenAI-compat endpoint). The `off` mode stores nothing sensitive.
  *  - The setting "kind" (off/local/server) and non-secret fields are also kept
- *    in sessionStorage so they reset each session — a deliberate conservative
+ *    in sessionStorage so they reset each session - a deliberate conservative
  *    choice that keeps the user in control.
  *
  * This module is pure (no React) and can be used from both client components
@@ -29,7 +29,7 @@ export function loadAISettings(): AISettings {
     if (!raw) return { ...DEFAULT_AI_SETTINGS };
     const parsed = JSON.parse(raw) as Partial<AISettings>;
     // Strip any legacy `byok` fields that may exist in old persisted data and
-    // map the legacy 'byok' kind to 'off' — the client-side key path no longer
+    // map the legacy 'byok' kind to 'off' - the client-side key path no longer
     // exists; the user must configure the server mode instead.
     const cleaned: Partial<AISettings> = {};
     if (parsed.kind !== undefined) cleaned.kind = parsed.kind;
@@ -47,7 +47,7 @@ export function loadAISettings(): AISettings {
 
 /**
  * Persist AI settings to sessionStorage.
- * No API keys are stored here — there are none in the settings shape.
+ * No API keys are stored here - there are none in the settings shape.
  * Never throws.
  */
 export function saveAISettings(settings: AISettings): void {
@@ -55,7 +55,7 @@ export function saveAISettings(settings: AISettings): void {
   try {
     window.sessionStorage.setItem(SS_KEY, JSON.stringify(settings));
   } catch {
-    /* sessionStorage unavailable (private mode quota) — silently skip */
+    /* sessionStorage unavailable (private mode quota) - silently skip */
   }
 }
 

@@ -2,7 +2,7 @@
 
 The GraphVault **client sync agent**: a pure, environment-agnostic TypeScript
 library that implements the end-to-end sync algorithm from
-[`docs/sync-protocol.md`](../../docs/sync-protocol.md) §6–§7, decoupled from the
+[`docs/sync-protocol.md`](../../docs/sync-protocol.md) §6-§7, decoupled from the
 browser, the UI, and the server.
 
 Like [`@graphvault/engine`](../engine), it is intentionally **framework-free and
@@ -30,7 +30,7 @@ Within the monorepo it is a workspace package:
 
 The host provides two interfaces. The engine never reaches past them.
 
-### `LocalVault` — local content + index
+### `LocalVault` - local content + index
 
 ```ts
 interface LocalEntry {
@@ -54,10 +54,10 @@ interface LocalVault {
 The **local index** is the client's record of every file's
 `path, hash, size, mtime, deleted, baseRevision, dirty` (`LocalFileEntry` from
 `@graphvault/shared`). `baseRevision` is the server revision a local change was
-last reconciled against — the basis for three-way conflict detection — and
+last reconciled against - the basis for three-way conflict detection - and
 `dirty` flags files whose content diverged from that base.
 
-### `RemoteApi` — the server calls the engine needs
+### `RemoteApi` - the server calls the engine needs
 
 ```ts
 interface RemoteApi {
@@ -84,15 +84,15 @@ const result = await runSync(localVault, remoteApi, vaultId, {
 
 `runSync` performs one converging cycle (spec §7):
 
-1. **SCAN** — walk the local vault, (re)hash changed files (mtime/size
+1. **SCAN** - walk the local vault, (re)hash changed files (mtime/size
    fast-path via the index), and reconcile the index: new files become dirty,
    missing files become tombstones, unchanged files stay clean.
-2. **PULL** — `getChanges` from the local head; apply each remote `FileState`,
+2. **PULL** - `getChanges` from the local head; apply each remote `FileState`,
    downloading missing blobs and writing content; advance `baseRevision`.
    Locally-dirty paths are left for PUSH (they are not silently overwritten).
-3. **PUSH** — for every dirty file, ensure its blob exists server-side
+3. **PUSH** - for every dirty file, ensure its blob exists server-side
    (`hasBlob` → `putBlob`), then `push` the `PushOp`s.
-4. **SETTLE** — apply the push response:
+4. **SETTLE** - apply the push response:
    - `applied` paths advance to the new head and become clean.
    - `CONTENT_CONFLICT` / `DELETE_EDIT_CONFLICT` → create a **conflict copy**
      (§6.2): keep the **server** version at the canonical path so every device
@@ -126,11 +126,11 @@ with no local or remote changes is a no-op (empty `applied`/`pushed`/`pulled`).
 
 ## Helpers
 
-- `hashContent(content): Promise<'sha256:<hex>'>` — portable content hash
+- `hashContent(content): Promise<'sha256:<hex>'>` - portable content hash
   (Web Crypto with a `node:crypto` fallback), in the shared `sha256:<hex>`
   format.
-- `byteLength(content)` — UTF-8 byte length (the `size` the protocol records).
-- `conflictCopyPath(path, device, at?)` / `conflictDate(at?)` — §6.2 naming.
+- `byteLength(content)` - UTF-8 byte length (the `size` the protocol records).
+- `conflictCopyPath(path, device, at?)` / `conflictDate(at?)` - §6.2 naming.
 
 ## Scripts
 

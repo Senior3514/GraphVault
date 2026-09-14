@@ -1,7 +1,7 @@
 /**
  * Client-side end-to-end vault encryption.
  *
- * Uses the WebCrypto API (`globalThis.crypto.subtle`) only — zero external
+ * Uses the WebCrypto API (`globalThis.crypto.subtle`) only - zero external
  * dependencies. Runs in modern browsers and Node.js 22+.
  *
  * Design:
@@ -16,7 +16,7 @@
  *    Parameters are readable without decryption so the implementation can
  *    evolve iteration counts or algorithms in future envelope versions.
  *  - Invariant: the content hash (for sync / dedupe) is always computed over
- *    the **plaintext** — the encrypted envelope is a local-storage detail only.
+ *    the **plaintext** - the encrypted envelope is a local-storage detail only.
  *  - Wrong passphrase / tamper: always throws; never returns partial data.
  */
 
@@ -127,7 +127,7 @@ export interface VaultEnvelope {
 /**
  * Encrypt a vault blob (string or bytes) with the given passphrase.
  *
- * Generates a fresh random salt and IV on every call — two encryptions of the
+ * Generates a fresh random salt and IV on every call - two encryptions of the
  * same plaintext produce distinct ciphertexts. The GCM tag authenticates both
  * the ciphertext and the envelope version (AAD).
  *
@@ -191,7 +191,7 @@ export async function encryptVault(
 /**
  * Decrypt a `VaultEnvelope` previously produced by {@link encryptVault}.
  *
- * Throws on wrong passphrase, tampered ciphertext, or a malformed envelope —
+ * Throws on wrong passphrase, tampered ciphertext, or a malformed envelope -
  * never returns partial data. The error message does NOT reveal whether the
  * passphrase was wrong vs. the ciphertext was tampered (same error class).
  *
@@ -253,7 +253,7 @@ export async function decryptVault(
     );
   } catch {
     // AES-GCM throws on auth failure. Normalize to a single opaque error so
-    // callers cannot distinguish wrong-passphrase from tampered-ciphertext —
+    // callers cannot distinguish wrong-passphrase from tampered-ciphertext -
     // both are "decryption failed."
     throw new Error('Decryption failed: wrong passphrase or tampered data.');
   }
@@ -263,7 +263,7 @@ export async function decryptVault(
 
 /**
  * Return `true` if `blob` looks like an encrypted vault envelope produced by
- * this module (magic-byte check only — does NOT attempt decryption).
+ * this module (magic-byte check only - does NOT attempt decryption).
  *
  * Safe to call on arbitrary untrusted bytes.
  */

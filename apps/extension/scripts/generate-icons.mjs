@@ -9,16 +9,16 @@
  * action.default_icon).  Chrome and Edge accept both, but PNGs are
  * universally supported.
  *
- * Zero external dependencies — uses only Node.js built-ins: zlib, fs, path.
+ * Zero external dependencies - uses only Node.js built-ins: zlib, fs, path.
  *
  * Outputs to apps/extension/icons/:
- *   icon16.png   —  16 x  16  RGBA PNG  (toolbar)
- *   icon32.png   —  32 x  32  RGBA PNG  (toolbar @2x / Windows)
- *   icon48.png   —  48 x  48  RGBA PNG  (extension management page)
- *   icon128.png  — 128 x 128  RGBA PNG  (Chrome Web Store listing)
+ *   icon16.png   -  16 x  16  RGBA PNG  (toolbar)
+ *   icon32.png   -  32 x  32  RGBA PNG  (toolbar @2x / Windows)
+ *   icon48.png   -  48 x  48  RGBA PNG  (extension management page)
+ *   icon128.png  - 128 x 128  RGBA PNG  (Chrome Web Store listing)
  *
  * Brand:
- *   Background  transparent (alpha=0) — floats on any browser chrome
+ *   Background  transparent (alpha=0) - floats on any browser chrome
  *   Nodes/edges #5b6aff (brand accent, matches popup.css --accent)
  */
 

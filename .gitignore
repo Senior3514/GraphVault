@@ -34,13 +34,22 @@ storage/
 !.vscode/extensions.json
 Thumbs.db
 
-# Claude Code local state (worktrees, caches, local settings) — but TRACK the
+# Claude Code local state (worktrees, caches, local settings) - but TRACK the
 # committed GraphVault agent company definitions under .claude/agents/.
 .claude/*
 !.claude/agents/
 
 # Tauri
 apps/desktop/src-tauri/target/
+# Auto-generated capability/ACL schemas, regenerated every build.
+apps/desktop/src-tauri/gen/
 
 # Test coverage
 coverage/
+!.claude/skills/
+
+# Transient agent screenshot/verification helpers
+scripts/_*
+
+# Claude Code notebook credentials - bearer token + password, never commit.
+ops/.secrets/

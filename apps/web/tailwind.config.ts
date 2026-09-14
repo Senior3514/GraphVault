@@ -13,12 +13,35 @@ const config: Config = {
       /**
        * Drive the `neutral` ramp from CSS variables (defined in globals.css) so
        * the thousands of existing `bg-neutral-950 text-neutral-100` utilities
-       * adapt per theme automatically — no per-component rewrite. Dark uses the
+       * adapt per theme automatically - no per-component rewrite. Dark uses the
        * stock Tailwind triples; light uses an inverted ramp so semantics hold
        * (`neutral-950` is always "page background", `neutral-50` "strongest
-       * text"). Accents (sky/amber/red) are unchanged — they read on both.
+       * text"). The brand `accent` (cyan) is likewise CSS-var-driven and
+       * theme-aware; amber/red stay stock - they read on both.
        */
       colors: {
+        /**
+         * Brand accent - a swappable token backed by CSS variables (defined per
+         * theme in globals.css). This is the ONE-PLACE switch for the brand
+         * colour: `bg-accent-500`, `text-accent-400`, `ring-accent-500`,
+         * `border-accent-500`, etc. all resolve to the themed cyan and flip
+         * automatically between light and dark. `accent-fg` is the foreground
+         * (white) to place on an accent-500/600 fill (AA in both themes).
+         */
+        accent: {
+          50: 'rgb(var(--accent-50) / <alpha-value>)',
+          100: 'rgb(var(--accent-100) / <alpha-value>)',
+          200: 'rgb(var(--accent-200) / <alpha-value>)',
+          300: 'rgb(var(--accent-300) / <alpha-value>)',
+          400: 'rgb(var(--accent-400) / <alpha-value>)',
+          500: 'rgb(var(--accent-500) / <alpha-value>)',
+          600: 'rgb(var(--accent-600) / <alpha-value>)',
+          700: 'rgb(var(--accent-700) / <alpha-value>)',
+          800: 'rgb(var(--accent-800) / <alpha-value>)',
+          900: 'rgb(var(--accent-900) / <alpha-value>)',
+          950: 'rgb(var(--accent-950) / <alpha-value>)',
+          fg: 'rgb(var(--accent-fg) / <alpha-value>)',
+        },
         neutral: {
           50: 'rgb(var(--n-50) / <alpha-value>)',
           100: 'rgb(var(--n-100) / <alpha-value>)',
@@ -33,8 +56,19 @@ const config: Config = {
           950: 'rgb(var(--n-950) / <alpha-value>)',
         },
       },
+      /**
+       * Typography is self-hosted (next/font/local, see app/fonts.ts) and wired
+       * through CSS variables set on <html> in app/layout.tsx, so these tokens
+       * stay theme-independent and require NO external font request:
+       *   font-sans     Inter           body / UI (default document face)
+       *   font-display  Geist           headings + wordmark (geometric grotesque)
+       *   font-mono     JetBrains Mono  editor / code / keycaps
+       * Each falls back to the same system stack the fonts.ts loader declares,
+       * so text is always legible before the woff2 swaps in.
+       */
       fontFamily: {
         sans: [
+          'var(--font-sans)',
           'ui-sans-serif',
           'system-ui',
           '-apple-system',
@@ -44,7 +78,18 @@ const config: Config = {
           'Arial',
           'sans-serif',
         ],
+        display: [
+          'var(--font-display)',
+          'var(--font-sans)',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif',
+        ],
         mono: [
+          'var(--font-mono)',
           'ui-monospace',
           'SFMono-Regular',
           'Menlo',
@@ -52,6 +97,41 @@ const config: Config = {
           'Liberation Mono',
           'monospace',
         ],
+      },
+      /**
+       * Refined type scale with paired line-heights + optical letter-spacing.
+       * Display sizes get progressively tighter tracking (negative em values)
+       * so large headings read crisp and confident, while body sizes keep a
+       * comfortable measure. This overrides only the listed steps; every other
+       * Tailwind size remains the stock default.
+       */
+      fontSize: {
+        xs: ['0.75rem', { lineHeight: '1.1rem', letterSpacing: '0' }],
+        sm: ['0.875rem', { lineHeight: '1.35rem', letterSpacing: '-0.006em' }],
+        base: ['1rem', { lineHeight: '1.6rem', letterSpacing: '-0.011em' }],
+        lg: ['1.125rem', { lineHeight: '1.75rem', letterSpacing: '-0.014em' }],
+        xl: ['1.25rem', { lineHeight: '1.85rem', letterSpacing: '-0.017em' }],
+        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.02em' }],
+        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.022em' }],
+        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.025em' }],
+        '5xl': ['3rem', { lineHeight: '1.08', letterSpacing: '-0.028em' }],
+        '6xl': ['3.75rem', { lineHeight: '1.05', letterSpacing: '-0.03em' }],
+        '7xl': ['4.5rem', { lineHeight: '1.03', letterSpacing: '-0.032em' }],
+      },
+      /**
+       * Theme-aware elevation tokens (resolved from CSS variables in globals.css)
+       * so `shadow-elevation-*` stays subtle in dark and reads as soft ambient
+       * occlusion in light - no hardcoded `shadow-black/NN`.
+       */
+      boxShadow: {
+        'elevation-sm': 'var(--shadow-sm)',
+        'elevation-md': 'var(--shadow-md)',
+        'elevation-lg': 'var(--shadow-lg)',
+        'elevation-xl': 'var(--shadow-xl)',
+      },
+      transitionTimingFunction: {
+        // A gentle, slightly-overshooting ease used for entrances / panels.
+        smooth: 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
       keyframes: {
         'fade-in': {
@@ -90,6 +170,32 @@ const config: Config = {
           from: { opacity: '0', transform: 'translateY(12px) scale(0.97)' },
           to: { opacity: '1', transform: 'translateY(0) scale(1)' },
         },
+        /* Landing hero: slow drift of the aurora gradient blobs for depth. */
+        'aurora-drift': {
+          '0%, 100%': { transform: 'translate3d(0,0,0) scale(1)', opacity: '0.9' },
+          '50%': { transform: 'translate3d(3%,-2%,0) scale(1.08)', opacity: '1' },
+        },
+        /* Constellation nodes gently breathe (radius/opacity) so the backdrop
+           feels alive without being distracting. */
+        twinkle: {
+          '0%, 100%': { opacity: '0.55', transform: 'scale(1)' },
+          '50%': { opacity: '1', transform: 'scale(1.18)' },
+        },
+        /* Edges of the hero graph draw in once on load via stroke-dashoffset. */
+        'draw-line': {
+          from: { strokeDashoffset: '1' },
+          to: { strokeDashoffset: '0' },
+        },
+        /* A traveling sheen used on the wordmark / primary CTA underline. */
+        shimmer: {
+          '0%': { backgroundPosition: '-150% 0' },
+          '100%': { backgroundPosition: '250% 0' },
+        },
+        /* Staggered word/section reveal: rise + fade with a soft blur clear. */
+        'rise-in': {
+          from: { opacity: '0', transform: 'translateY(14px)', filter: 'blur(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)', filter: 'blur(0)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 120ms ease-out',
@@ -101,6 +207,11 @@ const config: Config = {
         'node-appear': 'node-appear 500ms cubic-bezier(0.16, 1, 0.3, 1)',
         float: 'float 4s ease-in-out infinite',
         'onboarding-in': 'onboarding-in 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'aurora-drift': 'aurora-drift 18s ease-in-out infinite',
+        twinkle: 'twinkle 4s ease-in-out infinite',
+        'draw-line': 'draw-line 1.6s cubic-bezier(0.16, 1, 0.3, 1) both',
+        shimmer: 'shimmer 6s linear infinite',
+        'rise-in': 'rise-in 600ms cubic-bezier(0.16, 1, 0.3, 1) both',
       },
     },
   },

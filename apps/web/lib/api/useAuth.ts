@@ -7,7 +7,7 @@
  *
  * The access token is split across two storage tiers:
  *
- *   sessionStorage  — holds the raw `accessToken` string.
+ *   sessionStorage  - holds the raw `accessToken` string.
  *     Pro: cleared when the tab closes; not accessible to other tabs; not sent
  *          to the server automatically (unlike cookies).
  *     Con: lost on page reload in some browsers; the user must re-enter
@@ -16,10 +16,10 @@
  *          only for the duration of a tab reduces the window for exfiltration
  *          if localStorage is later compromised.
  *
- *   localStorage    — holds only { userId, deviceId, expiresAt } (non-secret).
+ *   localStorage    - holds only { userId, deviceId, expiresAt } (non-secret).
  *     Pro: survives reloads; lets the UI show "previously signed in" and
  *          prompt for credentials again.
- *     Con: readable by any same-origin JS (acceptable — non-secret metadata).
+ *     Con: readable by any same-origin JS (acceptable - non-secret metadata).
  *
  * Security notes:
  *   - The raw token is NEVER logged, never embedded in a URL, never placed in
@@ -32,7 +32,7 @@
  * The Content-Security-Policy's connect-src directive must allow the configured
  * server origin. In production: run the sync server on the same origin as the
  * web client and keep connect-src 'self'. For development (e.g. 127.0.0.1:4000)
- * the CSP in layout.tsx is relaxed — see the comment there for the trade-off.
+ * the CSP in layout.tsx is relaxed - see the comment there for the trade-off.
  * The user configures the server URL in Settings; it is stored in localStorage
  * and read by useServerSettings.
  */
@@ -41,6 +41,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { authTokenSchema, type AuthToken } from '@graphvault/shared';
 import { GraphVaultClient } from './client';
+import { AUTH_TOKEN_STORAGE_KEY } from './storageKeys';
 
 /** The non-secret subset of AuthToken persisted across sessions. */
 interface StoredAuthMeta {
@@ -50,7 +51,10 @@ interface StoredAuthMeta {
 }
 
 const META_KEY = 'graphvault:auth-meta:v1';
-const TOKEN_KEY = 'graphvault:auth-token:v1';
+const TOKEN_KEY = AUTH_TOKEN_STORAGE_KEY;
+
+// Re-export so existing call sites can import the canonical token key from here.
+export { AUTH_TOKEN_STORAGE_KEY };
 
 function loadMeta(): StoredAuthMeta | null {
   try {
@@ -140,7 +144,7 @@ export function useAuth(): AuthState {
   const [meta, setMeta] = useState<StoredAuthMeta | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  // Hydrate from storage on mount — runs client-side only.
+  // Hydrate from storage on mount - runs client-side only.
   useEffect(() => {
     const m = loadMeta();
     const t = loadToken();

@@ -17,6 +17,9 @@ importers:
       eslint:
         specifier: ^9.17.0
         version: 9.39.4(jiti@2.7.0)
+      playwright-core:
+        specifier: ^1.49.1
+        version: 1.61.1
       prettier:
         specifier: ^3.4.2
         version: 3.8.4
@@ -28,20 +31,12 @@ importers:
         version: 8.61.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
   apps/desktop:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.5.0
-        version: 2.11.0
-      '@tauri-apps/plugin-dialog':
-        specifier: ^2.2.0
-        version: 2.7.1
-      '@tauri-apps/plugin-fs':
-        specifier: ^2.4.0
-        version: 2.5.1
     devDependencies:
       '@tauri-apps/cli':
         specifier: ^2.5.0
         version: 2.11.2
+
+  apps/extension: {}
 
   apps/server:
     dependencies:
@@ -97,6 +92,12 @@ importers:
       '@graphvault/sync-core':
         specifier: workspace:*
         version: link:../../packages/sync-core
+      '@tauri-apps/api':
+        specifier: ^2.5.0
+        version: 2.11.0
+      '@tauri-apps/plugin-fs':
+        specifier: ^2.4.0
+        version: 2.5.1
       dompurify:
         specifier: ^3.2.4
         version: 3.4.10
@@ -204,6 +205,12 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.21
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.4
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -851,9 +858,6 @@ packages:
     resolution: {integrity: sha512-bk3HemqvGRoy+5D/dVMUQHKMYLglD0jVnMm/0iGMH6ufZ+p8r14m6BpIixwij3PBvZdvORUp1YifTD8QxVZ1Nw==}
     engines: {node: '>= 10'}
     hasBin: true
-
-  '@tauri-apps/plugin-dialog@2.7.1':
-    resolution: {integrity: sha512-OK1UBXYt+ojcmxMktzzuyonYIFta8CmAASpX+CA+DTGK24KlHjhYI6x2iOJ/TjZF4N7/ACK1oFmEOjIY9IhzOQ==}
 
   '@tauri-apps/plugin-fs@2.5.1':
     resolution: {integrity: sha512-9Lz+Jopp6QyeEWhlpkMx4R/+P9HgR+AVAI4vOZhlT8Xaymtz8iVI/Ov984/XTqgJz/5gz5NretqPB/XEMS3NhQ==}
@@ -1925,6 +1929,11 @@ packages:
   pkg-types@2.3.1:
     resolution: {integrity: sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==}
 
+  playwright-core@1.61.1:
+    resolution: {integrity: sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   postcss-import@15.1.0:
     resolution: {integrity: sha512-hpr+J05B2FVYUAXHeK1YyI267J/dDDhMU6B6civm8hSY1jYJnBXxzKDKDswzJmtLHryrjhnDjqqp/49t8FALew==}
     engines: {node: '>=14.0.0'}
@@ -2804,10 +2813,6 @@ snapshots:
       '@tauri-apps/cli-win32-arm64-msvc': 2.11.2
       '@tauri-apps/cli-win32-ia32-msvc': 2.11.2
       '@tauri-apps/cli-win32-x64-msvc': 2.11.2
-
-  '@tauri-apps/plugin-dialog@2.7.1':
-    dependencies:
-      '@tauri-apps/api': 2.11.0
 
   '@tauri-apps/plugin-fs@2.5.1':
     dependencies:
@@ -3923,6 +3928,8 @@ snapshots:
       confbox: 0.2.4
       exsolve: 1.0.8
       pathe: 2.0.3
+
+  playwright-core@1.61.1: {}
 
   postcss-import@15.1.0(postcss@8.5.15):
     dependencies:

@@ -1,56 +1,95 @@
 import Link from 'next/link';
 import { InstallButton } from '../components/InstallButton';
+import { HeroConstellation } from '../components/marketing/HeroConstellation';
 
 /**
- * Marketing landing page — rendered full-bleed (no app chrome) via AppFrame.
+ * Marketing landing page - the PUBLIC product page, deliberately distinct from
+ * the private vault shell. Rendered full-bleed (no app chrome) via AppFrame.
  *
  * Design goals:
- *  - Four core GraphVault promises front-and-center (local-first, self-hosted
- *    sync, graph-for-thinking, security).
- *  - Real-feeling product preview built from CSS + SVG only; zero external
- *    image or script fetches, zero telemetry.
+ *  - Read unmistakably as a marketing page (a "Product" pill in the nav, a
+ *    full-bleed animated hero, social proof) so it never gets confused with the
+ *    user's own private workspace. The primary CTA frames the transition: it
+ *    opens YOUR private vault, on this device, that no one else can see.
+ *  - Premium first impression: aurora-drift gradient depth + an animated graph
+ *    constellation backdrop, all pure CSS/SVG - zero images, zero deps, zero
+ *    network, zero telemetry.
+ *  - Beautiful self-hosted typography: Geist display headings + Inter body
+ *    (see app/fonts.ts), wired through the `font-display` / `font-sans` tokens.
  *  - Tasteful motion gated behind `motion-safe:` so prefers-reduced-motion is
- *    always honoured.
- *  - Social-proof strip + "star us on GitHub" CTA.
- *  - Dark-first with DESIGN.md's sky-400/neutral palette.
+ *    always honoured; contrast meets AA; every control is focus-visible.
  */
 
 export default function LandingPage() {
+  // No overflow-x on <main> below: it silently breaks `position: sticky` for
+  // the nav header further down (see the comment on `body` in globals.css,
+  // which now owns the global horizontal-overflow guard instead).
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-neutral-950 text-neutral-100">
+    <main className="relative min-h-screen bg-neutral-950 text-neutral-100">
       {/* ------------------------------------------------------------------ */}
-      {/* Ambient backdrop — pure CSS, no images                              */}
+      {/* Ambient backdrop - pure CSS/SVG, no images, no deps                 */}
       {/* ------------------------------------------------------------------ */}
 
-      {/* Top aurora glow */}
+      {/* Animated graph constellation - the product motif, brand cyan. Confined
+          to the top hero band and faded out so it never fights the content. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(70rem_50rem_at_50%_-15%,theme(colors.sky.500/18),transparent)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[42rem] opacity-50 [mask-image:radial-gradient(60rem_38rem_at_50%_20%,black,transparent_75%)]"
+      >
+        <HeroConstellation />
+      </div>
+
+      {/* Top aurora glow - slowly drifts for depth (motion-safe). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-40 left-1/2 h-[55rem] w-[80rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,theme(colors.accent.500/22),transparent)] blur-2xl motion-safe:animate-aurora-drift"
       />
-      {/* Secondary accent — lower right */}
+      {/* Secondary accent - lower right, counter-drifts. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 right-0 h-[50rem] w-[50rem] translate-x-1/3 translate-y-1/3 bg-[radial-gradient(circle,theme(colors.violet.600/8),transparent_70%)]"
+        className="pointer-events-none absolute bottom-0 right-0 h-[50rem] w-[50rem] translate-x-1/3 translate-y-1/3 rounded-full bg-[radial-gradient(circle,theme(colors.violet.600/10),transparent_70%)] blur-2xl motion-safe:animate-aurora-drift [animation-delay:-9s]"
       />
-      {/* Dot grid */}
+      {/* Dot grid - very faint, masked so it fades toward the edges. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.045] [background-image:radial-gradient(theme(colors.neutral.400)_1px,transparent_1px)] [background-size:28px_28px]"
+        className="pointer-events-none absolute inset-0 opacity-[0.05] [background-image:radial-gradient(theme(colors.neutral.400)_1px,transparent_1px)] [background-size:30px_30px] [mask-image:radial-gradient(80rem_50rem_at_50%_0%,black,transparent_80%)]"
       />
 
       <div className="relative">
         {/* ================================================================ */}
         {/* NAV                                                               */}
         {/* ================================================================ */}
-        <header className="sticky top-0 z-40 border-b border-neutral-900/80 bg-neutral-950/80 backdrop-blur-md">
+        {/* No backdrop-blur here on purpose: this header is `position: sticky`,
+            pinned on screen for the entire scroll of a long (4+ screen) page.
+            `backdrop-filter: blur()` re-samples everything behind the element
+            on every frame it's visible - one of the most-documented real-world
+            scroll-jank sources on mobile Chrome/Safari, and unlike this page's
+            other blurred elements (the aurora glow, `position: absolute`,
+            costs nothing once scrolled past), this one is live for the whole
+            page. A near-opaque solid background gives the same "floating
+            nav" look for a fraction of the compositing cost.
+            Fully opaque (not translucent): a real scrolled screenshot showed
+            section text/dividers faintly bleeding through the header at
+            94-95% opacity with no blur to obscure it - legible enough to
+            read as visual clutter. A solid background removes the ghosting
+            completely and is *cheaper* to composite than any alpha blend. */}
+        <header className="sticky top-0 z-40 border-b border-neutral-800/60 bg-neutral-950">
           <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
-            <Link
-              href="/"
-              className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-neutral-100 transition-opacity hover:opacity-80"
-            >
-              <GraphMark className="h-6 w-6 text-sky-400" />
-              <span>GraphVault</span>
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-neutral-100 transition-opacity hover:opacity-80"
+              >
+                <GraphMark className="h-6 w-6 text-accent-400" />
+                <span className="font-display text-[1.05rem] tracking-[-0.02em]">GraphVault</span>
+              </Link>
+              {/* Marketing-chrome marker: this is the public product page, not
+                  the app. Sets the expectation that "Open GraphVault" crosses
+                  into a different (private) surface. */}
+              <span className="hidden rounded-full border border-neutral-800 bg-neutral-900/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500 sm:inline">
+                Product
+              </span>
+            </div>
 
             <div className="flex items-center gap-3 text-sm sm:gap-5">
               <Link
@@ -65,6 +104,12 @@ export default function LandingPage() {
               >
                 Vault
               </Link>
+              <Link
+                href="/download"
+                className="hidden text-neutral-400 transition-colors hover:text-neutral-100 sm:block"
+              >
+                Download
+              </Link>
               <a
                 href="https://github.com/Senior3514/GraphVault"
                 className="hidden items-center gap-1.5 text-neutral-400 transition-colors hover:text-neutral-100 sm:flex"
@@ -74,12 +119,13 @@ export default function LandingPage() {
                 <GitHubIcon className="h-4 w-4" />
                 GitHub
               </a>
-              {/* Tap target ≥ 40px via min-h-[40px] */}
+              {/* Tap target ≥ 44px via min-h-[44px] */}
               <Link
                 href="/vault"
-                className="inline-flex min-h-[40px] items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-neutral-950 shadow-md shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-accent-fg shadow-md shadow-accent-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-400 hover:shadow-lg hover:shadow-accent-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
-                Open the app
+                Open GraphVault
+                <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
             </div>
           </nav>
@@ -89,23 +135,29 @@ export default function LandingPage() {
         {/* HERO                                                              */}
         {/* ================================================================ */}
         <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-10 pt-14 sm:px-6 sm:pt-24 lg:grid-cols-[1fr_480px] lg:items-center lg:gap-16">
-          {/* Left — copy */}
-          <div className="motion-safe:animate-slide-up">
+          {/* Left - copy. Each block rises in with a small stagger. */}
+          <div>
             {/* Badge */}
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-3.5 py-1.5 text-xs text-neutral-400 shadow-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse" />
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/70 px-3.5 py-1.5 text-xs font-medium tracking-tight text-neutral-300 shadow-elevation-sm ring-1 ring-inset ring-white/[0.03] motion-safe:animate-rise-in">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400/60 motion-safe:animate-ping" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              </span>
               Local-first · No account needed · No telemetry, ever
             </div>
 
-            <h1 className="text-balance text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl sm:text-6xl xl:text-7xl">
+            <h1 className="text-balance font-display text-4xl font-semibold leading-[1.05] tracking-[-0.03em] motion-safe:animate-rise-in sm:text-5xl sm:text-6xl xl:text-7xl [animation-delay:60ms]">
               Notes that live{' '}
               <span className="relative whitespace-nowrap">
-                <span className="relative z-10 text-sky-400">on your terms</span>
+                {/* Animated gradient sheen on the accent phrase (motion-safe). */}
+                <span className="relative z-10 bg-gradient-to-r from-accent-300 via-accent-400 to-accent-300 bg-[length:200%_100%] bg-clip-text text-transparent motion-safe:animate-shimmer">
+                  on your terms
+                </span>
                 {/* Underline accent */}
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 300 12"
-                  className="absolute -bottom-1 left-0 w-full fill-sky-500/25"
+                  className="absolute -bottom-1 left-0 w-full fill-accent-500/30"
                   preserveAspectRatio="none"
                 >
                   <path d="M0 9 Q150 0 300 9" />
@@ -114,14 +166,14 @@ export default function LandingPage() {
               .
             </h1>
 
-            <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-neutral-400">
+            <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-neutral-400 motion-safe:animate-rise-in [animation-delay:140ms]">
               GraphVault is a local-first Markdown app with self-hosted sync and a graph you can
-              actually think in. Open straight into your vault — no folder picker, no &quot;allow
+              actually think in. Open straight into your vault - no folder picker, no &quot;allow
               access to your files&quot; dialog. Start writing in seconds.
             </p>
 
             {/* Keyboard hints */}
-            <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-500">
+            <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-500 motion-safe:animate-rise-in [animation-delay:200ms]">
               <span>
                 Press <Kbd>Cmd</Kbd>
                 <Kbd>K</Kbd> to go anywhere
@@ -140,30 +192,55 @@ export default function LandingPage() {
               </span>
             </p>
 
-            {/* CTAs — min-h-[44px] ensures touch targets meet accessibility guidelines */}
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            {/* CTAs - the primary action is unmistakable; min-h-[44px] keeps
+                every touch target above the accessibility floor. */}
+            <div className="mt-8 flex flex-wrap items-center gap-3 motion-safe:animate-rise-in [animation-delay:260ms]">
               <Link
                 href="/vault"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 font-semibold text-neutral-950 shadow-lg shadow-sky-500/25 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="group inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 font-semibold text-accent-fg shadow-lg shadow-accent-500/25 transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-400 hover:shadow-xl hover:shadow-accent-400/30 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
-                Open the app
-                <ArrowRightIcon className="h-4 w-4" />
+                Open your private vault
+                <ArrowRightIcon className="h-4 w-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none" />
               </Link>
+              {/* Download the native app - routes to the OS-aware download page. */}
+              <Link
+                href="/download"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-accent-500/40 bg-accent-500/10 px-5 py-2.5 font-medium text-accent-300 transition-all duration-150 ease-out hover:border-accent-500/60 hover:bg-accent-500/15 hover:text-accent-200 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+              >
+                <DownloadIcon className="h-4 w-4" />
+                Download the app
+              </Link>
+              {/* PWA install affordance - platform-aware; renders nothing when
+                  already installed or when install isn't possible. */}
+              <InstallButton />
               <a
                 href="https://github.com/Senior3514/GraphVault"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900/60 px-5 py-2.5 font-medium text-neutral-200 transition-all hover:border-neutral-700 hover:bg-neutral-900 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/60 px-5 py-2.5 font-medium text-neutral-200 transition-all duration-150 ease-out hover:border-neutral-700 hover:bg-neutral-900 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
               >
                 <GitHubIcon className="h-4 w-4 text-neutral-400" />
                 Star on GitHub
               </a>
-              {/* PWA install button — shown only when browser supports it */}
-              <InstallButton />
             </div>
+
+            {/* Separation cue: spell out that the button crosses from this
+                public page INTO a private, on-device workspace. Directly
+                answers "do I need an account?" (no) and "who can see this?"
+                (only you, on this device). */}
+            <p className="mt-5 flex items-start gap-2 text-sm text-neutral-500 motion-safe:animate-rise-in [animation-delay:320ms]">
+              <LockIcon className="mt-0.5 h-4 w-4 shrink-0 text-accent-400/80" />
+              <span>
+                <span className="font-medium text-neutral-300">
+                  This page is public; your vault is private.
+                </span>{' '}
+                No sign-up, no account, works offline - opening GraphVault drops you into a
+                workspace that lives only on this device. No one else can see it.
+              </span>
+            </p>
           </div>
 
-          {/* Right — product preview */}
+          {/* Right - product preview */}
           <div className="motion-safe:animate-slide-up-delay">
             <ProductPreview />
           </div>
@@ -183,7 +260,7 @@ export default function LandingPage() {
               <span aria-hidden="true" className="hidden text-neutral-800 sm:block">
                 ·
               </span>
-              <StatBadge icon="📁" label="Plain Markdown on disk — no lock-in" />
+              <StatBadge icon="📁" label="Plain Markdown on disk - no lock-in" />
               <span aria-hidden="true" className="hidden text-neutral-800 sm:block">
                 ·
               </span>
@@ -208,25 +285,29 @@ export default function LandingPage() {
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <PromiseCard
               icon={<FileIcon />}
-              accent="sky"
+              accent="brand"
+              seed={0}
               title="Local-first, no lock-in"
-              description="Your vault is plain Markdown. Unzip the export and you have readable .md files — no proprietary database, no import step."
+              description="Your vault is plain Markdown. Unzip the export and you have readable .md files - no proprietary database, no import step."
             />
             <PromiseCard
               icon={<SyncIcon />}
               accent="violet"
+              seed={1}
               title="Self-hosted sync"
-              description="One small open-source server on your own VPS. Per-device tokens, conflict-aware, content-addressed — it never silently loses a note."
+              description="One small open-source server on your own VPS. Per-device tokens, conflict-aware, content-addressed - it never silently loses a note."
             />
             <PromiseCard
               icon={<GraphIcon />}
               accent="emerald"
+              seed={2}
               title="A graph to think in"
-              description="Every note and link becomes a navigable graph with live physics, typed relations, hover highlights, and filters — a first-class tool."
+              description="Every note and link becomes a navigable graph with live physics, typed relations, hover highlights, and filters - a first-class tool."
             />
             <PromiseCard
               icon={<ShieldIcon />}
               accent="amber"
+              seed={3}
               title="Security-conscious"
               description="TLS by default, hashed passwords, optional AES-256-GCM at-rest encryption, zero telemetry. Your notes are yours."
             />
@@ -234,13 +315,13 @@ export default function LandingPage() {
         </section>
 
         {/* ================================================================ */}
-        {/* FEATURE SHOWCASE — annotated screenshot mockup                    */}
+        {/* FEATURE SHOWCASE - annotated screenshot mockup                    */}
         {/* ================================================================ */}
         <section className="border-y border-neutral-900 bg-neutral-950/40 py-16 sm:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionLabel>The vault</SectionLabel>
             <h2 className="mt-2 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-              A full Markdown workspace — in your browser.
+              A full Markdown workspace - in your browser.
             </h2>
 
             <div className="mt-12 grid gap-8 lg:grid-cols-2 lg:items-center">
@@ -279,7 +360,7 @@ export default function LandingPage() {
                   },
                   {
                     title: 'Export anytime',
-                    desc: 'Download a lossless Markdown ZIP or a JSON backup with one click — no account, no internet required.',
+                    desc: 'Download a lossless Markdown ZIP or a JSON backup with one click - no account, no internet required.',
                   },
                 ].map(({ title, desc }) => (
                   <FeatureLine key={title} title={title}>
@@ -302,7 +383,7 @@ export default function LandingPage() {
                 Not just a pretty hairball.
               </h2>
               <p className="mt-4 max-w-xl text-pretty text-base leading-relaxed text-neutral-400">
-                GraphVault&apos;s graph is a real navigation tool — degree-scaled nodes, live
+                GraphVault&apos;s graph is a real navigation tool - degree-scaled nodes, live
                 physics, hover highlights, and click-to-open. Filter by tag, type, or date. Double
                 click to open a note without leaving the graph.
               </p>
@@ -349,11 +430,11 @@ export default function LandingPage() {
 
             {/* Desktop: 3-column table; Mobile: stacked cards per feature */}
             <div className="mt-12 overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/40">
-              {/* Table header — only shown on sm+ */}
+              {/* Table header - only shown on sm+ */}
               <div className="hidden grid-cols-3 border-b border-neutral-800 text-xs font-semibold uppercase tracking-wide sm:grid">
                 <div className="px-5 py-3 text-neutral-500">Feature</div>
                 <div className="border-l border-neutral-800 px-5 py-3 text-neutral-500">Others</div>
-                <div className="border-l border-neutral-800 bg-sky-500/5 px-5 py-3 text-sky-400">
+                <div className="border-l border-neutral-800 bg-accent-500/5 px-5 py-3 text-accent-400">
                   GraphVault
                 </div>
               </div>
@@ -373,7 +454,7 @@ export default function LandingPage() {
                     <div className="border-l border-neutral-800 px-5 py-3.5 text-neutral-600">
                       {them}
                     </div>
-                    <div className="border-l border-neutral-800 bg-sky-500/5 px-5 py-3.5 font-medium text-neutral-200">
+                    <div className="border-l border-neutral-800 bg-accent-500/5 px-5 py-3.5 font-medium text-neutral-200">
                       {us}
                     </div>
                   </div>
@@ -390,7 +471,7 @@ export default function LandingPage() {
                         <span className="text-neutral-600">{them}</span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <span className="mt-0.5 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-sky-400 w-16">
+                        <span className="mt-0.5 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-accent-400 w-16">
                           GV
                         </span>
                         <span className="font-medium text-neutral-200">{us}</span>
@@ -411,26 +492,19 @@ export default function LandingPage() {
             {/* Decorative glow */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_20rem_at_50%_-10%,theme(colors.sky.500/12),transparent)]"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_20rem_at_50%_-10%,theme(colors.accent.500/12),transparent)]"
             />
 
             <div className="relative">
-              {/* Star animation row */}
-              <div className="mb-4 flex justify-center">
-                <div className="flex items-center gap-1" aria-label="Five star rating">
-                  {[...Array<null>(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="h-5 w-5 text-amber-400 motion-safe:animate-fade-in"
-                      style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
-                      aria-hidden="true"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
+              {/* A small constellation, not a fake review score - GraphVault
+                  has no star ratings to show, so a row of 5 filled stars here
+                  would only ever be decorative-and-misleading (and is the
+                  exact "app store CTA" cliche every dev-tool landing page
+                  reaches for). Five nodes joining into a little network reads
+                  as "your notes becoming a graph" instead - the same visual
+                  language as the hero and the graph section above. */}
+              <div className="mb-5 flex justify-center">
+                <MiniConstellationAccent />
               </div>
 
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -438,7 +512,7 @@ export default function LandingPage() {
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-base text-neutral-400">
                 It&apos;s open-source, self-hostable, and gets better with every star. No account
-                needed to try the app — just open it and write.
+                needed to try the app - just open it and write.
               </p>
 
               <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -475,7 +549,7 @@ export default function LandingPage() {
             <div className="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center">
               <div>
                 <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
-                  <GraphMark className="h-5 w-5 text-sky-400" />
+                  <GraphMark className="h-5 w-5 text-accent-400" />
                   GraphVault
                 </Link>
                 <p className="mt-1.5 text-xs text-neutral-600">
@@ -489,6 +563,9 @@ export default function LandingPage() {
                 </Link>
                 <Link href="/graph" className="transition-colors hover:text-neutral-300">
                   Graph
+                </Link>
+                <Link href="/download" className="transition-colors hover:text-neutral-300">
+                  Download
                 </Link>
                 <Link href="/settings" className="transition-colors hover:text-neutral-300">
                   Settings
@@ -516,12 +593,12 @@ export default function LandingPage() {
 }
 
 // ============================================================================
-// PRODUCT PREVIEW — CSS/SVG mock of the vault + graph UI
+// PRODUCT PREVIEW - CSS/SVG mock of the vault + graph UI
 // ============================================================================
 
 /**
  * Simulates the app shell with a note editor on the left and a mini graph
- * panel on the right. Entirely CSS + inline SVG — no canvas, no images.
+ * panel on the right. Entirely CSS + inline SVG - no canvas, no images.
  */
 function ProductPreview() {
   return (
@@ -529,7 +606,7 @@ function ProductPreview() {
       {/* Outer shadow / glow */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 -m-4 rounded-3xl bg-[radial-gradient(50%_50%_at_50%_50%,theme(colors.sky.500/15),transparent)] blur-2xl"
+        className="absolute inset-0 -m-4 rounded-3xl bg-[radial-gradient(50%_50%_at_50%_50%,theme(colors.accent.500/15),transparent)] blur-2xl"
       />
 
       <div className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl shadow-black/60 ring-1 ring-white/[0.06] motion-safe:animate-float">
@@ -575,13 +652,13 @@ function ProductPreview() {
             <div className="space-y-1.5 font-mono text-[11px] leading-relaxed">
               <div className="font-semibold text-neutral-100"># Ideas</div>
               <div className="text-neutral-500">
-                See <span className="rounded bg-sky-950/60 px-1 text-sky-300">[[Sync]]</span>
+                See <span className="rounded bg-accent-950/60 px-1 text-accent-300">[[Sync]]</span>
                 {' and '}
-                <span className="rounded bg-sky-950/60 px-1 text-sky-300">[[Graph]]</span>
+                <span className="rounded bg-accent-950/60 px-1 text-accent-300">[[Graph]]</span>
               </div>
               <div className="text-neutral-500">
-                <span className="rounded bg-sky-950/40 px-1 text-sky-400">#project</span>{' '}
-                <span className="rounded bg-sky-950/40 px-1 text-sky-400">#v0</span>
+                <span className="rounded bg-accent-950/40 px-1 text-accent-400">#project</span>{' '}
+                <span className="rounded bg-accent-950/40 px-1 text-accent-400">#v0</span>
               </div>
               <div className="h-3" />
               <div className="text-neutral-600">## Notes so far</div>
@@ -590,7 +667,7 @@ function ProductPreview() {
               {/* Blinking cursor */}
               <div className="flex items-center text-neutral-600">
                 <span>- </span>
-                <span className="ml-px h-3 w-0.5 bg-sky-400 motion-safe:animate-pulse" />
+                <span className="ml-px h-3 w-0.5 bg-accent-400 motion-safe:animate-pulse" />
               </div>
             </div>
           </div>
@@ -710,20 +787,20 @@ function VaultPreview() {
         <div className="min-w-0 flex-1 border-r border-neutral-800 p-4 font-mono">
           <div className="text-neutral-100">## Q3 Planning</div>
           <div className="mt-1 text-neutral-500">
-            Goals: finish <span className="text-sky-300">[[Graph]]</span> v2
+            Goals: finish <span className="text-accent-300">[[Graph]]</span> v2
           </div>
           <div className="text-neutral-500">
-            and wire up <span className="text-sky-300">[[Sync]]</span>.
+            and wire up <span className="text-accent-300">[[Sync]]</span>.
           </div>
           <div className="mt-2 text-neutral-500">
-            <span className="text-sky-400">#milestone</span>{' '}
-            <span className="text-sky-400">#planning</span>
+            <span className="text-accent-400">#milestone</span>{' '}
+            <span className="text-accent-400">#planning</span>
           </div>
           <div className="mt-2 text-neutral-600">- [ ] Ship export flow</div>
           <div className="text-neutral-600">- [x] Auth complete</div>
           <div className="flex items-center text-neutral-600">
             <span>- [ ] </span>
-            <span className="ml-px h-2.5 w-0.5 bg-sky-400 motion-safe:animate-pulse" />
+            <span className="ml-px h-2.5 w-0.5 bg-accent-400 motion-safe:animate-pulse" />
           </div>
         </div>
 
@@ -731,12 +808,15 @@ function VaultPreview() {
         <div className="min-w-0 flex-1 p-4">
           <div className="text-base font-semibold text-neutral-100">Q3 Planning</div>
           <div className="mt-1.5 leading-relaxed text-neutral-400">
-            Goals: finish <span className="rounded bg-sky-950/50 px-0.5 text-sky-300">Graph</span>{' '}
-            v2 and wire up <span className="rounded bg-sky-950/50 px-0.5 text-sky-300">Sync</span>.
+            Goals: finish{' '}
+            <span className="rounded bg-accent-950/50 px-0.5 text-accent-300">Graph</span> v2 and
+            wire up <span className="rounded bg-accent-950/50 px-0.5 text-accent-300">Sync</span>.
           </div>
           <div className="mt-2 flex gap-1">
-            <span className="rounded bg-sky-950/40 px-1 text-xs text-sky-400">#milestone</span>
-            <span className="rounded bg-sky-950/40 px-1 text-xs text-sky-400">#planning</span>
+            <span className="rounded bg-accent-950/40 px-1 text-xs text-accent-400">
+              #milestone
+            </span>
+            <span className="rounded bg-accent-950/40 px-1 text-xs text-accent-400">#planning</span>
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-neutral-400">
             <span className="flex h-3 w-3 items-center justify-center rounded-sm border border-neutral-600">
@@ -775,7 +855,7 @@ function GraphSVGPreview() {
             Global graph
           </span>
           <span className="ml-auto flex items-center gap-1.5 rounded-full border border-neutral-800 px-2 py-0.5 text-[10px] text-neutral-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+            <span className="h-1.5 w-1.5 rounded-full bg-accent-400" />
             note
             <span className="ml-1 h-1.5 w-1.5 rounded-full bg-violet-400" />
             tag
@@ -848,7 +928,7 @@ function GraphSVGPreview() {
             <line x1="300" y1="65" x2="260" y2="25" />
           </g>
 
-          {/* Satellite cluster — peripheral nodes */}
+          {/* Satellite cluster - peripheral nodes */}
           <circle cx="30" cy="130" r="5" fill="url(#g-grn)" opacity="0.7" />
           <circle cx="350" cy="120" r="5" fill="url(#g-grn)" opacity="0.7" />
           <circle cx="130" cy="30" r="5" fill="url(#g-sat)" opacity="0.7" />
@@ -865,7 +945,7 @@ function GraphSVGPreview() {
           <circle cx="145" cy="230" r="8" fill="url(#g-sat)" opacity="0.9" />
           <circle cx="240" cy="230" r="8" fill="url(#g-grn)" opacity="0.9" />
 
-          {/* Hub — glowing center */}
+          {/* Hub - glowing center */}
           <circle cx="190" cy="140" r="6" fill="url(#g-hub)" filter="url(#glow)" opacity="0.5" />
           <circle cx="190" cy="140" r="14" fill="url(#g-hub)" />
 
@@ -919,7 +999,7 @@ function GraphSVGPreview() {
 function SectionLabel({ children, centered }: { children: React.ReactNode; centered?: boolean }) {
   return (
     <p
-      className={`text-xs font-semibold uppercase tracking-widest text-sky-400 ${centered ? 'text-center' : ''}`}
+      className={`text-xs font-semibold uppercase tracking-widest text-accent-400 ${centered ? 'text-center' : ''}`}
     >
       {children}
     </p>
@@ -940,38 +1020,187 @@ function PromiseCard({
   accent,
   title,
   description,
+  seed,
 }: {
   icon: React.ReactNode;
-  accent: 'sky' | 'violet' | 'emerald' | 'amber';
+  accent: 'brand' | 'violet' | 'emerald' | 'amber';
   title: string;
   description: string;
+  /** Picks a `CONSTELLATION_LAYOUTS` entry so the 4 cards don't all bleed the
+   *  identical node pattern into their corner - each gets its own shape. */
+  seed: number;
 }) {
   const accentMap = {
-    sky: 'border-sky-400/20 bg-sky-500/10 text-sky-300',
+    brand: 'border-accent-400/20 bg-accent-500/10 text-accent-300',
     violet: 'border-violet-400/20 bg-violet-500/10 text-violet-300',
     emerald: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
     amber: 'border-amber-400/20 bg-amber-500/10 text-amber-300',
   };
 
   return (
-    <div className="group rounded-xl border border-neutral-800 bg-neutral-900/50 p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900">
+    <div className="group relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/50 p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900">
+      {/* Corner constellation motif - ties every card back to the graph, the
+          product's actual visual signature, instead of a generic icon-chip
+          card design any SaaS template could have. Purely decorative. */}
+      <span
+        className={`pointer-events-none absolute inset-0 ${accentMap[accent].split(' ').pop()}`}
+      >
+        <CardConstellation seed={seed} />
+      </span>
       <span
         aria-hidden="true"
-        className={`flex h-10 w-10 items-center justify-center rounded-lg border ${accentMap[accent]}`}
+        className={`relative flex h-10 w-10 items-center justify-center rounded-lg border ${accentMap[accent]}`}
       >
         {icon}
       </span>
-      <h3 className="mt-4 text-base font-semibold text-neutral-100">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-neutral-400">{description}</p>
+      <h3 className="relative mt-4 text-base font-semibold text-neutral-100">{title}</h3>
+      <p className="relative mt-2 text-sm leading-relaxed text-neutral-400">{description}</p>
     </div>
+  );
+}
+
+/**
+ * Four small node-and-edge layouts (bottom-right corner accent for
+ * `PromiseCard`), reusing the same visual language as `HeroConstellation`
+ * and the graph view itself - deliberately not a fifth generic icon set.
+ */
+const CONSTELLATION_LAYOUTS: ReadonlyArray<{
+  nodes: ReadonlyArray<{ cx: number; cy: number; r: number }>;
+  edges: ReadonlyArray<readonly [number, number]>;
+}> = [
+  {
+    nodes: [
+      { cx: 78, cy: 22, r: 3.5 },
+      { cx: 96, cy: 46, r: 5 },
+      { cx: 68, cy: 58, r: 2.5 },
+      { cx: 100, cy: 78, r: 4 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [1, 3],
+    ],
+  },
+  {
+    nodes: [
+      { cx: 70, cy: 30, r: 4.5 },
+      { cx: 94, cy: 20, r: 2.5 },
+      { cx: 100, cy: 58, r: 3.5 },
+      { cx: 76, cy: 72, r: 2.5 },
+    ],
+    edges: [
+      [0, 1],
+      [0, 2],
+      [2, 3],
+    ],
+  },
+  {
+    nodes: [
+      { cx: 88, cy: 18, r: 3 },
+      { cx: 66, cy: 40, r: 5 },
+      { cx: 100, cy: 44, r: 2.5 },
+      { cx: 82, cy: 70, r: 3.5 },
+    ],
+    edges: [
+      [1, 0],
+      [1, 2],
+      [1, 3],
+    ],
+  },
+  {
+    nodes: [
+      { cx: 100, cy: 30, r: 3 },
+      { cx: 76, cy: 24, r: 2.5 },
+      { cx: 82, cy: 56, r: 4.5 },
+      { cx: 104, cy: 74, r: 3 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+    ],
+  },
+];
+
+function CardConstellation({ seed }: { seed: number }) {
+  const layout = CONSTELLATION_LAYOUTS[seed % CONSTELLATION_LAYOUTS.length]!;
+  return (
+    <svg
+      viewBox="0 0 112 88"
+      className="absolute -right-2 -top-2 h-28 w-28 opacity-[0.32] transition-opacity duration-300 group-hover:opacity-[0.55]"
+      aria-hidden="true"
+    >
+      {layout.edges.map(([a, b]) => {
+        const from = layout.nodes[a]!;
+        const to = layout.nodes[b]!;
+        return (
+          <line
+            key={`${a}-${b}`}
+            x1={from.cx}
+            y1={from.cy}
+            x2={to.cx}
+            y2={to.cy}
+            stroke="currentColor"
+            strokeWidth="1"
+          />
+        );
+      })}
+      {layout.nodes.map((n, i) => (
+        <circle key={i} cx={n.cx} cy={n.cy} r={n.r} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
+/** Five small nodes joining into a network - the GitHub-star CTA's brand-consistent
+ *  stand-in for a literal 5-star rating row (see the comment at its call site). */
+function MiniConstellationAccent() {
+  const nodes = [
+    { cx: 10, cy: 20, r: 3 },
+    { cx: 34, cy: 8, r: 4 },
+    { cx: 60, cy: 22, r: 5 },
+    { cx: 86, cy: 8, r: 4 },
+    { cx: 110, cy: 20, r: 3 },
+  ];
+  const edges: ReadonlyArray<readonly [number, number]> = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+  ];
+  return (
+    <svg viewBox="0 0 120 32" className="h-8 w-32 text-accent-400" aria-hidden="true">
+      {edges.map(([a, b]) => (
+        <line
+          key={`${a}-${b}`}
+          x1={nodes[a]!.cx}
+          y1={nodes[a]!.cy}
+          x2={nodes[b]!.cx}
+          y2={nodes[b]!.cy}
+          stroke="currentColor"
+          strokeOpacity="0.5"
+          strokeWidth="1.5"
+        />
+      ))}
+      {nodes.map((n, i) => (
+        <g
+          key={i}
+          className="motion-safe:animate-twinkle"
+          style={{ animationDelay: `${i * 180}ms`, transformOrigin: `${n.cx}px ${n.cy}px` }}
+        >
+          <circle cx={n.cx} cy={n.cy} r={n.r * 2.2} fill="currentColor" opacity="0.15" />
+          <circle cx={n.cx} cy={n.cy} r={n.r} fill="currentColor" />
+        </g>
+      ))}
+    </svg>
   );
 }
 
 function FeatureLine({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-4">
-      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-sky-400/20 bg-sky-500/10">
-        <CheckIcon className="h-3.5 w-3.5 text-sky-400" />
+      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-accent-400/20 bg-accent-500/10">
+        <CheckIcon className="h-3.5 w-3.5 text-accent-400" />
       </div>
       <div>
         <h3 className="text-sm font-semibold text-neutral-100">{title}</h3>
@@ -1018,6 +1247,21 @@ function GitHubIcon({ className }: { className?: string }) {
   );
 }
 
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M10 3v9M6 8l4 4 4-4M4 15h12" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function ArrowRightIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -1044,6 +1288,18 @@ function CheckIcon({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <path d="M3 8l3.5 3.5L13 4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        d="M10 1a4 4 0 00-4 4v2H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-1V5a4 4 0 00-4-4zm2 6V5a2 2 0 10-4 0v2h4z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 }

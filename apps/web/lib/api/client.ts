@@ -116,7 +116,7 @@ export class GraphVaultClient {
     return data as T;
   }
 
-  /** GET /v1/health — confirms the server is reachable and reports versions. */
+  /** GET /v1/health - confirms the server is reachable and reports versions. */
   async health(): Promise<HealthInfo> {
     return this.request<HealthInfo>('/v1/health', {
       method: 'GET',
@@ -144,7 +144,7 @@ export class GraphVaultClient {
     return authTokenSchema.parse(data);
   }
 
-  /** GET /v1/vaults — list all vaults owned by the authenticated user. */
+  /** GET /v1/vaults - list all vaults owned by the authenticated user. */
   async listVaults(): Promise<VaultRef[]> {
     return this.request<VaultRef[]>('/v1/vaults', {
       method: 'GET',
@@ -152,7 +152,7 @@ export class GraphVaultClient {
     });
   }
 
-  /** POST /v1/vaults — register a new vault for the authenticated user. */
+  /** POST /v1/vaults - register a new vault for the authenticated user. */
   async registerVault(name: string): Promise<RegisterVaultResponse> {
     const data = await this.request<unknown>('/v1/vaults', {
       method: 'POST',
@@ -182,7 +182,7 @@ export class GraphVaultClient {
 
   /**
    * GET /v1/storage/webdav/config
-   * Fetch non-secret config info (URL, username, updatedAt — no password).
+   * Fetch non-secret config info (URL, username, updatedAt - no password).
    * Returns null if WebDAV is not configured.
    */
   async getWebDavConfig(): Promise<WebDavConfigInfo | null> {
@@ -230,7 +230,7 @@ export class GraphVaultClient {
   /**
    * GET /v1/storage/s3/config
    * Fetch non-secret config info (endpoint, region, bucket, accessKeyId, prefix,
-   * updatedAt — no secretAccessKey).
+   * updatedAt - no secretAccessKey).
    * Returns null if S3 is not configured.
    */
   async getS3Config(): Promise<S3ConfigInfo | null> {
@@ -279,7 +279,7 @@ export class GraphVaultClient {
 
   /**
    * GET /v1/ai/config
-   * Fetch non-secret config info (keySet, gateway, model, updatedAt — no key).
+   * Fetch non-secret config info (keySet, gateway, model, updatedAt - no key).
    * Returns null if AI is not configured.
    */
   async getAiConfig(): Promise<AiConfigInfo | null> {

@@ -1,7 +1,7 @@
 [package]
 name = "graphvault"
 version = "0.1.0"
-description = "GraphVault — local-first Markdown notes with a graph you can think in"
+description = "GraphVault - local-first Markdown notes with a graph you can think in"
 authors = ["GraphVault contributors"]
 edition = "2021"
 license = "MIT"
@@ -19,13 +19,15 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# Core Tauri runtime
-tauri = { version = "2", features = [
-  # Dialog plugin for the native folder-picker (vault open / save-as)
-  "dialog",
-] }
+# Core Tauri runtime. The native folder-picker dialog is provided by the
+# separate `tauri-plugin-dialog` crate below, NOT a feature of `tauri` itself -
+# "dialog" was never a valid feature on any 2.x release of the `tauri` crate
+# (see its Cargo.toml on crates.io for the real feature list), so declaring it
+# here made `cargo check`/`cargo build` fail dependency resolution entirely,
+# in any environment, regardless of system libraries.
+tauri = { version = "2", features = [] }
 
-# Tauri plugins — only what Milestone 16 requires
+# Tauri plugins - only what Milestone 16 requires
 tauri-plugin-fs = "2"      # Read / write .md files on disk
 tauri-plugin-dialog = "2"  # Open-vault folder picker
 

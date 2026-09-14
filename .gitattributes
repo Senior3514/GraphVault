@@ -1,0 +1,6 @@
+# Append-only knowledge logs are written to by many parallel PRs. Use git's
+# built-in "union" merge driver so concurrent appends are combined automatically
+# (both sides kept) instead of producing a conflict on every PR. Safe because new
+# entries are added at the end and never reordered.
+docs/agent-company/lessons.md merge=union
+CHANGELOG.md merge=union

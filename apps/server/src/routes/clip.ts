@@ -28,7 +28,7 @@ export function registerClipRoutes(app: FastifyInstance, services: Services): vo
    * Response: { title: string, markdown: string, sourceUrl: string }
    */
   app.post('/v1/clip', async (request, reply) => {
-    // Require authentication — clipping is a server-side outbound request and
+    // Require authentication - clipping is a server-side outbound request and
     // should only be accessible to signed-in users.
     await auth(request);
 

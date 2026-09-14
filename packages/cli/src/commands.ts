@@ -2,7 +2,7 @@
  * Pure, IO-free command logic for the graphvault CLI.
  *
  * Every exported function takes a pre-built GraphIndex (or the raw note data)
- * and returns a plain data result. No filesystem reads, no console.log here —
+ * and returns a plain data result. No filesystem reads, no console.log here -
  * all that lives in the index.ts entry-point so this module is unit-testable
  * with node:test.
  */

@@ -3,7 +3,7 @@
  *
  * Obsidian exports are either:
  *   a) A ZIP of the vault folder (produced by "Export to ZIP" or third-party
- *      tools) — this path reuses `readVaultZip` from portability.ts.
+ *      tools) - this path reuses `readVaultZip` from portability.ts.
  *   b) A plain folder of `.md` files (handled via the generic import or
  *      drag-and-drop in the existing Import section).
  *

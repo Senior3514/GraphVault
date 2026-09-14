@@ -4,7 +4,7 @@
  * subfolder structure preserved.
  *
  * This module is framework-free and dependency-free so it can be unit-tested
- * and reused by the desktop shell. It is a browser-only module — never import
+ * and reused by the desktop shell. It is a browser-only module - never import
  * it on the server side.
  *
  * Security notes:
@@ -77,7 +77,7 @@ export interface DirectoryExportSummary {
  * directories as needed.
  *
  * Throws `DOMException` with `name === "AbortError"` if the user cancels the
- * picker — callers should catch and handle gracefully (show a "cancelled" hint,
+ * picker - callers should catch and handle gracefully (show a "cancelled" hint,
  * not an error).
  *
  * @param notes   The notes to export (read-only; never mutated).
@@ -131,7 +131,7 @@ export async function writeNoteToDirectory(
   // Navigate / create intermediate directories.
   let dir: FileSystemDirectoryHandle = root;
   for (const segment of folders) {
-    // We never use string concatenation or OS path APIs — each segment is
+    // We never use string concatenation or OS path APIs - each segment is
     // traversed via the API, so the browser enforces containment.
     dir = await dir.getDirectoryHandle(segment, { create: true });
   }

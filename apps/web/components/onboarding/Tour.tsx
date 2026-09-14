@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Guided tour — multi-step coachmark/spotlight shown on first run.
+ * Guided tour - multi-step coachmark/spotlight shown on first run.
  *
  * ## Behaviour
  * - Shown once; dismissed state persisted in localStorage.
@@ -12,22 +12,26 @@
  * - Keyboard: Esc → close; ArrowRight/Enter → next; ArrowLeft → prev.
  * - Focus trapped inside the coachmark while open.
  * - `prefers-reduced-motion` respected (animation class is motion-safe).
- * - Fully responsive — falls back to centred modal when no target element
+ * - Fully responsive - falls back to centred modal when no target element
  *   is found or the step is designated center-only.
  *
  * ## Architecture
  * - Pure client component with zero new dependencies.
- * - Mounted additively in AppFrame; does not replace OnboardingHint.
+ * - Mounted additively in AppFrame alongside OnboardingHint, but the two
+ *   coordinate via `./keys.ts` so they never show at the same time and the
+ *   hint's tips never repeat what the tour just covered - see `dismiss()`.
  * - The spotlight ring uses a fixed overlay with a CSS mask cutout.
  */
 
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { ONBOARDING_HINT_DISMISSED_KEY, TOUR_DISMISSED_KEY } from './keys';
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-export const TOUR_DISMISSED_KEY = 'graphvault.tour.dismissed';
+export { TOUR_DISMISSED_KEY };
 export const TOUR_OPEN_EVENT = 'graphvault.tour.open';
 
 // ---------------------------------------------------------------------------
@@ -50,7 +54,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'command-palette',
     title: 'Command Palette',
-    body: 'Press Cmd K (or Ctrl K) to open any note, run commands, or search your entire vault — from anywhere in the app. This is your fastest way to navigate.',
+    body: 'Press Cmd K (or Ctrl K) to open any note, run commands, or search your entire vault - from anywhere in the app. This is your fastest way to navigate.',
     targetSelector: null,
     placement: 'center',
     shortcut: 'Cmd K',
@@ -58,7 +62,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'wikilinks',
     title: 'Link notes with [[ ]]',
-    body: 'Type [[ in the editor to link to another note. Autocomplete pops up immediately. Every link you write becomes an edge in your knowledge graph — no orphans.',
+    body: 'Type [[ in the editor to link to another note. Autocomplete pops up immediately. Every link you write becomes an edge in your knowledge graph - no orphans.',
     targetSelector: null,
     placement: 'center',
     shortcut: '[[',
@@ -66,7 +70,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'tags',
     title: 'Organise with #tags',
-    body: 'Add a #tag anywhere in a note (or in frontmatter). Tags cluster nodes in the graph and power the filter panel — great for cross-cutting themes.',
+    body: 'Add a #tag anywhere in a note (or in frontmatter). Tags cluster nodes in the graph and power the filter panel - great for cross-cutting themes.',
     targetSelector: null,
     placement: 'center',
     shortcut: '#',
@@ -74,7 +78,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'graph',
     title: 'Your knowledge graph',
-    body: 'Every wikilink becomes a graph edge. Open the Graph view to see your notes as a living map — filter by tag, scrub through time, or let AI name your clusters.',
+    body: 'Every wikilink becomes a graph edge. Open the Graph view to see your notes as a living map - filter by tag, scrub through time, or let AI name your clusters.',
     targetSelector: 'a[href="/graph"], [data-tour="graph-link"]',
     placement: 'right',
   },
@@ -256,6 +260,11 @@ export function Tour() {
   const dismiss = useCallback(() => {
     try {
       window.localStorage.setItem(TOUR_DISMISSED_KEY, '1');
+      // The tour's first three steps (command palette, wikilinks, tags)
+      // cover the exact same ground as OnboardingHint's three tips - mark it
+      // seen too so it doesn't repeat the same three things a moment later,
+      // whether the tour was finished or skipped early.
+      window.localStorage.setItem(ONBOARDING_HINT_DISMISSED_KEY, '1');
     } catch {
       /* ignore */
     }
@@ -337,7 +346,7 @@ export function Tour() {
       {spotlight && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-[61] rounded-xl ring-2 ring-sky-400/60 motion-safe:animate-pulse"
+          className="pointer-events-none fixed z-[61] rounded-xl ring-2 ring-accent-400/60 motion-safe:animate-pulse"
           style={{
             top: spotlight.top,
             left: spotlight.left,
@@ -413,7 +422,7 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
       <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
         <div className="flex items-center gap-2">
           <InfoIcon />
-          <span className="text-xs font-semibold uppercase tracking-wide text-sky-400">
+          <span className="text-xs font-semibold uppercase tracking-wide text-accent-400">
             Tour {stepIndex + 1} / {totalSteps}
           </span>
         </div>
@@ -421,7 +430,7 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
           type="button"
           onClick={onDismiss}
           aria-label="Close tour"
-          className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-sky-500"
+          className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-accent-500"
         >
           <CloseIcon />
         </button>
@@ -452,9 +461,9 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
               className={[
                 'h-1.5 rounded-full transition-all duration-200',
                 i === stepIndex
-                  ? 'w-4 bg-sky-400'
+                  ? 'w-4 bg-accent-400'
                   : i < stepIndex
-                    ? 'w-1.5 bg-sky-700'
+                    ? 'w-1.5 bg-accent-700'
                     : 'w-1.5 bg-neutral-700',
               ].join(' ')}
             />
@@ -467,7 +476,7 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
             <button
               type="button"
               onClick={onPrev}
-              className="rounded-md px-2.5 py-1.5 text-xs text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-sky-500"
+              className="rounded-md px-2.5 py-1.5 text-xs text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-accent-500"
             >
               Back
             </button>
@@ -475,7 +484,7 @@ const CoachmarkCard = forwardRef<HTMLDivElement, CoachmarkCardProps>(function Co
           <button
             type="button"
             onClick={onNext}
-            className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sky-500 focus-visible:ring-1 focus-visible:ring-sky-400 focus-visible:ring-offset-1 focus-visible:ring-offset-neutral-900"
+            className="rounded-md bg-accent-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-500 focus-visible:ring-1 focus-visible:ring-accent-400 focus-visible:ring-offset-1 focus-visible:ring-offset-neutral-900"
           >
             {isLast ? 'Done' : 'Next'}
           </button>
@@ -494,7 +503,7 @@ function InfoIcon() {
     <svg
       viewBox="0 0 16 16"
       fill="currentColor"
-      className="h-3.5 w-3.5 text-sky-400"
+      className="h-3.5 w-3.5 text-accent-400"
       aria-hidden="true"
     >
       <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Z" />

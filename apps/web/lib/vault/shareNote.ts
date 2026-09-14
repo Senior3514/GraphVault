@@ -19,7 +19,7 @@
  *
  * ## Path derivation
  * The note filename is derived from the title (or today's date + domain as
- * fallback). Collision handling is the caller's responsibility — the helper
+ * fallback). Collision handling is the caller's responsibility - the helper
  * returns a `basePath` that the caller should make unique (e.g. append ` (2)`).
  */
 
@@ -32,7 +32,7 @@ export interface ShareParams {
 
 /** Result produced by {@link composeSharedNote}. */
 export interface ComposedNote {
-  /** Suggested vault path without collision suffix (e.g. "Web Clip — Example.md"). */
+  /** Suggested vault path without collision suffix (e.g. "Web Clip - Example.md"). */
   basePath: string;
   /** Full Markdown content ready to store. */
   content: string;
@@ -70,7 +70,7 @@ function hostOf(raw: string): string {
  *   is used; final fallback is `"Shared note"`.
  * - `text` becomes the body paragraph (may be empty).
  * - `url` is appended as a Markdown link in a `Source:` line when present.
- * - The resulting `basePath` is `"Web Clip — <title>.md"` (collision-safe
+ * - The resulting `basePath` is `"Web Clip - <title>.md"` (collision-safe
  *   suffix added by the caller).
  */
 export function composeSharedNote(params: ShareParams): ComposedNote {
@@ -82,7 +82,7 @@ export function composeSharedNote(params: ShareParams): ComposedNote {
   const heading = title || (url ? hostOf(url) || 'Shared note' : 'Shared note');
 
   // Derive the vault path base.
-  const pathBase = sanitisePath(`Web Clip — ${heading}`);
+  const pathBase = sanitisePath(`Web Clip - ${heading}`);
   const basePath = `${pathBase}.md`;
 
   // Build the Markdown body.

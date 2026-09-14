@@ -62,7 +62,7 @@ export interface WorkspaceLayout {
    * Distraction-free "focus mode". When `true` the surrounding app chrome
    * (icon rail, sidebar, note-list + details panes, resize dividers, bottom
    * nav) is hidden and the editor column is centred to a comfortable reading
-   * width. Purely presentational — it never destroys the stored pane sizes or
+   * width. Purely presentational - it never destroys the stored pane sizes or
    * panel-visibility flags, so exiting restores the previous layout exactly.
    */
   focusMode: boolean;

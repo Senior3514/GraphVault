@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * AddButton — primary "+" fast-capture action for the vault.
+ * AddButton - primary "+" fast-capture action for the vault.
  *
  * Renders in two modes depending on the viewport:
  *  - Desktop (>= md): an inline "+ New" button in the note-list header area.
@@ -10,9 +10,9 @@
  *    not overlap existing chrome.
  *
  * One tap opens a small menu:
- *   • New note   — collision-safe Untitled.md, opened immediately (fast capture)
- *   • Import…    — triggers the folder-picker flow (same as command palette)
- *   • New folder — prompts for a folder name, creates Untitled.md inside it
+ *   • New note   - collision-safe Untitled.md, opened immediately (fast capture)
+ *   • Import…    - triggers the folder-picker flow (same as command palette)
+ *   • New folder - prompts for a folder name, creates Untitled.md inside it
  *
  * The menu is keyboard-accessible: arrow keys navigate, Enter runs, Esc closes.
  * Animations are gated on `prefers-reduced-motion`. The component is ARIA-labelled
@@ -251,7 +251,16 @@ export function AddButton({ onNoteCreated, variant = 'inline' }: AddButtonProps)
       <div
         className="fixed bottom-0 right-0 z-30 md:hidden"
         style={{
-          paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
+          // `fixed` positions this relative to the viewport, not the
+          // in-document-flow mobile pane-switcher nav bar (WorkspaceLayout.tsx)
+          // that sits at the real bottom of the screen - so without clearing
+          // its height explicitly, this FAB overlapped the nav bar's rightmost
+          // ("Details") tab by ~38px, silently eating its tap target. That nav
+          // bar's height is a stable, deliberately-fixed design constant
+          // (`min-h-[48px]` per tab + padding ≈ 54px) - measured in a real
+          // headless-Chromium check, not assumed. 70px = that ~54px plus the
+          // FAB's own original 16px breathing room.
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + 70px)',
           paddingRight: '16px',
         }}
       >
@@ -265,10 +274,10 @@ export function AddButton({ onNoteCreated, variant = 'inline' }: AddButtonProps)
           aria-controls={menuId}
           onClick={() => (menuOpen ? closeMenu() : openMenu())}
           className={[
-            // ≥ 48px touch target, circular, sky-blue accent, thumb-zone accessible.
-            'flex h-14 w-14 items-center justify-center rounded-full bg-sky-600 text-white shadow-lg',
-            'text-2xl font-light transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950',
-            'hover:bg-sky-500 active:scale-95 motion-reduce:active:scale-100',
+            // ≥ 48px touch target, circular, cyan brand accent, thumb-zone accessible.
+            'flex h-14 w-14 items-center justify-center rounded-full bg-accent-600 text-white shadow-lg',
+            'text-2xl font-light transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950',
+            'hover:bg-accent-500 active:scale-95 motion-reduce:active:scale-100',
             menuOpen ? 'rotate-45 motion-reduce:rotate-0' : '',
           ].join(' ')}
         >
@@ -297,7 +306,7 @@ export function AddButton({ onNoteCreated, variant = 'inline' }: AddButtonProps)
                 className={[
                   'flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors motion-reduce:transition-none',
                   i === highlight
-                    ? 'bg-sky-500/15 text-neutral-100'
+                    ? 'bg-accent-500/15 text-neutral-100'
                     : 'text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100',
                 ].join(' ')}
               >
@@ -306,7 +315,7 @@ export function AddButton({ onNoteCreated, variant = 'inline' }: AddButtonProps)
                   className={[
                     'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-xs',
                     i === highlight
-                      ? 'border-sky-400/40 bg-sky-500/10 text-sky-300'
+                      ? 'border-accent-400/40 bg-accent-500/10 text-accent-300'
                       : 'border-neutral-700 bg-neutral-800/60 text-neutral-400',
                   ].join(' ')}
                 >
@@ -337,7 +346,7 @@ export function AddButton({ onNoteCreated, variant = 'inline' }: AddButtonProps)
         aria-expanded={menuOpen}
         aria-controls={menuId}
         onClick={() => (menuOpen ? closeMenu() : openMenu())}
-        className="rounded bg-neutral-800 px-2 py-0.5 text-xs text-neutral-200 hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-500"
+        className="rounded bg-neutral-800 px-2 py-0.5 text-xs text-neutral-200 hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
       >
         + New
       </button>
@@ -364,7 +373,7 @@ export function AddButton({ onNoteCreated, variant = 'inline' }: AddButtonProps)
               className={[
                 'flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors motion-reduce:transition-none',
                 i === highlight
-                  ? 'bg-sky-500/15 text-neutral-100'
+                  ? 'bg-accent-500/15 text-neutral-100'
                   : 'text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100',
               ].join(' ')}
             >
@@ -373,7 +382,7 @@ export function AddButton({ onNoteCreated, variant = 'inline' }: AddButtonProps)
                 className={[
                   'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-xs',
                   i === highlight
-                    ? 'border-sky-400/40 bg-sky-500/10 text-sky-300'
+                    ? 'border-accent-400/40 bg-accent-500/10 text-accent-300'
                     : 'border-neutral-700 bg-neutral-800/60 text-neutral-400',
                 ].join(' ')}
               >

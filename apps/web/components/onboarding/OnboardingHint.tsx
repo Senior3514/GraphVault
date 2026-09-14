@@ -1,20 +1,22 @@
 'use client';
 
 /**
- * OnboardingHint — lightweight first-run tour strip.
+ * OnboardingHint - lightweight first-run tour strip.
  *
  * Shows three contextual tips after the vault loads for the first time.
  * Once dismissed (X button) the preference is persisted in localStorage and
  * the hint never appears again. Animates in; respects prefers-reduced-motion.
  *
  * Mount once inside AppShell (after the vault shell is shown). The component
- * self-hides if the user is on the landing page — AppFrame already guards that,
+ * self-hides if the user is on the landing page - AppFrame already guards that,
  * but it is defensive about it.
  */
 
 import { useEffect, useState } from 'react';
 
-const DISMISSED_KEY = 'graphvault.onboarding.dismissed';
+import { ONBOARDING_HINT_DISMISSED_KEY, TOUR_DISMISSED_KEY } from './keys';
+
+export { ONBOARDING_HINT_DISMISSED_KEY };
 
 interface Tip {
   keys: string[];
@@ -33,9 +35,19 @@ export function OnboardingHint() {
   // Delay the show so it doesn't compete with the vault loading flash.
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(DISMISSED_KEY) === '1') return;
+      if (window.localStorage.getItem(ONBOARDING_HINT_DISMISSED_KEY) === '1') return;
+      // The guided Tour's first three steps (command palette, wikilinks,
+      // tags) cover this exact same ground, and both are mounted at once in
+      // AppFrame - without this check they render on screen simultaneously
+      // on a brand-new user's very first vault view, one card overlapping
+      // the other. Wait for the Tour to be dismissed (finished or skipped)
+      // before this lighter hint is even eligible to show; `Tour`'s own
+      // dismiss handler also marks this hint dismissed at the same time,
+      // since its content was just fully covered - this check is the
+      // defensive fallback for any path that doesn't go through that.
+      if (window.localStorage.getItem(TOUR_DISMISSED_KEY) !== '1') return;
     } catch {
-      return; // storage unavailable — skip
+      return; // storage unavailable - skip
     }
     const id = setTimeout(() => setVisible(true), 600);
     return () => clearTimeout(id);
@@ -43,7 +55,7 @@ export function OnboardingHint() {
 
   function dismiss() {
     try {
-      window.localStorage.setItem(DISMISSED_KEY, '1');
+      window.localStorage.setItem(ONBOARDING_HINT_DISMISSED_KEY, '1');
     } catch {
       /* ignore */
     }
@@ -63,7 +75,7 @@ export function OnboardingHint() {
       <div className="pointer-events-auto rounded-xl border border-neutral-700/60 bg-neutral-900/95 shadow-2xl shadow-black/60 ring-1 ring-white/5 backdrop-blur-sm">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-2.5">
-          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-sky-400">
+          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-accent-400">
             <SparkleIcon />
             Quick start
           </span>
@@ -71,11 +83,20 @@ export function OnboardingHint() {
             type="button"
             onClick={dismiss}
             aria-label="Dismiss quick-start tips"
-            className="flex h-5 w-5 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-sky-500"
+            className="flex h-5 w-5 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300 focus-visible:ring-1 focus-visible:ring-accent-500"
           >
             <CloseIcon />
           </button>
         </div>
+
+        {/* Reassurance: GraphVault needs no account and works fully offline.
+            This directly answers the most common first-run question. */}
+        <p className="border-b border-neutral-800 px-4 py-2.5 text-xs leading-relaxed text-neutral-400">
+          <span className="font-medium text-neutral-200">
+            You&apos;re all set - no account needed.
+          </span>{' '}
+          GraphVault works fully offline and your notes stay on this device. Just start typing.
+        </p>
 
         {/* Tips */}
         <ul className="divide-y divide-neutral-800/60 px-4">
@@ -103,7 +124,7 @@ export function OnboardingHint() {
             onClick={dismiss}
             className="text-[11px] text-neutral-600 transition-colors hover:text-neutral-400"
           >
-            Got it — don&apos;t show again
+            Got it - don&apos;t show again
           </button>
         </div>
       </div>

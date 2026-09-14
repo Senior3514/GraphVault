@@ -1,13 +1,13 @@
 # Contributing to GraphVault
 
-Thanks for your interest in GraphVault — a local-first, zero-telemetry Markdown
+Thanks for your interest in GraphVault - a local-first, zero-telemetry Markdown
 PKM with a thinking graph, self-hosted sync, and bring-your-own-AI. Contributions
 of all kinds are welcome.
 
 ## Core principles (please respect these)
 
 1. **Never lose user data.** Anything that writes or migrates notes must be
-   non-destructive — prefer conflict copies over overwrites, and verify before
+   non-destructive - prefer conflict copies over overwrites, and verify before
    replacing.
 2. **Privacy first.** No telemetry by default. Note content must never leave the
    device unless the user explicitly enables a provider. AI/connector keys live
@@ -71,4 +71,4 @@ and test coverage are all great starting points.
 
 ## Questions
 
-Open a discussion or issue. Be kind — see the [Code of Conduct](CODE_OF_CONDUCT.md).
+Open a discussion or issue. Be kind - see the [Code of Conduct](CODE_OF_CONDUCT.md).

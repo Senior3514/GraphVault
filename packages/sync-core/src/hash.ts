@@ -49,7 +49,7 @@ export async function hashContent(content: string): Promise<ContentHash> {
   return formatContentHash(hex);
 }
 
-/** Byte length of a UTF-8 string — the `size` the protocol records. */
+/** Byte length of a UTF-8 string - the `size` the protocol records. */
 export function byteLength(content: string): number {
   return toBytes(content).length;
 }

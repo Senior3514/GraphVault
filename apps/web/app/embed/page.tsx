@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * /embed — Shareable, read-only, chromeless graph view.
+ * /embed - Shareable, read-only, chromeless graph view.
  *
  * Purpose (Roadmap M20):
  *   A user copies a `/embed?s=<snapshot>` URL (or pastes the accompanying
  *   <iframe> snippet) to share a static view of their knowledge graph.
- *   No note bodies are ever included — only titles and link topology.
+ *   No note bodies are ever included - only titles and link topology.
  *
  * How it works:
  *   1. The URL carries a compact, base64url-encoded snapshot (see
@@ -22,7 +22,7 @@
  *
  * Interaction:
  *   - Pan, zoom, and hover labels are enabled.
- *   - No editing, no sidebar, no AI, no sync — this is purely a visual read.
+ *   - No editing, no sidebar, no AI, no sync - this is purely a visual read.
  *   - Node click selects and shows a minimal tooltip; double-click does nothing.
  *
  * CSP / framing note:
@@ -30,11 +30,11 @@
  *   third-party sites from embedding this page in an <iframe>. To allow
  *   embedding on external sites, the site operator must relax that directive
  *   (e.g. `frame-ancestors *` or specific origins). The snapshot URL itself
- *   is unconditionally shareable — anyone with the link can open it directly.
+ *   is unconditionally shareable - anyone with the link can open it directly.
  *   See `apps/web/vercel.json` and `apps/web/app/layout.tsx` for CSP config.
  *
  * The page uses `position: fixed; inset: 0; z-index: 9999` to cover the app
- * shell (sidebar, header) so it appears full-bleed — suitable for an iframe.
+ * shell (sidebar, header) so it appears full-bleed - suitable for an iframe.
  * This avoids editing any shared layout component.
  */
 
@@ -45,6 +45,7 @@ import { useSearchParams } from 'next/navigation';
 import { buildIndex, filterGraph, type GraphNode, type GraphEdge } from '@graphvault/engine';
 
 import type { ForceGraphHandle } from '../../components/graph/ForceGraphCanvas';
+import { GraphLoadingSkeleton } from '../../components/graph/GraphLoadingSkeleton';
 import { buildRenderModel } from '../../lib/graph/model';
 import type { RenderModel } from '../../lib/graph/model';
 import { DEFAULT_PHYSICS } from '../../lib/graph/physics';
@@ -58,14 +59,12 @@ import { fetchSnapshot, ShareLinkError } from '../../lib/embed/shareLink';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import { notesToInputs } from '../../lib/graph/model';
 
-// Canvas/DOM-only renderer: never server-rendered.
+// Canvas/DOM-only renderer: never server-rendered. The heavy
+// `react-force-graph-2d` library loads in its own chunk only when the embed
+// graph mounts; until then we show the shared themed, motion-safe skeleton.
 const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraphCanvas'), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-xs text-neutral-600">
-      Loading graph...
-    </div>
-  ),
+  loading: () => <GraphLoadingSkeleton />,
 });
 
 // ---------------------------------------------------------------------------
@@ -74,7 +73,7 @@ const ForceGraphCanvas = dynamic(() => import('../../components/graph/ForceGraph
 
 /**
  * Convert a decoded `EmbedSnapshot` back to the GraphNode/GraphEdge arrays
- * that `buildRenderModel` consumes. Nodes have no tags, folder, or timestamps —
+ * that `buildRenderModel` consumes. Nodes have no tags, folder, or timestamps -
  * only id, path (same as id) and title.
  */
 function snapshotToGraphShapes(snapshot: EmbedSnapshot): {
@@ -157,7 +156,7 @@ function EmbedInner() {
         } else {
           // Fallback: current local vault (preview mode for the owner).
           if (!vault.ready) {
-            // Vault not yet loaded — wait.
+            // Vault not yet loaded - wait.
             setLoading(true);
             return;
           }
@@ -219,7 +218,7 @@ function EmbedInner() {
       className="fixed inset-0 z-50 flex flex-col bg-neutral-950"
       aria-label="Embedded knowledge graph"
     >
-      {/* Minimal status bar — just the node count and a "GraphVault" wordmark */}
+      {/* Minimal status bar - just the node count and a "GraphVault" wordmark */}
       <div className="flex shrink-0 items-center justify-between border-b border-neutral-900 px-3 py-1.5">
         <span className="text-[11px] font-medium tracking-wider text-neutral-600 select-none">
           GraphVault
@@ -271,7 +270,7 @@ function EmbedInner() {
 }
 
 // ---------------------------------------------------------------------------
-// Root export — wrapped in Suspense for useSearchParams (static export requirement)
+// Root export - wrapped in Suspense for useSearchParams (static export requirement)
 // ---------------------------------------------------------------------------
 
 export default function EmbedPage() {

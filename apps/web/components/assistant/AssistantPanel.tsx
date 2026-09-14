@@ -10,14 +10,14 @@
  * Before any request is sent the panel shows:
  *  - Which action is selected.
  *  - What context will be sent ("sending: current note (2 048 chars)").
- *  - A confirm button — the user must deliberately choose to send.
+ *  - A confirm button - the user must deliberately choose to send.
  *
  * AI output is rendered through the DOMPurify-sanitised markdown path (via
  * renderMarkdown with a no-op resolver so no wikilink anchors are injected),
  * never as raw HTML.
  *
  * The panel respects prefers-reduced-motion and does not disrupt the responsive
- * layout — it slides in as an overlay on mobile, as a right sidebar panel on
+ * layout - it slides in as an overlay on mobile, as a right sidebar panel on
  * wider screens.
  */
 
@@ -26,14 +26,17 @@ import { useSearchParams } from 'next/navigation';
 
 import { renderMarkdown } from '../../lib/markdown/render';
 import { buildPrompt, buildSendContext } from '../../lib/ai/prompts';
-import { chat, truncateContext } from '../../lib/ai/providers';
+import { chat, chatStream, truncateContext } from '../../lib/ai/providers';
+import { formatUsd } from '../../lib/ai/budget';
 import type { AssistantAction } from '../../lib/ai/types';
+import type { AiSpendCapState, AiUsage } from '@graphvault/shared';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import { useAISettings } from './useAISettings';
 import { useAuth } from '../../lib/api/useAuth';
 import { useServerSettings } from '../../lib/api/useServerSettings';
+import { toTrustedHTML } from '../../lib/security/trustedTypes';
 
-/** Custom event name — dispatched by the toolbar button and command-palette. */
+/** Custom event name - dispatched by the toolbar button and command-palette. */
 export const ASSISTANT_TOGGLE_EVENT = 'graphvault:assistant-toggle';
 
 /** Dispatch this from anywhere to toggle the assistant panel open/closed. */
@@ -51,7 +54,7 @@ const ACTIONS: { id: AssistantAction; label: string; description: string }[] = [
   {
     id: 'summarize',
     label: 'Summarize',
-    description: 'Get a concise 2–4 sentence summary of this note.',
+    description: 'Get a concise 2-4 sentence summary of this note.',
   },
   {
     id: 'find-related',
@@ -97,6 +100,12 @@ export function AssistantPanel() {
   );
   const [result, setResult] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
+  // Streaming state (server BFF mode): raw accumulated text + usage/cost.
+  const [streamText, setStreamText] = useState<string>('');
+  const [usage, setUsage] = useState<AiUsage | null>(null);
+  // Live spend window from GET /v1/ai/config - gates the send button.
+  const [spendState, setSpendState] = useState<AiSpendCapState | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const headingId = useId();
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -126,6 +135,46 @@ export function AssistantPanel() {
       restoreFocusRef.current?.focus?.();
     }
   }, [open]);
+
+  // When the panel is open in server mode, fetch the live spend window so the
+  // budget gate is accurate before the user runs anything. Strictly a GET of
+  // non-secret status (no key, no prompt) - and only when signed in.
+  const refreshSpendState = useCallback(async () => {
+    if (settings.kind !== 'server' || !auth.token || !serverUrl) {
+      setSpendState(null);
+      return;
+    }
+    try {
+      const { GraphVaultClient } = await import('../../lib/api/client');
+      const client = new GraphVaultClient(serverUrl, auth.token);
+      const info = await client.getAiConfig();
+      setSpendState(info?.spendCapState ?? null);
+    } catch {
+      // Non-fatal: a failed status fetch must not block the assistant; the
+      // server still enforces the cap and returns 429 if exceeded.
+      setSpendState(null);
+    }
+  }, [settings.kind, auth.token, serverUrl]);
+
+  useEffect(() => {
+    if (open) void refreshSpendState();
+  }, [open, refreshSpendState]);
+
+  // Abort any in-flight stream when the panel closes so a closed view does not
+  // keep the upstream generation (and the user's budget) running.
+  useEffect(() => {
+    if (!open && abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  }, [open]);
+
+  // Abort on unmount as a safety net.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   // Close on Escape; trap Tab inside the panel.
   useEffect(() => {
@@ -188,17 +237,67 @@ export function AssistantPanel() {
     setStatus('loading');
     setResult('');
     setErrorMsg('');
+    setStreamText('');
+    setUsage(null);
 
+    const truncated = truncateContext(noteContent);
+    const messages = buildPrompt(selectedAction, truncated, relatedTitles.slice(0, 50));
+
+    // For `server` mode, stream via SSE so deltas render incrementally. The key
+    // never touches the browser - the bearer token authenticates the proxy call.
+    if (settings.kind === 'server' && auth.token) {
+      const controller = new AbortController();
+      abortRef.current = controller;
+      let acc = '';
+      try {
+        await chatStream(
+          settings,
+          messages,
+          { serverUrl, bearerToken: auth.token },
+          {
+            onDelta: (chunk) => {
+              acc += chunk;
+              setStreamText(acc);
+            },
+            onUsage: (u) => setUsage(u),
+            onDone: () => {
+              // Sanitise the full accumulated text once through the DOMPurify
+              // markdown renderer for the final, copy-able output.
+              setResult(renderMarkdown(acc, () => null));
+              setStatus('done');
+              void refreshSpendState();
+            },
+            onError: (code, message) => {
+              setErrorMsg(code === 'RATE_LIMITED' ? `${message}` : message);
+              setStatus('error');
+              void refreshSpendState();
+            },
+          },
+          controller.signal,
+        );
+        // If the stream ended without an explicit done/error frame, finalise
+        // from whatever was accumulated.
+        setStatus((prev) => {
+          if (prev === 'loading') {
+            setResult(renderMarkdown(acc, () => null));
+            return 'done';
+          }
+          return prev;
+        });
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        const msg = err instanceof Error ? err.message : 'Unexpected error.';
+        setErrorMsg(msg);
+        setStatus('error');
+      } finally {
+        abortRef.current = null;
+      }
+      return;
+    }
+
+    // Non-streaming path (local mode, or server without a token guard above).
     try {
-      const truncated = truncateContext(noteContent);
-      const messages = buildPrompt(selectedAction, truncated, relatedTitles.slice(0, 50));
-      // For `server` mode, pass the session token + server URL so the provider
-      // can authenticate with the GV server proxy. The key never touches the browser.
-      const serverOpts =
-        settings.kind === 'server' && auth.token
-          ? { serverUrl, bearerToken: auth.token }
-          : undefined;
-      const raw = await chat(settings, messages, serverOpts);
+      const raw = await chat(settings, messages);
       // Sanitise through DOMPurify-based markdown renderer before display.
       // Use a no-op resolver so no wikilink anchors are injected into AI output.
       const sanitised = renderMarkdown(raw, () => null);
@@ -209,7 +308,28 @@ export function AssistantPanel() {
       setErrorMsg(msg);
       setStatus('error');
     }
-  }, [noteContent, selectedAction, relatedTitles, settings, auth.token, serverUrl]);
+  }, [
+    noteContent,
+    selectedAction,
+    relatedTitles,
+    settings,
+    auth.token,
+    serverUrl,
+    refreshSpendState,
+  ]);
+
+  // Stop an in-flight stream on demand (also aborts the upstream generation).
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    // Finalise whatever we have so the user keeps the partial output.
+    setStreamText((text) => {
+      setResult(renderMarkdown(text, () => null));
+      return text;
+    });
+    setStatus('done');
+    void refreshSpendState();
+  }, [refreshSpendState]);
 
   const handleSendClick = useCallback(() => {
     setStatus('confirming');
@@ -218,19 +338,30 @@ export function AssistantPanel() {
   }, []);
 
   const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setStatus('idle');
     setResult('');
     setErrorMsg('');
+    setStreamText('');
+    setUsage(null);
   }, []);
 
-  if (!open) return null;
-
   const isOff = settings.kind === 'off';
-  const canSend = !isOff && !!noteContent && status !== 'loading';
+
+  // Hide the assistant entirely when AI is off - no panel, no network, no hint
+  // of a feature the user has not opted into. (The toggle button is likewise
+  // hidden in AssistantButton.)
+  if (!open || isOff) return null;
+
+  // The server-side spend window can be exhausted (429 on the next call). Gate
+  // the send button so the user is not sent into a doomed request.
+  const budgetExhausted = settings.kind === 'server' && spendState?.state === 'exceeded';
+  const canSend = !isOff && !!noteContent && status !== 'loading' && !budgetExhausted;
 
   return (
     <>
-      {/* Backdrop — visible on mobile only */}
+      {/* Backdrop - visible on mobile only */}
       <div
         aria-hidden="true"
         className="fixed inset-0 z-30 bg-neutral-950/60 backdrop-blur-sm md:hidden motion-safe:animate-fade-in"
@@ -265,7 +396,7 @@ export function AssistantPanel() {
                   ? 'bg-neutral-800 text-neutral-500'
                   : settings.kind === 'local'
                     ? 'bg-emerald-950 text-emerald-400'
-                    : 'bg-sky-950 text-sky-400',
+                    : 'bg-accent-950 text-accent-400',
               ].join(' ')}
             >
               {isOff ? 'Off' : settings.kind === 'local' ? 'Local' : 'Server proxy'}
@@ -275,13 +406,13 @@ export function AssistantPanel() {
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close AI assistant"
-            className="flex h-8 w-8 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-sky-500"
+            className="flex h-8 w-8 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 focus-visible:ring-2 focus-visible:ring-accent-500"
           >
             <CloseIcon />
           </button>
         </div>
 
-        {/* Privacy notice — always visible */}
+        {/* Privacy notice - always visible */}
         <div className="shrink-0 border-b border-neutral-800 bg-amber-950/20 px-4 py-2.5 text-xs text-amber-300">
           <strong>Privacy:</strong> your notes leave your device only if you enable a cloud
           provider. Local and Off modes keep everything on-device.{' '}
@@ -305,7 +436,7 @@ export function AssistantPanel() {
 
           {/* No note content */}
           {currentNotePath && !noteContent && (
-            <p className="text-sm text-neutral-500">This note is empty — nothing to send.</p>
+            <p className="text-sm text-neutral-500">This note is empty - nothing to send.</p>
           )}
 
           {currentNotePath && noteContent && (
@@ -330,12 +461,12 @@ export function AssistantPanel() {
                         value={action.id}
                         checked={selectedAction === action.id}
                         onChange={() => handleActionChange(action.id)}
-                        className="mt-0.5 accent-sky-500"
+                        className="mt-0.5 accent-accent-500"
                         disabled={isOff || status === 'loading'}
                       />
                       <span>
                         <span className="font-medium">{action.label}</span>
-                        <span className="ml-1 text-neutral-500"> — {action.description}</span>
+                        <span className="ml-1 text-neutral-500"> - {action.description}</span>
                       </span>
                     </label>
                   ))}
@@ -353,13 +484,25 @@ export function AssistantPanel() {
                 </div>
               )}
 
+              {/* Budget-exhausted notice (server mode) */}
+              {budgetExhausted && (
+                <div className="mb-3 rounded-md border border-red-900/60 bg-red-950/30 p-3 text-xs text-red-300">
+                  Daily AI budget reached on your server. Requests are paused until the window
+                  resets. Raise the cap in{' '}
+                  <a href="/settings" className="underline hover:text-red-200">
+                    Settings → AI assistant
+                  </a>
+                  .
+                </div>
+              )}
+
               {/* Send / confirm flow */}
               {!isOff && status === 'idle' && (
                 <button
                   type="button"
                   onClick={handleSendClick}
                   disabled={!canSend}
-                  className="w-full rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-sky-400"
+                  className="w-full rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-500 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-accent-400"
                 >
                   Run
                 </button>
@@ -381,7 +524,7 @@ export function AssistantPanel() {
                     <button
                       type="button"
                       onClick={() => void handleConfirm()}
-                      className="flex-1 rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400"
+                      className="flex-1 rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-500 focus-visible:ring-2 focus-visible:ring-accent-400"
                     >
                       Send
                     </button>
@@ -408,12 +551,32 @@ export function AssistantPanel() {
               </div>
 
               {status === 'loading' && (
-                <div
-                  className="flex items-center gap-2 text-sm text-neutral-400"
-                  aria-hidden="true"
-                >
-                  <SpinnerIcon />
-                  Thinking…
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div
+                      className="flex items-center gap-2 text-sm text-neutral-400"
+                      aria-hidden="true"
+                    >
+                      <SpinnerIcon />
+                      {streamText ? 'Streaming…' : 'Thinking…'}
+                    </div>
+                    {settings.kind === 'server' && (
+                      <button
+                        type="button"
+                        onClick={handleStop}
+                        className="rounded-md border border-neutral-700 bg-neutral-900 px-2.5 py-1 text-xs text-neutral-300 hover:bg-neutral-800"
+                      >
+                        Stop
+                      </button>
+                    )}
+                  </div>
+                  {/* Live streaming text - shown as plain text while generating,
+                      then re-rendered as sanitised markdown on completion. */}
+                  {streamText && (
+                    <div className="whitespace-pre-wrap break-words rounded-md border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-200">
+                      {streamText}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -437,8 +600,26 @@ export function AssistantPanel() {
                   {/* Sanitised markdown output */}
                   <div
                     className="markdown-preview rounded-md border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm"
-                    dangerouslySetInnerHTML={{ __html: result }}
+                    // `result` is always the output of `renderMarkdown()` (DOMPurify-
+                    // sanitised); wrap it so this sink is ready for the CSP
+                    // `trusted-types` directive (not yet enabled - see the blocker
+                    // note in `lib/security/csp.ts`). See `lib/security/trustedTypes.ts`.
+                    dangerouslySetInnerHTML={{ __html: toTrustedHTML(result) }}
                   />
+                  {/* Usage / cost - surfaced from the terminal SSE usage frame. */}
+                  {usage && (
+                    <p className="text-xs text-neutral-500">
+                      {usage.costUsd != null && usage.costUsd > 0 && (
+                        <span className="text-neutral-400">{formatUsd(usage.costUsd)}</span>
+                      )}
+                      {usage.promptTokens != null || usage.completionTokens != null ? (
+                        <span>
+                          {usage.costUsd != null && usage.costUsd > 0 ? ' · ' : ''}
+                          {(usage.promptTokens ?? 0) + (usage.completionTokens ?? 0)} tokens
+                        </span>
+                      ) : null}
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -474,7 +655,7 @@ function SparkleIcon() {
     <svg
       viewBox="0 0 20 20"
       fill="currentColor"
-      className="h-4 w-4 text-sky-400"
+      className="h-4 w-4 text-accent-400"
       aria-hidden="true"
     >
       <path
@@ -504,7 +685,7 @@ function CloseIcon() {
 function SpinnerIcon() {
   return (
     <svg
-      className="h-4 w-4 animate-spin text-sky-400 motion-reduce:hidden"
+      className="h-4 w-4 animate-spin text-accent-400 motion-reduce:hidden"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"

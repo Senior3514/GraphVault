@@ -6,7 +6,7 @@
  * distance, repel strength, centre gravity, label threshold), view buttons
  * (zoom-to-fit / reset), the filter controls (tags, folders, link types,
  * updated range) that drive `filterGraph`, and the Groups overlay (v4).
- * Presentational — state lives in the page.
+ * Presentational - state lives in the page.
  *
  * v3 (Lumen) additions:
  * - "Colour by" now includes "Cluster" mode (connected-component colouring).
@@ -183,10 +183,18 @@ export function GraphControls({
           <SegButton active={colorMode === 'cluster'} onClick={() => onColorModeChange('cluster')}>
             Cluster
           </SegButton>
+          <SegButton active={colorMode === 'folder'} onClick={() => onColorModeChange('folder')}>
+            Folder
+          </SegButton>
         </div>
+        {colorMode === 'folder' && (
+          <p className="mt-1.5 text-[11px] leading-snug text-neutral-600">
+            Colour by the folder each note lives in - a visual map of your vault&apos;s structure.
+          </p>
+        )}
         {colorMode === 'cluster' && (
           <p className="mt-1.5 text-[11px] leading-snug text-neutral-600">
-            Colour by connected component — nodes that link to each other share a colour.
+            Colour by connected component - nodes that link to each other share a colour.
           </p>
         )}
       </div>
@@ -245,8 +253,8 @@ export function GraphControls({
               onClick={() => onContextViewChange(!contextView)}
               title={
                 contextView
-                  ? 'Disable context view — show all nodes'
-                  : 'Enable context view — highlight the selected neighbourhood'
+                  ? 'Disable context view - show all nodes'
+                  : 'Enable context view - highlight the selected neighbourhood'
               }
               className={[
                 'relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-0 transition-colors duration-200',

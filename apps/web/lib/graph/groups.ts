@@ -4,14 +4,14 @@
  * A Group is a named, colour-coded overlay that the user defines by writing a
  * simple query. Nodes matching a group are painted in that group's colour
  * (first-matching-group-wins). The canvas reads a precomputed
- * `Map<nodeId, color>` so group changes never rebuild the force layout —
+ * `Map<nodeId, color>` so group changes never rebuild the force layout -
  * they only affect the alpha value fed into `nodeCanvasObject`, exactly like
  * search, timeline, and cluster dimming.
  *
  * Query syntax (simple, first-class-citizen, extensible):
- *   #tag        — matches any node whose tagKey starts with "tag"
- *   path:foo/   — matches nodes whose `path` starts with "foo/"
- *   <anything>  — title substring match (case-insensitive)
+ *   #tag        - matches any node whose tagKey starts with "tag"
+ *   path:foo/   - matches nodes whose `path` starts with "foo/"
+ *   <anything>  - title substring match (case-insensitive)
  *
  * The syntax is deliberately minimal. Future expansions (regex, multiple
  * predicates, AND/OR) can be added here without touching the UI or canvas.
@@ -45,11 +45,11 @@ export interface NodeGroup {
  * Test whether a single render node matches a group query string.
  *
  * Matching rules (evaluated in order):
- *   1. `#<tag>` — the node's `tagKey` includes the tag text after `#`
+ *   1. `#<tag>` - the node's `tagKey` includes the tag text after `#`
  *      (case-insensitive).
- *   2. `path:<prefix>` — the node's `path` starts with `<prefix>`
+ *   2. `path:<prefix>` - the node's `path` starts with `<prefix>`
  *      (case-insensitive).
- *   3. Bare string — the node's `title` contains the string
+ *   3. Bare string - the node's `title` contains the string
  *      (case-insensitive substring).
  *
  * An empty query never matches anything (returns `false`).
@@ -79,7 +79,7 @@ export function matchesQuery(node: RenderNode, query: string): boolean {
 /**
  * Return the colour of the first group in `groups` that matches `node`, or
  * `undefined` when no group matches. "First-matching-group-wins" semantics
- * means the order of `groups` is meaningful — the caller controls priority.
+ * means the order of `groups` is meaningful - the caller controls priority.
  */
 export function matchGroup(node: RenderNode, groups: readonly NodeGroup[]): string | undefined {
   for (const group of groups) {
@@ -180,7 +180,7 @@ export function loadGroups(): NodeGroup[] {
 }
 
 /**
- * Persist groups to localStorage. Never throws — storage errors (quota, etc.)
+ * Persist groups to localStorage. Never throws - storage errors (quota, etc.)
  * are silently swallowed so the UI remains functional.
  */
 export function saveGroups(groups: readonly NodeGroup[]): void {
@@ -188,7 +188,7 @@ export function saveGroups(groups: readonly NodeGroup[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
   } catch {
-    // Storage quota or access error — silently ignore.
+    // Storage quota or access error - silently ignore.
   }
 }
 

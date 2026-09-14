@@ -1,5 +1,5 @@
 /**
- * GraphVault Web Clipper — content script.
+ * GraphVault Web Clipper - content script.
  *
  * Injected into every page at document_idle. Listens for messages from the
  * popup and background service worker, runs the clipper, and returns the

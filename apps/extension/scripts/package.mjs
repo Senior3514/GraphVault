@@ -8,10 +8,10 @@
  * Output: apps/extension/dist/graphvault-extension.zip
  *
  * The ZIP uses the STORE method (no compression) so the archive is trivially
- * inspectable and auditable — consistent with GraphVault's data portability
+ * inspectable and auditable - consistent with GraphVault's data portability
  * philosophy (same approach as the vault export ZIP in apps/web/lib/vault/).
  *
- * Zero external dependencies — only Node.js built-ins: fs, path, zlib, crypto.
+ * Zero external dependencies - only Node.js built-ins: fs, path, zlib, crypto.
  *
  * Usage:
  *   node apps/extension/scripts/package.mjs
@@ -68,9 +68,9 @@ function collectFiles(dir, exclude = []) {
 }
 
 // Collect all extension files except:
-//   scripts/  — build tooling, not part of the extension
-//   dist/     — output directory
-//   *.svg     — replaced by .png icons in the manifest
+//   scripts/  - build tooling, not part of the extension
+//   dist/     - output directory
+//   *.svg     - replaced by .png icons in the manifest
 const allFiles = collectFiles(EXTENSION_DIR, ['scripts', 'dist']);
 const extensionFiles = allFiles.filter(f => !f.endsWith('.svg'));
 
@@ -107,7 +107,7 @@ for (const cs of manifest.content_scripts || []) {
 console.log('manifest.json: valid JSON, all referenced files exist.');
 
 // ---------------------------------------------------------------------------
-// ZIP builder — STORE method (no compression), per the MV3 extension standard
+// ZIP builder - STORE method (no compression), per the MV3 extension standard
 //
 // Format: Local file header + data per entry, then central directory, then
 // end-of-central-directory record.  Spec: PKWARE .ZIP Application Note.

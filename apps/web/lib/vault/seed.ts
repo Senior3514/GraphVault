@@ -23,7 +23,7 @@ function note(path: string, content: string, ageMinutes: number): Note {
 export function seedNotes(): Note[] {
   return [
     // ------------------------------------------------------------------ //
-    // Hub 1: Start Here — the entry point, links to everything
+    // Hub 1: Start Here - the entry point, links to everything
     // ------------------------------------------------------------------ //
     note(
       'Start Here.md',
@@ -34,7 +34,7 @@ tags: [getting-started, meta]
 
 # Start Here
 
-Welcome to **GraphVault** — your local-first, plain-Markdown notebook.
+Welcome to **GraphVault** - your local-first, plain-Markdown notebook.
 
 Everything lives as \`.md\` files in your browser vault. There is no
 proprietary database, no account required, and no lock-in.
@@ -43,13 +43,13 @@ proprietary database, no account required, and no lock-in.
 
 1. Press **Cmd K** (or Ctrl K) to open the [[Command Palette]] and jump to any note.
 2. Click the graph icon in the sidebar to see how your notes connect in the [[Graph View]].
-3. Type \`[[\` in the editor to link to another note — try linking to [[Markdown & Wikilinks]].
+3. Type \`[[\` in the editor to link to another note - try linking to [[Markdown & Wikilinks]].
 4. Add a \`#tag\` to this note and watch it appear in the graph clusters.
 5. Open [[Sync & Backups]] to learn how to keep your notes safe.
 
 ## What makes GraphVault different
 
-- **Your files.** Notes are plain Markdown — open them in any editor.
+- **Your files.** Notes are plain Markdown - open them in any editor.
 - **Self-hosted sync.** Run a small server you control; no third-party clouds.
 - **A graph that thinks with you.** See [[Graph View]] for what that means.
 - **Privacy-first AI.** Local or bring-your-own-key. See [[AI Assistant]].
@@ -60,7 +60,7 @@ proprietary database, no account required, and no lock-in.
     ),
 
     // ------------------------------------------------------------------ //
-    // Hub 2: Graph View — links to Start Here, Graph Tips, Clusters
+    // Hub 2: Graph View - links to Start Here, Graph Tips, Clusters
     // ------------------------------------------------------------------ //
     note(
       'notes/Graph View.md',
@@ -87,8 +87,8 @@ wikilink you write (using double brackets) becomes an edge; every note is a node
 | Mode       | What it shows                                      |
 |------------|----------------------------------------------------|
 | **Type**   | Note vs. tag vs. unresolved (missing) note         |
-| **Tag**    | One colour per tag — great for seeing topic areas  |
-| **Cluster**| Community detection — automatic groupings          |
+| **Tag**    | One colour per tag - great for seeing topic areas  |
+| **Cluster**| Community detection - automatic groupings          |
 
 Switch mode from the Graph Controls panel.
 
@@ -105,7 +105,7 @@ See also: [[Graph Tips]], [[Understanding Clusters]], [[Start Here]].
     ),
 
     // ------------------------------------------------------------------ //
-    // Hub 3: Markdown & Wikilinks — links to Tags, Graph View, Daily Notes
+    // Hub 3: Markdown & Wikilinks - links to Tags, Graph View, Daily Notes
     // ------------------------------------------------------------------ //
     note(
       'notes/Markdown & Wikilinks.md',
@@ -121,19 +121,19 @@ readable in any text editor, now and in the future.
 
 ## Wikilinks
 
-Link any two notes with double brackets — for example, type \`[[\` followed by
+Link any two notes with double brackets - for example, type \`[[\` followed by
 the note title. Autocomplete pops up as you type:
 
     See Graph View for the visual map of connections.
 
-- Autocomplete pops up as you type \`[[\` — press Enter to insert.
+- Autocomplete pops up as you type \`[[\` - press Enter to insert.
 - Links resolve by **title**, **filename**, or **path** (case-insensitive).
 - Unresolved links (no matching note yet) appear as dashed nodes in the graph
-  — click one to create the note.
+  - click one to create the note.
 
 ## Aliases
 
-Show different text while linking to the same note — add a pipe after the
+Show different text while linking to the same note - add a pipe after the
 target title. For example, linking to [[Graph View]] with the alias
 "the knowledge graph" shows "the knowledge graph" as the link text.
 
@@ -173,12 +173,12 @@ Press **Cmd K** (Mac) or **Ctrl K** (Windows/Linux) from anywhere in the app.
 
 ## What you can do
 
-- **Open a note** — start typing any part of its title.
-- **Create a note** — type a name and press Enter to create.
-- **Run a command** — navigate to the graph, open settings, toggle sidebar.
-- **View backup history** — restore a previous version of any note.
+- **Open a note** - start typing any part of its title.
+- **Create a note** - type a name and press Enter to create.
+- **Run a command** - navigate to the graph, open settings, toggle sidebar.
+- **View backup history** - restore a previous version of any note.
 
-The palette is always one keystroke away. Get used to it — it is the
+The palette is always one keystroke away. Get used to it - it is the
 fastest way to navigate a large vault.
 
 See also: [[Keyboard Shortcuts]], [[Start Here]].
@@ -240,7 +240,7 @@ Tips for getting the most out of the [[Graph View]].
 ## Local vs. global view
 
 Switch to **Local** mode (controls panel) when you want to focus on a
-single note and its nearest neighbours. Set the depth (1–4) to control
+single note and its nearest neighbours. Set the depth (1-4) to control
 how many hops out to show.
 
 ## Pinning nodes
@@ -256,7 +256,7 @@ Adjust repulsion, link distance, and gravity to untangle dense subgraphs.
 ## Embedding a snapshot
 
 Share a read-only interactive graph with the **Share** button (top-right
-of the graph page). Only node titles and links travel in the URL — never
+of the graph page). Only node titles and links travel in the URL - never
 note content.
 
 See also: [[Understanding Clusters]], [[Graph View]].
@@ -280,7 +280,7 @@ let GraphVault detect communities in your vault automatically.
 
 ## How it works
 
-Clusters are computed by finding **connected components** — groups of
+Clusters are computed by finding **connected components** - groups of
 notes that link to each other more than to the rest of the graph.
 GraphVault uses a pure in-browser algorithm, so your notes never leave
 the device.
@@ -289,13 +289,13 @@ the device.
 
 If you have enabled an AI provider in Settings, you can press
 **Name clusters** to have the model suggest a label for each group.
-Only note **titles** are sent — never the note body.
+Only note **titles** are sent - never the note body.
 
 ## Tips
 
 - A note that appears isolated is an **orphan** (no links). Add a
   wikilink using double brackets to connect it.
-- A note linking to many clusters acts as a **bridge** — look for
+- A note linking to many clusters acts as a **bridge** - look for
   these to find your most important notes.
 
 See [[Graph View]], [[Graph Tips]], and [[AI Assistant]].
@@ -366,7 +366,7 @@ tags: [writing, workflow]
 
 # Daily Notes
 
-A daily note is a quick capture space — one note per day, titled by date.
+A daily note is a quick capture space - one note per day, titled by date.
 
 ## A simple template
 
@@ -391,7 +391,7 @@ tags: [daily]
 
 ## Linking from daily notes
 
-Daily notes shine as a **hub of the present** — link outward to long-lived
+Daily notes shine as a **hub of the present** - link outward to long-lived
 project notes, ideas, and reference material.
 
 For example, you might write in a daily note:
@@ -429,7 +429,7 @@ There is no corporate cloud between you and your data.
 
 1. Run the GraphVault server on any VPS or home server.
 2. Open **Settings → Sync** and enter your server URL.
-3. Register a device token — each device gets its own credential.
+3. Register a device token - each device gets its own credential.
 4. Press **Sync now**. Subsequent syncs are incremental.
 
 ## Conflict handling
@@ -447,8 +447,8 @@ The browser vault keeps point-in-time snapshots automatically. See
 
 Beyond the self-hosted server, GraphVault also supports:
 
-- **WebDAV** — any WebDAV-compatible server (Nextcloud, etc.)
-- **S3-compatible** — Backblaze B2, Cloudflare R2, MinIO, etc.
+- **WebDAV** - any WebDAV-compatible server (Nextcloud, etc.)
+- **S3-compatible** - Backblaze B2, Cloudflare R2, MinIO, etc.
 
 Start at [[Start Here]] for the full getting-started guide.
 
@@ -502,7 +502,7 @@ tags: [ai, privacy]
 
 # AI Assistant
 
-GraphVault includes a **privacy-first AI assistant** — off by default,
+GraphVault includes a **privacy-first AI assistant** - off by default,
 always opt-in.
 
 ## How to enable it
@@ -512,7 +512,7 @@ Go to **Settings → AI** and choose a provider:
 | Option              | Privacy level                                         |
 |---------------------|-------------------------------------------------------|
 | **Off** (default)   | No AI requests ever leave the device                  |
-| **Local model**     | Runs entirely on your machine — fully private          |
+| **Local model**     | Runs entirely on your machine - fully private          |
 | **Bring your own key** | Your API key, sent directly to the provider, never via GraphVault servers |
 
 ## What the assistant can do

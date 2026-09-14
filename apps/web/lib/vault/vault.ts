@@ -1,6 +1,6 @@
 /**
  * Pure operations over a collection of notes: indexing, create/rename/delete,
- * folder-tree building. None of these touch persistence or React — the store
+ * folder-tree building. None of these touch persistence or React - the store
  * (persistence) and hooks (state) compose them.
  *
  * All functions are non-mutating: they return new arrays/objects so callers can
@@ -103,7 +103,7 @@ export interface ImportSummary {
   added: number;
   /** Notes whose path collided and were saved under a new name (kept both). */
   renamed: { from: NotePath; to: NotePath }[];
-  /** Identical notes already present — skipped, nothing changed. */
+  /** Identical notes already present - skipped, nothing changed. */
   unchanged: number;
 }
 

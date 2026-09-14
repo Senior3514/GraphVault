@@ -7,7 +7,7 @@
  * while scrubbing or animating.
  *
  * Design notes:
- * - All functions are pure and tested — no React, no DOM.
+ * - All functions are pure and tested - no React, no DOM.
  * - The slider works in Unix epoch milliseconds internally; the UI converts
  *   slider values (integers 0..STEPS) to epoch ms via `sliderToMs`.
  * - "Effective timestamp" of a node: `createdAt` if available, else `updatedAt`,

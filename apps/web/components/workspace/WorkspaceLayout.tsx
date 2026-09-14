@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * WorkspaceLayout — the outermost shell for the vault workspace.
+ * WorkspaceLayout - the outermost shell for the vault workspace.
  *
  * Handles:
  * - Three-column layout (note list | editor | details) with resizable dividers.
@@ -18,9 +18,9 @@
  * Children use <WorkspaceLayoutContext> to access layout actions.
  */
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, type ReactNode } from 'react';
 
-import type { LayoutActions } from '../../lib/layout/useLayout';
+import { effectiveMaximized, type LayoutActions } from '../../lib/layout/useLayout';
 import type { MaximizedPane } from '../../lib/layout/types';
 import { PaneControls } from './PaneControls';
 import { ResizeDivider } from './ResizeDivider';
@@ -37,7 +37,7 @@ export function useWorkspace(): LayoutActions {
 
 // ---- Mobile pane tabs -------------------------------------------------------
 
-type MobilePane = 'notes' | 'editor' | 'details';
+export type MobilePane = 'notes' | 'editor' | 'details';
 
 // ---- WorkspaceLayout --------------------------------------------------------
 
@@ -46,6 +46,11 @@ interface WorkspaceLayoutProps {
   noteListSlot: ReactNode;
   editorSlot: ReactNode;
   detailsSlot: ReactNode;
+  /** Which pane is visible on mobile (<md). Lifted to the caller so opening a
+   *  note (e.g. from the note list, search, or a wikilink) can navigate to the
+   *  editor pane instead of leaving the user stuck on the list they tapped. */
+  mobilePane: MobilePane;
+  onMobilePaneChange(pane: MobilePane): void;
 }
 
 export function WorkspaceLayout({
@@ -53,14 +58,20 @@ export function WorkspaceLayout({
   noteListSlot,
   editorSlot,
   detailsSlot,
+  mobilePane,
+  onMobilePaneChange,
 }: WorkspaceLayoutProps) {
   const { layout, maximizePane, restorePane, setNoteListWidth, setDetailsWidth, togglePanel } =
     actions;
 
-  const { widths, panels, maximized, focusMode } = layout;
+  const { widths, panels, focusMode } = layout;
 
-  // Mobile: which pane is currently visible
-  const [mobilePane, setMobilePane] = useState<MobilePane>('editor');
+  // In focus mode the side panes are hidden, so a persisted `maximized` of
+  // 'noteList'/'details' would hide every column (blank workspace). Treat
+  // maximize as inactive while in focus mode so the editor always shows. This is
+  // defence-in-depth: useLayout also clears `maximized` on entering focus mode,
+  // but a previously-persisted blank state must still render correctly.
+  const maximized = effectiveMaximized(layout.maximized, focusMode);
 
   // Which panes are visible in the current maximized state?
   // Focus mode hides the side panes entirely (without mutating the persisted
@@ -85,7 +96,7 @@ export function WorkspaceLayout({
   return (
     <WorkspaceContext.Provider value={actions}>
       {/* ================================================================ */}
-      {/* DESKTOP layout (md and up) — three resizable columns              */}
+      {/* DESKTOP layout (md and up) - three resizable columns              */}
       {/* ================================================================ */}
       <div className="hidden md:flex md:h-full md:min-h-0 md:flex-1 md:overflow-hidden">
         {/* ===== Note List Panel ===== */}
@@ -171,7 +182,7 @@ export function WorkspaceLayout({
       </div>
 
       {/* ================================================================ */}
-      {/* MOBILE layout (< md) — single visible pane + bottom switcher      */}
+      {/* MOBILE layout (< md) - single visible pane + bottom switcher      */}
       {/* ================================================================ */}
       <div className="flex h-full min-h-0 flex-col md:hidden">
         {/* Active pane fills all available height above the bottom bar.
@@ -190,7 +201,7 @@ export function WorkspaceLayout({
           )}
         </div>
 
-        {/* Bottom segmented control — switch between Notes / Editor / Details.
+        {/* Bottom segmented control - switch between Notes / Editor / Details.
             Hidden in focus mode for distraction-free editing. */}
         {!focusMode && (
           <nav
@@ -208,12 +219,12 @@ export function WorkspaceLayout({
               <button
                 key={id}
                 type="button"
-                onClick={() => setMobilePane(id)}
+                onClick={() => onMobilePaneChange(id)}
                 aria-label={label}
                 aria-current={mobilePane === id ? 'true' : undefined}
                 className={[
-                  'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
-                  mobilePane === id ? 'text-sky-400' : 'text-neutral-500 hover:text-neutral-300',
+                  'flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
+                  mobilePane === id ? 'text-accent-400' : 'text-neutral-500 hover:text-neutral-300',
                 ].join(' ')}
               >
                 {icon}
@@ -297,7 +308,7 @@ function CollapsedTab({
         onClick={onClick}
         title={`Show ${label}`}
         aria-label={`Show ${label} panel`}
-        className="flex h-full w-6 items-center justify-center text-neutral-600 hover:bg-neutral-800 hover:text-neutral-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-sky-500"
+        className="flex h-full w-6 items-center justify-center text-neutral-600 hover:bg-neutral-800 hover:text-neutral-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-500"
       >
         <span
           className="text-[10px] font-semibold uppercase tracking-widest"

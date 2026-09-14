@@ -1,9 +1,9 @@
 /**
- * Email import connector — 100% client-side, no network calls, no credentials.
+ * Email import connector - 100% client-side, no network calls, no credentials.
  *
  * Supports two email export formats:
- *   - `.eml`  — a single RFC 822 message → one note.
- *   - `.mbox` — multiple messages concatenated with `From ` separator lines →
+ *   - `.eml`  - a single RFC 822 message → one note.
+ *   - `.mbox` - multiple messages concatenated with `From ` separator lines →
  *               one note per message.
  *
  * For each message the connector:
@@ -19,7 +19,7 @@
  *
  * Security posture:
  *   - Email content is untrusted input. HTML bodies are converted to Markdown
- *     via the same DOM-based path as rssOpml.ts — text is extracted via
+ *     via the same DOM-based path as rssOpml.ts - text is extracted via
  *     `textContent`, never injected back into the live DOM.
  *   - Size limits match portability.ts (MAX_IMPORT_FILE_BYTES / MAX_IMPORT_FILES).
  *   - `safeImportPath` validates every output path.
@@ -28,7 +28,7 @@
  * plus manual UTF-8 decode for base64 bodies.
  *
  * Phase 2 (NOT built here): live IMAP/Gmail/Outlook OAuth will be a `server`-
- * posture connector — all credential storage and outbound requests handled by
+ * posture connector - all credential storage and outbound requests handled by
  * the self-hosted GraphVault server, so API keys never touch the browser.
  */
 
@@ -199,7 +199,7 @@ function decodeQuotedPrintableBytes(qp: string): Uint8Array {
   while (i < src.length) {
     if (src[i] === '=') {
       if (i + 1 < src.length && src[i + 1] === '\n') {
-        // Soft line break — skip.
+        // Soft line break - skip.
         i += 2;
         continue;
       }
@@ -212,7 +212,7 @@ function decodeQuotedPrintableBytes(qp: string): Uint8Array {
           continue;
         }
       }
-      // Malformed — pass '=' through.
+      // Malformed - pass '=' through.
       out.push(0x3d);
       i++;
     } else {
@@ -456,7 +456,7 @@ function decodeBody(raw: string, cte: string, charset: string): string {
     const bytes = base64Decode(raw);
     return bytesToString(bytes, charset);
   }
-  // 7bit / 8bit / binary — content is already a plain string.
+  // 7bit / 8bit / binary - content is already a plain string.
   return raw;
 }
 
@@ -545,7 +545,7 @@ function extractBody(rawPart: string, depth = 0): ExtractedBody | null {
     return { markdown: md, selectedType: 'text/html' };
   }
 
-  // Non-text MIME type (attachment, image, etc.) — skip.
+  // Non-text MIME type (attachment, image, etc.) - skip.
   return null;
 }
 
@@ -677,7 +677,7 @@ export function parseEmlMessage(raw: string, index?: number): ConnectorNote {
 export function splitMbox(mbox: string): string[] {
   // The From line is at the start of each message:
   // "From <sender> <date>\n"
-  // We split on lines matching /^From /m — note the space.
+  // We split on lines matching /^From /m - note the space.
   const messages: string[] = [];
   const lines = mbox.split(/\r?\n/);
   let current: string[] = [];
@@ -774,14 +774,14 @@ export function parseEmailSource(source: string): ConnectorNote[] {
 /**
  * The email import connector singleton.
  *
- * Privacy posture: `local` — the user provides .eml or .mbox files directly
+ * Privacy posture: `local` - the user provides .eml or .mbox files directly
  * (file upload). No network calls are made. No credentials required.
  *
  * Phase 2 (NOT built here): live IMAP / Gmail / Outlook OAuth will be a
  * `server`-posture connector where all credential storage and outbound
  * requests (IMAP, Gmail API, Graph API) are handled by the self-hosted
  * GraphVault server. The browser would only ever hold a short-lived session
- * token — no email credentials, no Google/Microsoft OAuth tokens — and the
+ * token - no email credentials, no Google/Microsoft OAuth tokens - and the
  * server would periodically fetch new mail and push notes to the vault.
  * That feature needs a server-side mail dependency (e.g. `imapflow`) and is
  * out of scope for phase 1.
@@ -792,7 +792,7 @@ export const emailConnector: LocalImportConnector = {
   description:
     'Import emails from .eml files (single message) or .mbox archives (multiple messages). ' +
     'Each message becomes one note under connectors/email/. ' +
-    'Upload files from your email client — nothing leaves your device.',
+    'Upload files from your email client - nothing leaves your device.',
   privacyPosture: 'local',
 
   isAvailable(): boolean {

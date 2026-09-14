@@ -40,7 +40,7 @@ export interface SnapshotServiceOptions {
  * as opaque text and never parses or executes it beyond size validation.
  *
  * Abuse resistance:
- *  - payload size is capped (`maxBytes`) — oversize is rejected (413);
+ *  - payload size is capped (`maxBytes`) - oversize is rejected (413);
  *  - total count is capped (`maxCount`) with oldest-first eviction so disk can't
  *    grow unbounded;
  *  - entries expire after `ttlDays` (swept on read) so stale shares disappear;

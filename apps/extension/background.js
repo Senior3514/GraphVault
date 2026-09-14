@@ -1,5 +1,5 @@
 /**
- * GraphVault Web Clipper — MV3 service worker (background).
+ * GraphVault Web Clipper - MV3 service worker (background).
  *
  * Responsibilities:
  * - Relay DOWNLOAD messages from the popup to the chrome.downloads API.

@@ -2,9 +2,9 @@
  * Generic fallback importer (M20).
  *
  * Handles any combination of:
- *   - `.zip`      — standard Markdown ZIP (reuses `readVaultZip` from portability.ts)
- *   - `.json`     — GraphVault JSON export (reuses `parseJsonExport`)
- *   - `.md` / `.markdown` / `.txt` — single plain-text file
+ *   - `.zip`      - standard Markdown ZIP (reuses `readVaultZip` from portability.ts)
+ *   - `.json`     - GraphVault JSON export (reuses `parseJsonExport`)
+ *   - `.md` / `.markdown` / `.txt` - single plain-text file
  *
  * This is the same logic that the existing "Import & export" section uses, but
  * wrapped as a typed `Importer` so the new "Import from another app" UI can
@@ -41,7 +41,7 @@ export const genericImporter: Importer = {
 
     if (lower.endsWith('.json')) {
       const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-      // parseJsonExport throws on non-GraphVault JSON — surface as ImporterError.
+      // parseJsonExport throws on non-GraphVault JSON - surface as ImporterError.
       try {
         return parseJsonExport(text);
       } catch (err) {

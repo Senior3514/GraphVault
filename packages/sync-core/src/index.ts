@@ -8,7 +8,7 @@
  * {@link LocalVault} and a {@link RemoteApi} port and calls {@link runSync}.
  *
  * Like `@graphvault/engine`, nothing here imports React, the DOM, or
- * `node:fs` — only the shared wire types and a portable content hasher.
+ * `node:fs` - only the shared wire types and a portable content hasher.
  */
 
 export type { LocalEntry, LocalVault, RemoteApi } from './ports.js';

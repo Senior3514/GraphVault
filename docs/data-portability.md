@@ -1,10 +1,10 @@
 # GraphVault Data Portability
 
-> "Your data, any storage." — Export the whole vault at any time to plain,
+> "Your data, any storage." - Export the whole vault at any time to plain,
 > readable files. Import from any standard archive.
 
 GraphVault ships two interchange formats and an import pipeline that is
-hardened as a security boundary. Everything runs entirely in the browser — no
+hardened as a security boundary. Everything runs entirely in the browser - no
 file leaves your device during export or import.
 
 ## Export formats
@@ -72,7 +72,7 @@ Import **never silently replaces an existing note**. For each incoming note:
   as a "renamed" entry in the import summary.
 
 The result is that your current notes are always preserved and the import
-result is always fully visible — never a silent overwrite.
+result is always fully visible - never a silent overwrite.
 
 ### Import report
 
@@ -89,7 +89,7 @@ are enforced before any content is written:
 
 | Guard                   | Limit                          | Purpose                                                                               |
 | ----------------------- | ------------------------------ | ------------------------------------------------------------------------------------- |
-| Zip-slip path rejection | —                              | Rejects absolute paths, `..` traversal segments, Windows drive letters, and UNC paths |
+| Zip-slip path rejection | -                              | Rejects absolute paths, `..` traversal segments, Windows drive letters, and UNC paths |
 | Extension allowlist     | `.md`, `.markdown`, `.txt`     | Non-text files (images, executables) are silently skipped                             |
 | Per-file size cap       | 4 MiB                          | Oversized entries are skipped without aborting the rest of the import                 |
 | Aggregate size cap      | 64 MiB                         | Stops processing and returns an error if the running total exceeds the limit          |
@@ -118,8 +118,8 @@ import.
 
 GraphVault writes ZIPs with the STORE method (compression method `0`) for
 maximum portability and zero dependencies. When reading, it also handles DEFLATE
-(method `8`) so standard ZIP archives produced by other tools — including OS
-"compress to zip" dialogs — can be imported. Decompression uses the platform's
+(method `8`) so standard ZIP archives produced by other tools - including OS
+"compress to zip" dialogs - can be imported. Decompression uses the platform's
 native `DecompressionStream('deflate-raw')` API, which is available in all
 modern browsers. Entries compressed with any other method are skipped with a
 warning rather than aborting the import.
@@ -142,13 +142,13 @@ more robust against malformed or partially-downloaded archives.
 ## Server-proxied cloud storage targets
 
 Beyond local export/import, the self-hosted server can keep a copy of the whole
-vault (a single `graphvault-vault.json` blob) in an external object store —
+vault (a single `graphvault-vault.json` blob) in an external object store -
 **without the browser ever seeing the provider credentials**. Supported backends:
 S3-compatible, WebDAV, **Azure Blob Storage**, and **Google Cloud Storage**. The
 blob is plain JSON (the same shape as the JSON backup above), so the vault stays
 portable: you can download it from the provider and re-import it anywhere. The
 server stores each provider's credentials encrypted at rest and proxies exactly
-one object — see `apps/server/README.md` for the per-provider setup.
+one object - see `apps/server/README.md` for the per-provider setup.
 
 ## Planned
 

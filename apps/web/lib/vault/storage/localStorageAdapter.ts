@@ -8,7 +8,7 @@
  *    notes before returning them so subsequent `load()` calls find real data.
  *  - **Corrupt-backup behaviour**: if the stored JSON is unparseable or has the
  *    wrong shape, the raw bytes are preserved under a `:corrupt-backup` key
- *    (best-effort — never throws on quota errors) and the vault is reseeded.
+ *    (best-effort - never throws on quota errors) and the vault is reseeded.
  *    Data is never silently discarded.
  *  - **Graceful SSR**: `isAvailable()` tests for `window.localStorage` without
  *    throwing, so the adapter returns `false` in Node/server contexts.
@@ -58,7 +58,7 @@ export const localStorageAdapter: StorageAdapter = {
 
   async load(): Promise<Note[]> {
     if (!hasLocalStorage()) {
-      // SSR / no-storage environment — return seed without trying to persist.
+      // SSR / no-storage environment - return seed without trying to persist.
       return seedNotes();
     }
 
@@ -81,12 +81,12 @@ export const localStorageAdapter: StorageAdapter = {
       return notes;
     } catch {
       // Corrupt store: preserve a backup for potential recovery, then reseed.
-      // Never throw away data silently — the backup key makes it retrievable.
+      // Never throw away data silently - the backup key makes it retrievable.
       try {
         window.localStorage.setItem(`${LOCAL_STORAGE_KEY}:corrupt-backup`, raw);
       } catch {
         // Quota errors on the backup write are ignored; the primary concern is
-        // that the user can keep working — not the backup itself.
+        // that the user can keep working - not the backup itself.
       }
 
       const seeded = seedNotes();

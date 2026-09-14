@@ -7,6 +7,8 @@
  * - "tag" mode: lists the active tag colours.
  * - "cluster" mode: lists the discovered connected-component clusters, largest
  *   first, with a grey "Isolated" row for singleton nodes.
+ * - "folder" mode: lists the distinct folders notes live in - a direct visual
+ *   map of the vault's directory structure, coloured the same way tags are.
  * - "groups" overlay: when user-defined groups are active, an additional
  *   "Groups" section is appended above the base-mode legend so the canvas
  *   colour meaning is always visible regardless of mode.
@@ -29,6 +31,8 @@ export interface GraphLegendProps {
   categories: NodeCategory[];
   /** Tags available for the legend (tag mode). */
   tags: string[];
+  /** Distinct folder paths available for the legend (folder mode). */
+  folders: string[];
   /** Cluster info for the legend (cluster mode). */
   clusterInfo?: ClusterColorInfo | null;
   /** Active user-defined groups (shown as an overlay legend section). */
@@ -46,6 +50,7 @@ export function GraphLegend({
   colorMode,
   categories,
   tags,
+  folders,
   clusterInfo,
   groups = [],
   aiClusterNames,
@@ -55,7 +60,9 @@ export function GraphLegend({
       ? legendForType(categories)
       : colorMode === 'cluster'
         ? legendForClusters(clusterInfo, aiClusterNames)
-        : legendForTags(tags);
+        : colorMode === 'folder'
+          ? legendForFolders(folders)
+          : legendForTags(tags);
 
   const groupItems = groupLegendEntries(groups);
 
@@ -64,7 +71,7 @@ export function GraphLegend({
 
   return (
     <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-neutral-800 bg-neutral-950/85 px-3 py-2 text-xs backdrop-blur">
-      {/* Groups overlay section — shown first when groups are active */}
+      {/* Groups overlay section - shown first when groups are active */}
       {groupItems.length > 0 && (
         <>
           <p className="mb-1 font-semibold uppercase tracking-wide text-neutral-500">Groups</p>
@@ -129,6 +136,21 @@ function legendForTags(tags: string[]): { title: string; items: LegendItem[] } {
   return { title: 'Tags', items };
 }
 
+function legendForFolders(folders: string[]): { title: string; items: LegendItem[] } {
+  // Keep the legend compact, same cap as tag mode; the long tail still
+  // renders correctly on the canvas, just isn't individually listed here.
+  const shown = folders.slice(0, 8);
+  const items: LegendItem[] = shown.map((folder) => ({
+    key: folder || '__root__',
+    // The vault root has an empty folder path - colorForKey resolves it to
+    // the same neutral swatch as "untagged" in tag mode, so label it plainly
+    // rather than showing a blank row.
+    label: folder || '(root)',
+    color: colorForKey(folder),
+  }));
+  return { title: 'Folders', items };
+}
+
 function legendForClusters(
   info: ClusterColorInfo | null | undefined,
   aiNames?: string[],
@@ -156,7 +178,12 @@ function Swatch({ color, outlined }: { color: string; outlined?: boolean }) {
       className="h-2.5 w-2.5 rounded-full"
       style={
         outlined
-          ? { backgroundColor: '#0a0a0a', boxShadow: `inset 0 0 0 1.5px ${color}` }
+          ? {
+              // Match the page background in either theme so the hollow swatch
+              // reads correctly (was hard-coded dark `#0a0a0a`).
+              backgroundColor: 'rgb(var(--n-950))',
+              boxShadow: `inset 0 0 0 1.5px ${color}`,
+            }
           : { backgroundColor: color }
       }
       aria-hidden

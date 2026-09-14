@@ -145,7 +145,66 @@ export interface AiConfigRecord {
   baseUrl?: string;
   /** Default model string (e.g. "openai/gpt-4o-mini" for OpenRouter). */
   model?: string;
+  /**
+   * Per-user/day monetary cap in USD. Undefined / 0 = no monetary cap. Stored
+   * (non-secret) so the cap survives restart and the config GET can surface it.
+   */
+  spendCapUsd?: number;
+  /**
+   * Per-user/day request cap. Undefined falls back to the server's
+   * GRAPHVAULT_AI_DAILY_CAP. 0 = unlimited.
+   */
+  dailyRequestCap?: number;
   updatedAt: string; // ISO-8601
+}
+
+/**
+ * Durable per-user/day AI spend window. Replaces the old in-process daily
+ * request counter so caps survive a restart. One row per user; the active
+ * window is identified by `windowDate` (UTC "YYYY-MM-DD"). When a commit lands
+ * on a new day the counters reset to a fresh window. Both the monetary cap
+ * (`spentUsd` vs the config's `spendCapUsd`) and the request cap (`requests` vs
+ * `dailyRequestCap` / `GRAPHVAULT_AI_DAILY_CAP`) are enforced against this row.
+ * See `docs/ai-bff.md` §4.
+ */
+export interface AiSpendWindowRecord {
+  userId: string;
+  /** "YYYY-MM-DD" UTC - the active window. */
+  windowDate: string;
+  /** Requests committed in this window. */
+  requests: number;
+  /** Provider-reported USD cost accrued in this window (0 when none reported). */
+  spentUsd: number;
+  updatedAt: string; // ISO-8601
+}
+
+/**
+ * A minted inbox ("connect anything") token, bound to one vault. Only the
+ * SHA-256 hash of the raw token is stored (like the auth {@link TokenRecord});
+ * the raw token is returned to the caller exactly once at creation.
+ */
+export interface InboxTokenRecord {
+  id: string;
+  userId: string;
+  vaultId: string;
+  label: string;
+  /** SHA-256 hex of the raw token (never the raw token itself). */
+  tokenHash: string;
+  createdAt: string; // ISO-8601
+  lastUsedAt: string | null;
+}
+
+/** One audit-log entry for an inbound webhook attempt (accepted or rejected). */
+export interface InboxAuditRecord {
+  id: string;
+  userId: string;
+  tokenId: string;
+  source: string;
+  /** The note path created (or attempted), or null for early rejects. */
+  path: string | null;
+  bytes: number;
+  status: 'accepted' | 'rejected';
+  at: string; // ISO-8601
 }
 
 /**
@@ -276,6 +335,48 @@ export interface Storage {
   getAiConfig(userId: string): Promise<AiConfigRecord | null>;
   upsertAiConfig(record: AiConfigRecord): Promise<void>;
   deleteAiConfig(userId: string): Promise<void>;
+
+  // --- AI durable spend/request window ---
+  /**
+   * The user's current spend window, or null if none has been committed yet.
+   * Callers must treat a window whose `windowDate !== today` as empty (lazy
+   * reset) - the stored row is only rolled over on the next {@link commitAiSpend}.
+   */
+  getAiSpendWindow(userId: string): Promise<AiSpendWindowRecord | null>;
+  /**
+   * Atomically add `addUsd` and `addRequests` to the user's window for `today`
+   * (UTC "YYYY-MM-DD"). When the stored window predates `today` it is reset to a
+   * fresh window before adding. Returns the post-commit record.
+   */
+  commitAiSpend(
+    userId: string,
+    addUsd: number,
+    addRequests: number,
+    today: string,
+  ): Promise<AiSpendWindowRecord>;
+
+  // --- inbox ("connect anything") tokens ---
+  createInboxToken(record: InboxTokenRecord): Promise<void>;
+  /** Resolve an inbox token by its SHA-256 hash (the inbound lookup key). */
+  getInboxTokenByHash(tokenHash: string): Promise<InboxTokenRecord | null>;
+  /** A user's tokens, oldest-first. */
+  listInboxTokens(userId: string): Promise<InboxTokenRecord[]>;
+  /** Stamp lastUsedAt onto a token (by hash). No-op if it no longer exists. */
+  touchInboxToken(tokenHash: string, lastUsedAt: string): Promise<void>;
+  /**
+   * Delete the user's token with the given id. Returns true if a row was
+   * removed, false if it didn't exist or isn't the caller's (→ 404 upstream).
+   */
+  deleteInboxToken(userId: string, tokenId: string): Promise<boolean>;
+
+  // --- inbox audit log (capped per user, oldest evicted) ---
+  /**
+   * Append an audit entry, then enforce the per-user cap by evicting the
+   * oldest entries beyond `cap`.
+   */
+  appendInboxAudit(record: InboxAuditRecord, cap: number): Promise<void>;
+  /** A user's audit entries, newest-first. */
+  listInboxAudit(userId: string): Promise<InboxAuditRecord[]>;
 
   // --- OAuth (remote MCP connector authorization server) ---
   createOAuthClient(record: OAuthClientRecord): Promise<void>;

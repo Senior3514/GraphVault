@@ -118,7 +118,7 @@ export function useSync(options: UseSyncOptions): UseSync {
       notes: () => vault.notes.map((n) => ({ ...n })),
       upsert: (path, content, _mtime) => {
         // _mtime is provided by the sync engine (server mtime). The web vault's
-        // updateContent / createNote always sets mtime to Date.now() — acceptable
+        // updateContent / createNote always sets mtime to Date.now() - acceptable
         // because the sync index records the canonical server mtime separately.
         if (vault.getNote(path)) {
           vault.updateContent(path, content);

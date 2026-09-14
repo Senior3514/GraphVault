@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+"""gv - tiny GraphVault client for Claude Code's own working notebook.
+
+This is a WORKING TOOL for how Claude Code operates across sessions. It is
+deliberately NOT part of the Ghostica product, its codebase, its docs, or any
+product claim - the same boundary the Ghostica Council keeps.
+
+Talks to the server on loopback with X-Forwarded-Proto: https, which is how the
+TLS-terminating proxy presents requests. That header is only meaningful from
+loopback here; it is not a way in from outside.
+
+  gv put <vault-path> <local-file>   write/update a note
+  gv put <vault-path> -             write/update from stdin
+  gv get <vault-path>                read a note
+  gv ls                              list live notes
+  gv rm <vault-path>                 delete a note (tombstone)
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+BASE = "http://127.0.0.1:4000"
+SECRETS = Path(__file__).parent / ".secrets" / "claude-code.env"
+
+
+def load_env() -> dict[str, str]:
+    if not SECRETS.exists():
+        sys.exit(f"missing {SECRETS}")
+    env: dict[str, str] = {}
+    for line in SECRETS.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            env[k] = v
+    return env
+
+
+ENV = load_env()
+
+
+def call(method: str, path: str, body: bytes | None = None, json_body=None):
+    headers = {
+        "X-Forwarded-Proto": "https",
+        "Authorization": f"Bearer {ENV['GRAPHVAULT_TOKEN']}",
+    }
+    data = body
+    if json_body is not None:
+        data = json.dumps(json_body).encode()
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            raw = r.read()
+    except urllib.error.HTTPError as e:
+        sys.exit(f"{method} {path} -> {e.code}: {e.read().decode()[:300]}")
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return raw
+
+
+def vault_id() -> str:
+    if ENV.get("GRAPHVAULT_VAULT_ID"):
+        return ENV["GRAPHVAULT_VAULT_ID"]
+    name = ENV["GRAPHVAULT_VAULT_NAME"]
+    for v in call("GET", "/v1/vaults"):
+        if v["name"] == name:
+            return v["id"]
+    sys.exit(f"no vault named {name}")
+
+
+VID = vault_id()
+
+
+def changes() -> dict:
+    return call("GET", f"/v1/vaults/{VID}/changes?since=0")
+
+
+def live_files() -> dict[str, dict]:
+    """Latest non-deleted state per path."""
+    latest: dict[str, dict] = {}
+    for c in changes()["changes"]:
+        latest[c["path"]] = c
+    return {p: c for p, c in latest.items() if not c["deleted"]}
+
+
+def push(op: dict):
+    # baseRevision is the revision of THIS PATH, not the vault head - the
+    # server compares it against the file's own last revision (sync.ts:104)
+    # and 0 means "I believe this file does not exist yet". Sending the vault
+    # head instead makes every new-file push fail as STALE_BASE.
+    latest: dict[str, dict] = {}
+    for c in changes()["changes"]:
+        latest[c["path"]] = c
+    prior = latest.get(op["path"])
+    op["baseRevision"] = prior["revision"] if prior else 0
+    r = call(
+        "POST",
+        f"/v1/vaults/{VID}/push",
+        json_body={"deviceId": ENV["GRAPHVAULT_DEVICE_ID"], "ops": [op]},
+    )
+    if r["conflicts"]:
+        sys.exit(f"conflict: {r['conflicts']}")
+    return r
+
+
+def main() -> None:
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    cmd = sys.argv[1]
+
+    if cmd == "put":
+        path, src = sys.argv[2], sys.argv[3]
+        content = sys.stdin.buffer.read() if src == "-" else Path(src).read_bytes()
+        digest = "sha256:" + hashlib.sha256(content).hexdigest()
+        call("PUT", f"/v1/blobs/{digest}", body=content)
+        r = push(
+            {
+                "path": path,
+                "hash": digest,
+                "size": len(content),
+                "mtime": int(time.time()),
+                "deleted": False,
+            }
+        )
+        print(f"ok  rev={r['revision']}  {path}  ({len(content)}B)")
+
+    elif cmd == "get":
+        path = sys.argv[2]
+        f = live_files().get(path)
+        if not f:
+            sys.exit(f"not found: {path}")
+        out = call("GET", f"/v1/blobs/{f['hash']}")
+        sys.stdout.write(out.decode() if isinstance(out, bytes) else str(out))
+
+    elif cmd == "ls":
+        files = live_files()
+        if not files:
+            print("(empty)")
+        for p, c in sorted(files.items()):
+            print(f"{c['size']:>7}B  rev{c['revision']:<4} {p}")
+
+    elif cmd == "rm":
+        path = sys.argv[2]
+        r = push(
+            {
+                "path": path,
+                "hash": None,
+                "size": 0,
+                "mtime": int(time.time()),
+                "deleted": True,
+            }
+        )
+        print(f"deleted  rev={r['revision']}  {path}")
+
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()

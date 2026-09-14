@@ -1,5 +1,5 @@
 /**
- * EncryptedVaultStore — at-rest AES-256-GCM encryption decorator for vault
+ * EncryptedVaultStore - at-rest AES-256-GCM encryption decorator for vault
  * storage.
  *
  * This module wraps any {@link RawStorage} backend (a minimal key/value
@@ -17,7 +17,7 @@
  *   retry.
  * - Enabling encryption (`encryptExisting`): encrypts the current plaintext
  *   blob in place, then marks the sentinel. The original plaintext is
- *   overwritten only AFTER a successful encrypt call — no window where both
+ *   overwritten only AFTER a successful encrypt call - no window where both
  *   plaintext and ciphertext coexist in storage.
  * - Disabling encryption (`decryptExisting`): decrypts and writes back
  *   plaintext, then clears the sentinel.
@@ -62,12 +62,12 @@ export interface RawStorage {
 
 /**
  * Thrown when decryption fails (wrong passphrase or tampered data). Never
- * exposes whether it was a passphrase error vs. a tamper error — they look
+ * exposes whether it was a passphrase error vs. a tamper error - they look
  * identical to the caller so an attacker cannot distinguish them.
  */
 export class VaultDecryptionError extends Error {
   constructor(cause?: unknown) {
-    super('Vault decryption failed — wrong passphrase or corrupted data.');
+    super('Vault decryption failed - wrong passphrase or corrupted data.');
     this.name = 'VaultDecryptionError';
     if (cause instanceof Error) {
       this.cause = cause;
@@ -157,11 +157,11 @@ export class EncryptedVaultStore {
     const maybeEnvelope = tryDecodeEnvelope(raw);
 
     if (!maybeEnvelope) {
-      // Not an encrypted envelope — treat as plaintext JSON.
+      // Not an encrypted envelope - treat as plaintext JSON.
       return parseNotesJson(raw);
     }
 
-    // It is an encrypted envelope — decrypt it.
+    // It is an encrypted envelope - decrypt it.
     let plaintext: string;
     try {
       plaintext = await decryptVault(maybeEnvelope, this._passphrase);
@@ -221,7 +221,7 @@ export class EncryptedVaultStore {
     }
 
     if (tryDecodeEnvelope(raw)) {
-      // Already encrypted — verify we can decrypt it (wrong passphrase guard).
+      // Already encrypted - verify we can decrypt it (wrong passphrase guard).
       return this.load();
     }
 
@@ -352,7 +352,7 @@ function parseNotesJson(raw: string): Note[] {
  * plaintext JSON).
  *
  * We use `envelopeFromBase64` which already validates the magic bytes and
- * throws on failure — we catch and return `null`.
+ * throws on failure - we catch and return `null`.
  */
 function tryDecodeEnvelope(raw: string): import('../../crypto/vaultCrypto').VaultEnvelope | null {
   try {

@@ -7,9 +7,9 @@
  * route. It blends two result kinds, both ranked and filtered by the live
  * query:
  *
- *  - **Actions** — a small fixed set ("Create new note", "Go to Graph", …),
+ *  - **Actions** - a small fixed set ("Create new note", "Go to Graph", …),
  *    matched with the dependency-free {@link fuzzyMatch} subsequence scorer.
- *  - **Notes** — quick-open by title/body via the vault's MiniSearch index.
+ *  - **Notes** - quick-open by title/body via the vault's MiniSearch index.
  *
  * It is fully keyboard-driven (↑/↓ to move, Enter to run, Esc to close), traps
  * focus while open, restores focus to the previously active element on close,
@@ -137,7 +137,7 @@ export function CommandPalette() {
             const created = vault.createNote(name);
             openNote(created.path);
           } catch {
-            /* duplicate or invalid path — surfaced on the vault page instead */
+            /* duplicate or invalid path - surfaced on the vault page instead */
           }
         },
       },
@@ -227,7 +227,7 @@ export function CommandPalette() {
               window.alert(lines.join('\n') || 'No changes.');
             })
             .catch((err: unknown) => {
-              // AbortError = user cancelled the picker — silent.
+              // AbortError = user cancelled the picker - silent.
               if (err instanceof DOMException && err.name === 'AbortError') return;
               const message = err instanceof Error ? err.message : String(err);
               window.alert(`Could not import folder: ${message}`);
@@ -353,14 +353,14 @@ export function CommandPalette() {
         aria-label="Close command palette"
         tabIndex={-1}
         onClick={close}
-        className="absolute inset-0 cursor-default bg-neutral-950/70 backdrop-blur-sm motion-safe:animate-[fadeIn_120ms_ease-out]"
+        className="absolute inset-0 cursor-default bg-neutral-950/60 backdrop-blur-md motion-safe:animate-[fadeIn_120ms_ease-out]"
       />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="relative w-full max-w-xl overflow-hidden rounded-xl border border-neutral-700/80 bg-neutral-900/95 shadow-2xl shadow-black/50 ring-1 ring-white/5 motion-safe:animate-[paletteIn_140ms_ease-out]"
+        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-neutral-700/70 bg-neutral-900/95 shadow-elevation-xl ring-1 ring-white/[0.06] backdrop-blur-xl motion-safe:animate-[paletteIn_140ms_ease-out]"
       >
         <div className="flex items-center gap-3 border-b border-neutral-800 px-4">
           <span aria-hidden="true" className="text-neutral-500">
@@ -430,7 +430,7 @@ export function CommandPalette() {
                     onClick={() => runItem(item)}
                     className={[
                       'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors motion-reduce:transition-none',
-                      active ? 'bg-sky-500/15 text-neutral-100' : 'text-neutral-300',
+                      active ? 'bg-accent-500/15 text-neutral-100' : 'text-neutral-300',
                     ].join(' ')}
                   >
                     <span
@@ -438,7 +438,7 @@ export function CommandPalette() {
                       className={[
                         'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-xs',
                         active
-                          ? 'border-sky-400/40 bg-sky-500/10 text-sky-300'
+                          ? 'border-accent-400/40 bg-accent-500/10 text-accent-300'
                           : 'border-neutral-700 bg-neutral-800/60 text-neutral-400',
                       ].join(' ')}
                     >

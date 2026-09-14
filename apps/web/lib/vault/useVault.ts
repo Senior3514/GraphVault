@@ -12,7 +12,7 @@
  *
  * When vault encryption is enabled the hook uses an {@link EncryptedVaultStore}
  * to transparently encrypt/decrypt the notes blob. The passphrase is held in
- * memory only — never persisted.
+ * memory only - never persisted.
  *
  * On first load, if the sentinel flag indicates the vault is encrypted but no
  * passphrase has been supplied yet, `ready` stays `false` and
@@ -25,7 +25,7 @@
  * {@link BackupStore}. The delay is intentionally longer than the autosave
  * debounce (autosave: immediate-on-change, snapshot: 5 s after the last change
  * settles) so rapid typing does not produce hundreds of snapshots. The snapshot
- * is fire-and-forget — a failure never blocks a render or an autosave.
+ * is fire-and-forget - a failure never blocks a render or an autosave.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -34,6 +34,7 @@ import { computeBacklinks, type Backlink } from './links';
 import { NoteSearchIndex, type SearchResult } from './search';
 import { AdapterVaultStore } from './store';
 import { LOCAL_STORAGE_KEY } from './storage/localStorageAdapter';
+import { tauriStorageAdapter } from './storage/tauriAdapter';
 import { aggregateTags, notesWithTag as notesWithTagOp, type TagCount } from './tags';
 import type { IndexedNote, Note, NotePath } from './types';
 import {
@@ -96,7 +97,36 @@ export interface UseVault {
   renameNote(from: NotePath, to: string): NotePath;
   deleteNote(path: NotePath): void;
   importNotes(incoming: readonly ImportNote[]): ImportSummary;
+  /**
+   * Write pending draft edits directly to the active storage adapter WITHOUT
+   * going through the React state → useEffect → adapter.save pipeline.
+   *
+   * This is the safe path for beforeunload / visibilitychange=hidden handlers:
+   * React's useEffect is async and may not fire before the browser unloads the
+   * page. Calling `updateContent` (which dispatches `setRawNotes`) is therefore
+   * NOT safe from a beforeunload handler - the last keystrokes would be lost.
+   *
+   * `directFlush` applies the patches to the current in-memory notes, calls
+   * `adapter.save()` immediately (so the write races to complete before unload),
+   * and ALSO dispatches a `setRawNotes` update to keep React state consistent
+   * for the case where the tab is NOT closed (e.g. visibilitychange=hidden on
+   * mobile where the app can resume later).
+   *
+   * @param updates  Array of `{ path, content }` pairs - the pending draft
+   *   content for each tab that has unsaved edits. Unknown paths are silently
+   *   skipped (the note may have been deleted between capturing the draft and
+   *   the flush firing).
+   */
+  directFlush(updates: ReadonlyArray<{ path: NotePath; content: string }>): Promise<void>;
   resetVault(): Promise<void>;
+  /**
+   * Non-destructively reload notes from the active storage adapter into React
+   * state. Unlike {@link resetVault}, this NEVER clears or reseeds storage - it
+   * just re-reads what is already persisted. Used after a storage-backend switch
+   * (migrate copies notes to the new adapter; reload surfaces them) so the
+   * migrate "source preserved" promise is honoured.
+   */
+  reload(): Promise<void>;
   /**
    * Restore a snapshot by id. Non-destructive: a "pre-restore" snapshot of
    * the current state is taken first, then the snapshot notes are merged in
@@ -169,7 +199,7 @@ export function useVault(): UseVault {
         .takeSnapshot(notes)
         .then(() => getBackupStore().pruneOld())
         .catch(() => {
-          // Snapshot failures are silent — never block a render or autosave.
+          // Snapshot failures are silent - never block a render or autosave.
         });
     }, SNAPSHOT_DEBOUNCE_MS);
     debouncedSnapshotRef.current = fn;
@@ -185,14 +215,14 @@ export function useVault(): UseVault {
     // Check if the sentinel says the vault is encrypted.
     const sentinel = isVaultEncryptedSentinel();
     if (sentinel) {
-      // The vault is encrypted — we need a passphrase before we can load.
+      // The vault is encrypted - we need a passphrase before we can load.
       setEncryptionEnabled(true);
       setNeedsPassphrase(true);
       // `ready` stays false until unlock() is called.
       return;
     }
 
-    // Not encrypted — load normally.
+    // Not encrypted - load normally.
     store.load().then((loaded) => {
       if (!active) return;
       setRawNotes(loaded);
@@ -259,7 +289,7 @@ export function useVault(): UseVault {
   const unlock = useCallback(async (passphrase: string): Promise<void> => {
     const evs = new EncryptedVaultStore(getRawStorage(), LOCAL_STORAGE_KEY, passphrase);
 
-    // Throws VaultDecryptionError if passphrase is wrong — we let it propagate.
+    // Throws VaultDecryptionError if passphrase is wrong - we let it propagate.
     const loaded = await evs.load();
 
     encryptedStore.current = evs;
@@ -298,7 +328,7 @@ export function useVault(): UseVault {
       new EncryptedVaultStore(getRawStorage(), LOCAL_STORAGE_KEY, passphrase);
 
     evs.setPassphrase(passphrase);
-    // Throws VaultDecryptionError on wrong passphrase — blob is NOT mutated.
+    // Throws VaultDecryptionError on wrong passphrase - blob is NOT mutated.
     const decrypted = await evs.decryptExisting();
 
     evs.lock();
@@ -355,6 +385,37 @@ export function useVault(): UseVault {
     return summary;
   }, []);
 
+  const directFlush = useCallback(
+    async (updates: ReadonlyArray<{ path: NotePath; content: string }>): Promise<void> => {
+      if (updates.length === 0) return;
+
+      // Apply patches to the CURRENT rawNotes synchronously using the functional
+      // updater pattern - we need the patched array both for the immediate
+      // storage write AND for the React state update.
+      let patched = latestNotesRef.current;
+      for (const { path, content } of updates) {
+        try {
+          patched = updateNoteContentOp(patched, path, content);
+        } catch {
+          // Note deleted between draft capture and flush - skip, don't abort.
+        }
+      }
+
+      // Write DIRECTLY to storage. This races to complete before the browser
+      // unloads the page - unlike setRawNotes which defers through useEffect.
+      if (encryptedStore.current) {
+        await encryptedStore.current.save(patched);
+      } else {
+        await store.save(patched);
+      }
+
+      // Also update React state so the UI stays consistent if the tab isn't
+      // actually closing (e.g. visibilitychange=hidden on mobile, resume later).
+      setRawNotes(patched);
+    },
+    [],
+  );
+
   const resetVault = useCallback(async () => {
     if (encryptedStore.current) {
       encryptedStore.current.clear();
@@ -366,6 +427,68 @@ export function useVault(): UseVault {
     const seeded = await store.load();
     setRawNotes(seeded);
   }, []);
+
+  const reload = useCallback(async () => {
+    // Re-read from whichever store is currently active (encrypted or adapter).
+    // No clear, no reseed - purely a refresh of in-memory state.
+    const source = encryptedStore.current ?? store;
+    const loaded = await source.load();
+    setRawNotes(loaded);
+    setReady(true);
+    // Keep the native-fs watcher in sync with whatever adapter/path is
+    // active now - see the effect below for what this actually does.
+    void syncWatcherRef.current();
+  }, []);
+
+  // ---------------------------------------------------------------------
+  // Native file watching (Tauri desktop only - a no-op everywhere else).
+  //
+  // Lets an external editor / `git pull` / sync client change files on disk
+  // while the vault is open, without requiring a manual reload. Piggybacks
+  // on `reload()` to decide whether to (re)watch rather than adding a new
+  // call site: `reload()` already runs after every storage-adapter switch
+  // (Settings calls it right after `switchToTauriFolder`/`switchToLocalStorage`
+  // succeed) and once on initial mount, which are exactly the moments the
+  // active adapter/path can change. `syncWatcherRef` breaks the circular
+  // dependency between `reload` (defined above, needs to trigger a sync) and
+  // the sync function itself (needs to call `reload` when a change fires).
+  const syncWatcherRef = useRef<() => Promise<void>>(async () => {});
+  const watchStateRef = useRef<{ path: string | null; unwatch: (() => void) | null }>({
+    path: null,
+    unwatch: null,
+  });
+
+  useEffect(() => {
+    syncWatcherRef.current = async () => {
+      const active = tauriStorageAdapter.isAvailable();
+      const currentPath = active ? tauriStorageAdapter.path : null;
+      if (watchStateRef.current.path === currentPath) return; // already watching the right thing (or nothing)
+
+      watchStateRef.current.unwatch?.();
+      watchStateRef.current = { path: currentPath, unwatch: null };
+
+      if (currentPath) {
+        try {
+          const unwatch = await tauriStorageAdapter.watch(() => void reload());
+          // The path may have changed again while `watch()` was resolving;
+          // only keep this watcher if it's still the one we want.
+          if (watchStateRef.current.path === currentPath) {
+            watchStateRef.current.unwatch = unwatch;
+          } else {
+            unwatch();
+          }
+        } catch {
+          // Watching is best-effort - the vault still works via manual reload
+          // (the Settings "Storage location" panel, or any future reload).
+        }
+      }
+    };
+    void syncWatcherRef.current();
+    return () => {
+      watchStateRef.current.unwatch?.();
+      watchStateRef.current = { path: null, unwatch: null };
+    };
+  }, [reload]);
 
   const restoreFromSnapshot = useCallback(
     async (snapshotId: string): Promise<boolean> => {
@@ -402,7 +525,9 @@ export function useVault(): UseVault {
     renameNote,
     deleteNote,
     importNotes,
+    directFlush,
     resetVault,
+    reload,
     restoreFromSnapshot,
     encryptionEnabled,
     needsPassphrase,

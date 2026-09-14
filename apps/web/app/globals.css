@@ -3,62 +3,175 @@
 @tailwind utilities;
 
 /* ============================================================================
-   Design tokens — the `neutral` ramp as CSS variables (RGB triples, no alpha).
+   Design tokens - the `neutral` ramp as CSS variables (RGB triples, no alpha).
    Tailwind's neutral.* colours resolve to `rgb(var(--n-XXX) / <alpha-value>)`
    (see tailwind.config.ts), so every existing `bg-neutral-950 text-neutral-100`
    utility flips per theme with zero per-component changes.
 
-   DARK (`:root`, the default + no-JS fallback) uses the stock Tailwind neutral
-   triples. LIGHT (`:root[data-theme='light']`) uses an INVERTED ramp so the
-   semantics hold: --n-950 is always the page background, --n-50 the strongest
-   text. Light --n-950 := dark --n-50, light --n-900 := dark --n-100, etc.
+   The ramp is a subtly COOL neutral (a faint blue cast, like Linear / Vercel)
+   rather than a pure grey - it reads as more premium and modern while staying
+   restrained. Steps are tuned for depth: the dark surfaces 950→800 are spaced
+   so panels visibly layer above the page; the light surfaces 950→800 stay near
+   off-white so the UI never glares.
+
+   DARK (`:root`, the default + no-JS fallback): --n-950 is the page background,
+   --n-50 the strongest text. LIGHT (`:root[data-theme='light']`) keeps the same
+   semantics with a hand-tuned (not merely inverted) ramp so light mode gets a
+   genuine off-white paper feel and AA-contrast text, not a flat math inversion.
    The no-flash boot script sets data-theme before first paint.
+
+   Surface/elevation tokens (shadows, hairline ring) live alongside the ramp so
+   radii, borders, and shadows stay cohesive and theme-aware in one place.
    ============================================================================ */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --n-50: 250 250 250;
-  --n-100: 245 245 245;
-  --n-200: 229 229 229;
-  --n-300: 212 212 212;
-  --n-400: 163 163 163;
-  --n-500: 115 115 115;
-  --n-600: 82 82 82;
-  --n-700: 64 64 64;
-  --n-800: 38 38 38;
-  --n-900: 23 23 23;
-  --n-950: 10 10 10;
+  /* Cool-neutral dark ramp. 950 page bg is a near-black with a hint of blue. */
+  --n-50: 246 247 249;
+  --n-100: 236 238 242;
+  --n-200: 213 217 224;
+  --n-300: 180 186 197;
+  --n-400: 140 147 160;
+  --n-500: 106 113 126;
+  --n-600: 76 82 94;
+  --n-700: 52 57 68;
+  --n-800: 33 37 46;
+  --n-900: 21 24 31;
+  --n-950: 11 13 17;
+
+  /* Elevation: dark shadows are soft + low-alpha so surfaces lift subtly. */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 4px 12px -4px rgb(0 0 0 / 0.45);
+  --shadow-xl: 0 24px 64px -12px rgb(0 0 0 / 0.7), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+  /* Hairline ring used on raised glass surfaces for a crisp top edge. */
+  --ring-edge: rgb(255 255 255 / 0.06);
+
+  /* --------------------------------------------------------------------------
+     Brand accent - a premium, deep CYAN (not neon). Driven by CSS variables so
+     the brand colour is a ONE-PLACE switch: `colors.accent.*` in
+     tailwind.config.ts resolves to `rgb(var(--accent-XXX) / <alpha-value>)`, so
+     every `bg-accent-500 / text-accent-400 / ring-accent-500 / border-accent-500`
+     utility flips per theme automatically. To rebrand later, edit ONLY these
+     triples (and the light block below) - no component changes.
+
+     DARK ramp (here): tuned for the near-black page (--n-950 = 11 13 17). The
+     mid steps stay rich so the cyan reads as confident, not washed out.
+     AA contrast (verified): accent-500 fill vs white text = 4.67:1 (primary
+     CTAs - AA for normal text); accent-600 vs white = 6.04:1 (hover); accent-400
+     as text on the dark page = 7.41:1; accent-300 on the page = 10.6:1.
+     `--accent-fg` is the foreground placed ON an accent-500/600 fill (white,
+     which clears AA on both 500 and 600 in both themes). */
+  --accent-50: 236 254 255;
+  --accent-100: 201 241 249;
+  --accent-200: 151 226 239;
+  --accent-300: 91 207 226;
+  --accent-400: 31 175 198;
+  --accent-500: 1 127 153;
+  --accent-600: 1 108 131;
+  --accent-700: 10 88 108;
+  --accent-800: 15 72 89;
+  --accent-900: 18 60 75;
+  --accent-950: 7 39 50;
+  --accent-fg: 255 255 255;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  /* Inverted ramp: light --n-X := dark --n-(1000-X). */
-  --n-50: 10 10 10;
-  --n-100: 23 23 23;
-  --n-200: 38 38 38;
-  --n-300: 64 64 64;
-  --n-400: 82 82 82;
-  --n-500: 115 115 115;
-  --n-600: 163 163 163;
-  --n-700: 212 212 212;
-  --n-800: 229 229 229;
-  --n-900: 245 245 245;
-  --n-950: 250 250 250;
+  /* Hand-tuned light ramp (not a raw inversion). 950 page bg is a soft paper
+     off-white; text steps keep AA contrast on those surfaces. */
+  --n-50: 16 19 26;
+  --n-100: 28 32 41;
+  --n-200: 49 55 67;
+  --n-300: 82 90 104;
+  --n-400: 110 119 134;
+  --n-500: 140 149 163;
+  --n-600: 176 183 195;
+  --n-700: 211 216 224;
+  --n-800: 228 232 238;
+  --n-900: 241 243 247;
+  --n-950: 250 251 253;
+
+  /* Elevation: light shadows are tinted with the cool neutral, not pure black,
+     so they read as soft ambient occlusion rather than a hard drop. */
+  --shadow-sm: 0 1px 2px 0 rgb(16 19 26 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(16 19 26 / 0.08), 0 2px 6px -2px rgb(16 19 26 / 0.06);
+  --shadow-lg: 0 12px 32px -8px rgb(16 19 26 / 0.12), 0 4px 12px -4px rgb(16 19 26 / 0.08);
+  --shadow-xl: 0 24px 64px -12px rgb(16 19 26 / 0.16), 0 8px 24px -8px rgb(16 19 26 / 0.1);
+  --ring-edge: rgb(16 19 26 / 0.05);
+
+  /* Brand accent - LIGHT theme. Hand-tuned (not a raw inversion) so accent text
+     reads on the off-white paper (--n-950 = 250 251 253) at AA, while the FILL
+     steps (500/600) stay identical to dark so primary CTAs are one consistent
+     cyan with white text in both themes. The high steps (700-950) brighten so
+     accent-tinted backgrounds (badges, callouts) read correctly on light.
+     AA (verified): accent-400 as text on the light page = 6.10:1; accent-300 =
+     7.73:1; accent-500 fill vs white = 4.67:1; accent-600 vs white = 6.04:1. */
+  --accent-50: 7 39 50;
+  --accent-100: 10 51 64;
+  --accent-200: 14 66 84;
+  --accent-300: 10 88 108;
+  --accent-400: 2 105 126;
+  --accent-500: 1 127 153;
+  --accent-600: 1 108 131;
+  --accent-700: 91 207 226;
+  --accent-800: 151 226 239;
+  --accent-900: 201 241 249;
+  --accent-950: 236 254 255;
+  --accent-fg: 255 255 255;
 }
 
 body {
-  @apply bg-neutral-950 text-neutral-100 antialiased;
-  font-feature-settings: 'cv11', 'ss01';
+  /* font-sans = self-hosted Inter (app/fonts.ts), set on <html> in layout.tsx.
+     The @apply re-states it so the body face is explicit even if a parent
+     class is ever removed. */
+  @apply bg-neutral-950 font-sans text-neutral-100 antialiased;
+  /* Global horizontal-overflow guard (oversized decorative elements, e.g. the
+     landing page's aurora glow blobs, must never cause a horizontal
+     scrollbar). Deliberately here, not on any element *inside* the page
+     (e.g. <main>): overflow-x on <body> is a documented special case that
+     controls the viewport's own scroll behavior rather than establishing a
+     new scrolling container, so it does NOT break `position: sticky` for
+     descendants - overflow-x on any other ancestor does (it implicitly
+     computes overflow-y to `auto`, per the CSS Overflow spec's paired-axis
+     rule, which silently breaks sticky positioning for every sticky element
+     inside it). Found by dogfooding: the landing page's sticky nav header
+     never actually stuck to the viewport on scroll because of exactly this,
+     via a since-removed `overflow-x-hidden` on the page's <main>.
+     Never re-add overflow-x on <main> or any other page container. */
+  overflow-x: hidden;
+  /* Inter OpenType features: cv11 single-storey a/g; ss01 stylistic alternates;
+     cv05 lowercase l with a tail (disambiguates from 1/I). Harmless no-ops on
+     the system fallback before the woff2 swaps in. */
+  font-feature-settings: 'cv11', 'ss01', 'cv05';
+  font-synthesis-weight: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em;
 }
 
-/* Refined interactive defaults — smooth hover/focus transitions everywhere. */
+/* Headings use the display face (Geist) - a refined geometric grotesque - with
+   tighter optical tracking for a confident, modern hierarchy. Setting it here
+   means every <h1>-<h4> gets the display face app-wide without per-element
+   classes; the heading utilities (text-3xl/4xl/...) supply the size + tracking.
+   Marketing surfaces additionally opt into Geist on big numerals/wordmarks via
+   the `font-display` utility. */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Refined interactive defaults - smooth hover/focus transitions everywhere.
+   A snappy 150ms with an ease-out curve feels responsive, not laggy; gated by
+   the global prefers-reduced-motion rule below. */
 a,
 button,
 [role='button'] {
-  @apply transition-colors duration-150;
+  @apply transition-colors duration-150 ease-out;
 }
 
 /* Inter-style numeric tabular figures for counters and stats. */
@@ -86,20 +199,25 @@ button,
   @apply bg-neutral-600;
 }
 
-/* Crisp focus rings for keyboard users; pointer focus stays quiet. */
+/* Crisp focus rings for keyboard users; pointer focus stays quiet. A 2px accent
+   (cyan) ring on a 2px page-coloured offset reads clearly on every surface in
+   both themes (the offset colour is the theme-aware page background). */
 :focus-visible {
-  @apply outline-none ring-2 ring-sky-500/60 ring-offset-1 ring-offset-neutral-950;
+  @apply outline-none ring-2 ring-accent-500/70 ring-offset-2 ring-offset-neutral-950;
 }
 
 /* ============================================================================
-   Skip-to-content link — visually hidden until focused by keyboard.
+   Skip-to-content link - visually hidden until focused by keyboard.
    Placed as the first child of <body> / root layout for screen-reader and
    keyboard users to jump past the navigation rail directly to main content.
    ============================================================================ */
 .skip-link {
   @apply sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200];
-  @apply focus:rounded-md focus:bg-sky-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-neutral-950;
-  @apply focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-sky-500;
+  /* text-white (not text-neutral-950) so the label stays legible on the accent
+     (cyan) fill in BOTH themes - neutral-950 flips to near-white in light mode,
+     and white clears AA on the accent-500 fill in both themes. */
+  @apply focus:rounded-md focus:bg-accent-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white;
+  @apply focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-accent-500;
 }
 
 /* ============================================================================
@@ -115,7 +233,7 @@ button,
    focus-visible is not applicable (mouse users switching split modes).
    ============================================================================ */
 [aria-pressed='true'] {
-  /* No visual override needed — components handle active state via className.
+  /* No visual override needed - components handle active state via className.
      This rule is a named hook so future token changes stay in one place. */
 }
 
@@ -209,20 +327,20 @@ button,
   @apply my-3 list-decimal space-y-1 pl-6;
 }
 .markdown-preview a {
-  @apply text-sky-400 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-300;
+  @apply text-accent-400 underline decoration-accent-400/40 underline-offset-2 hover:text-accent-300;
 }
 .markdown-preview a.wikilink {
   @apply cursor-pointer rounded-sm px-0.5 no-underline;
 }
 .markdown-preview a.wikilink--resolved {
-  @apply bg-sky-950/40 text-sky-300 hover:bg-sky-900/40;
+  @apply bg-accent-950/40 text-accent-300 hover:bg-accent-900/40;
 }
 .markdown-preview a.wikilink--unresolved {
   @apply text-amber-400/80 hover:text-amber-300;
 }
 .markdown-preview a.hashtag {
-  @apply cursor-pointer rounded px-1 text-xs font-medium text-sky-300/90 no-underline;
-  @apply bg-sky-950/40 hover:bg-sky-900/50 hover:text-sky-200;
+  @apply cursor-pointer rounded px-1 text-xs font-medium text-accent-300/90 no-underline;
+  @apply bg-accent-950/40 hover:bg-accent-900/50 hover:text-accent-200;
 }
 .markdown-preview code {
   @apply rounded bg-neutral-800 px-1 py-0.5 font-mono text-[0.85em] text-neutral-200;
@@ -263,7 +381,7 @@ button,
 }
 
 /* ============================================================================
-   Empty state helper — centred muted placeholder used across vault/graph views
+   Empty state helper - centred muted placeholder used across vault/graph views
    ============================================================================ */
 .empty-state {
   @apply flex flex-col items-center justify-center gap-3 py-16 text-center;
@@ -279,17 +397,40 @@ button,
 }
 
 /* ============================================================================
-   Micro-interaction: subtle scale + shadow lift on interactive card hover
+   Elevation utilities - theme-aware soft shadows driven by the tokens above.
+   Use these on raised surfaces (panels, popovers, cards) instead of hardcoded
+   `shadow-black/NN` so dark stays subtle and light reads as ambient occlusion.
    ============================================================================ */
-.card-hover {
-  @apply transition-all duration-200;
+.elevation-sm {
+  box-shadow: var(--shadow-sm);
 }
-.card-hover:hover {
-  @apply -translate-y-0.5 shadow-lg shadow-black/30;
+.elevation-md {
+  box-shadow: var(--shadow-md);
+}
+.elevation-lg {
+  box-shadow: var(--shadow-lg);
+}
+.elevation-xl {
+  box-shadow: var(--shadow-xl);
+}
+/* Hairline top edge for glassy raised surfaces (palette, popovers). */
+.ring-edge {
+  box-shadow: inset 0 1px 0 0 var(--ring-edge);
 }
 
 /* ============================================================================
-   Safe-area utilities — used by fixed/sticky elements near notches / home bars
+   Micro-interaction: subtle scale + shadow lift on interactive card hover
+   ============================================================================ */
+.card-hover {
+  @apply transition-all duration-200 ease-out motion-reduce:transition-none;
+}
+.card-hover:hover {
+  @apply -translate-y-0.5;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ============================================================================
+   Safe-area utilities - used by fixed/sticky elements near notches / home bars
    ============================================================================ */
 .safe-top {
   padding-top: env(safe-area-inset-top);

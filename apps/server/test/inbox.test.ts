@@ -4,7 +4,7 @@
  * Covers:
  *  - token CRUD requires auth; the raw token is returned ONCE at create and
  *    never appears in the list;
- *  - ownership is enforced — you cannot mint a token for a vault you don't own;
+ *  - ownership is enforced - you cannot mint a token for a vault you don't own;
  *  - a public inbound POST creates a note that shows up via the vault's
  *    `/changes` feed;
  *  - an unknown token → 404 (no leak), an oversize body → 413;

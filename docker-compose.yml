@@ -13,7 +13,7 @@
 # TLS NOTE: the server speaks plain HTTP and is meant to sit BEHIND a
 # TLS-terminating reverse proxy (Caddy or nginx) in production. Do not expose
 # port 4000 directly to the public internet. The commented `proxy` service
-# below is a minimal Caddy example — uncomment and adapt it, then stop
+# below is a minimal Caddy example - uncomment and adapt it, then stop
 # publishing the server's port directly. See docs/deployment.md.
 #
 # CONTAINER HARDENING: both services run with `no-new-privileges`, drop all
@@ -114,7 +114,7 @@ services:
       - blob-data:/data
     # Sync the Prisma schema into the database before the server boots. The repo
     # ships no migration files (the schema is the source of truth), so we use
-    # `db push`, which creates/updates tables directly and is idempotent — safe
+    # `db push`, which creates/updates tables directly and is idempotent - safe
     # on every restart. Switch to `migrate deploy` once versioned migrations are
     # committed under apps/server/prisma/migrations. The `prisma` CLI is a
     # (dev)dependency of @graphvault/server, so pnpm places it under
@@ -124,12 +124,18 @@ services:
       --schema apps/server/prisma/schema.prisma --skip-generate --accept-data-loss
       && node apps/server/dist/index.js"
     healthcheck:
+      # Must present X-Forwarded-Proto: https exactly as the TLS-terminating
+      # proxy in front of this service does. Without it the server correctly
+      # refuses the plaintext probe with 403 HTTPS_REQUIRED (this same file
+      # sets GRAPHVAULT_REQUIRE_HTTPS=true), so the check could NEVER pass -
+      # a healthy server reported unhealthy forever, which also buries a real
+      # outage in permanent noise.
       test:
         [
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:'+(process.env.GRAPHVAULT_PORT||4000)+'/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:'+(process.env.GRAPHVAULT_PORT||4000)+'/v1/health',{headers:{'X-Forwarded-Proto':'https'}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s

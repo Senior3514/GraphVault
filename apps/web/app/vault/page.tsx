@@ -14,19 +14,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AddButton } from '../../components/AddButton';
+import { TOGGLE_PREVIEW_EVENT } from '../../components/CommandPalette';
 import { BacklinksPanel } from '../../components/BacklinksPanel';
 import { MarkdownEditor } from '../../components/MarkdownEditor';
 import { MarkdownPreview } from '../../components/MarkdownPreview';
+import { NoteHierarchyTree } from '../../components/NoteHierarchyTree';
 import { NoteTree } from '../../components/NoteTree';
 import { SearchBox } from '../../components/SearchBox';
 import { TabBar } from '../../components/workspace/TabBar';
-import { PaneHeader, WorkspaceLayout } from '../../components/workspace/WorkspaceLayout';
+import {
+  PaneHeader,
+  WorkspaceLayout,
+  type MobilePane,
+} from '../../components/workspace/WorkspaceLayout';
 import { useLayout } from '../../lib/layout/useLayout';
+import { registerFlushOnExit } from '../../lib/vault/flushOnExit';
 import { VaultError } from '../../lib/vault/vault';
+import { nextUntitledName } from '../../lib/vault/untitled';
+import { setFrontmatterField } from '../../lib/vault/parse';
 import { useVaultContext } from '../../lib/vault/VaultProvider';
 import type { NotePath } from '../../lib/vault/types';
 
 const AUTOSAVE_MS = 400;
+
+/** Persisted choice between the folder-based tree and the CherryTree-style
+ *  parent/child note hierarchy in the sidebar's note list pane. */
+const NOTE_LIST_VIEW_KEY = 'graphvault.noteListView';
+type NoteListView = 'folders' | 'hierarchy';
 
 // ---- Per-tab draft store (kept outside React to avoid re-renders) -----------
 
@@ -50,12 +64,44 @@ export default function VaultPage() {
   // Error banner
   const [error, setError] = useState<string | null>(null);
 
+  // Which pane is visible on mobile (<md). Lifted out of WorkspaceLayout so
+  // opening a note (from the list, search, a wikilink, ...) can jump straight
+  // to the editor pane - otherwise selecting a note on a phone silently did
+  // nothing visible, since the note list pane stayed on screen underneath it.
+  const [mobilePane, setMobilePane] = useState<MobilePane>('editor');
+
+  // Note list pane: folder tree (default) vs. CherryTree-style note hierarchy.
+  // Starts at the SSR-stable default and reads the persisted preference in an
+  // effect (not the useState initializer) - matching the app's established
+  // pattern for anything localStorage-derived, since resolving it during
+  // render would render different markup on the server (no window) vs the
+  // client's first paint and cause a React hydration mismatch.
+  const [noteListView, setNoteListView] = useState<NoteListView>('folders');
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(NOTE_LIST_VIEW_KEY);
+      if (stored === 'hierarchy') setNoteListView('hierarchy');
+    } catch {
+      /* storage unavailable - keep the folders default */
+    }
+  }, []);
+  const setNoteListViewPersisted = useCallback((view: NoteListView) => {
+    setNoteListView(view);
+    try {
+      window.localStorage.setItem(NOTE_LIST_VIEW_KEY, view);
+    } catch {
+      /* best-effort persistence only */
+    }
+  }, []);
+
   // Active tab draft (what's in the editor right now).
   const [draft, setDraftState] = useState('');
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const loadedTabId = useRef<string | null>(null);
 
   // Flush all pending saves (call before tab switch / unmount).
+  // Uses vault.updateContent - safe for in-session flushes where React's
+  // async effect pipeline is still running (tab switch, unmount, etc.).
   const flushAll = useCallback(() => {
     for (const [tabId, timer] of Object.entries(saveTimers.current)) {
       clearTimeout(timer);
@@ -69,6 +115,25 @@ export default function VaultPage() {
         }
       }
     }
+  }, [layout.tabs, vault]);
+
+  // Flush all pending saves directly to storage - used by beforeunload and
+  // visibilitychange=hidden where React's useEffect may not fire before the
+  // page unloads.  vault.directFlush bypasses the setRawNotes→useEffect chain
+  // and writes synchronously to the adapter.
+  const flushAllDirect = useCallback(() => {
+    const updates: Array<{ path: NotePath; content: string }> = [];
+    for (const [tabId, timer] of Object.entries(saveTimers.current)) {
+      clearTimeout(timer);
+      delete saveTimers.current[tabId];
+      const tab = layout.tabs.find((t) => t.id === tabId);
+      if (tab?.notePath) {
+        updates.push({ path: tab.notePath as NotePath, content: getDraft(tabId) });
+      }
+    }
+    // directFlush returns a Promise but localStorage.setItem (the underlying
+    // adapter write) is synchronous, so the write completes before unload.
+    void vault.directFlush(updates);
   }, [layout.tabs, vault]);
 
   // ---- Initial tab bootstrap ------------------------------------------------
@@ -176,6 +241,13 @@ export default function VaultPage() {
     return () => flushAll();
   }, [flushAll]);
 
+  // Flush on hard tab close / navigation away and on the tab being backgrounded
+  // (mobile). Uses flushAllDirect (not flushAll) because beforeunload /
+  // visibilitychange handlers must write to storage NOW - React's useEffect
+  // pipeline is async and may not fire before the browser unloads the page.
+  // vault.directFlush writes directly to the adapter, bypassing setRawNotes.
+  useEffect(() => registerFlushOnExit(flushAllDirect), [flushAllDirect]);
+
   // ---- Tab actions ----------------------------------------------------------
   const switchTab = useCallback(
     (tabId: string) => {
@@ -192,6 +264,9 @@ export default function VaultPage() {
 
   const openPath = useCallback(
     (path: NotePath) => {
+      // On mobile, opening a note should always bring the editor into view -
+      // a no-op on desktop, which ignores `mobilePane` entirely.
+      setMobilePane('editor');
       const note = vault.getNote(path);
       const title = note?.parsed.title ?? path;
       // If tab already exists, switch; otherwise flush + open.
@@ -210,7 +285,7 @@ export default function VaultPage() {
       actions.openTab(path, title);
       // The tab id isn't available yet; we'll load the draft in the useEffect
       // that fires when activeTabId changes.
-      // We need to set the draft in draftStore by path for the next tab — but
+      // We need to set the draft in draftStore by path for the next tab - but
       // we don't have the id yet. We store by path and pick up in bootstrap effect.
       // Simpler: store draft immediately under a temp key matched by path.
       // Instead: scan for the new tab after the update.
@@ -225,13 +300,41 @@ export default function VaultPage() {
     [vault, layout.tabs, activeTab, actions, flushSave, switchTab],
   );
 
+  // Set or clear a note's CherryTree-style hierarchy parent (a `parent:`
+  // frontmatter field) from the details panel's picker. Rewrites only that
+  // one field via setFrontmatterField, preserving everything else - then
+  // persists through the normal updateContent path, same as any other edit,
+  // so autosave/sync/backups all see it consistently.
+  //
+  // The details panel only ever shows this picker for the currently active
+  // note, so `path` here is always `activeTab.notePath` in practice - which
+  // means the basis content MUST be the live `draft` state (possibly unsaved
+  // keystrokes the user just typed), never `vault.getNote(path).content` (the
+  // last-PERSISTED version). Using the persisted version would silently
+  // discard any in-progress edit the moment the parent picker is used - the
+  // exact class of data loss this project never allows.
+  const setNoteParent = useCallback(
+    (path: NotePath, value: string | null) => {
+      const isActiveNote = activeTab?.notePath === path;
+      const baseContent = isActiveNote ? draft : vault.getNote(path)?.content;
+      if (baseContent === undefined) return;
+      const nextContent = setFrontmatterField(baseContent, 'parent', value);
+      vault.updateContent(path, nextContent);
+      if (isActiveNote) {
+        setDraftState(nextContent);
+        setDraftStore(activeTab!.id, nextContent);
+      }
+    },
+    [vault, activeTab, draft],
+  );
+
   // When a new tab is created (activeTabId changes to an id not yet in loadedTabId),
   // load its draft.
   const prevTabsLength = useRef(layout.tabs.length);
   useEffect(() => {
     if (layout.tabs.length > prevTabsLength.current) {
       prevTabsLength.current = layout.tabs.length;
-      // New tab just added — find it and load draft.
+      // New tab just added - find it and load draft.
       const newTab = layout.tabs.find((t) => t.id === layout.activeTabId);
       if (newTab && newTab.notePath) {
         // Check if we have a pending draft (set by openPath before the tab id was known).
@@ -273,10 +376,20 @@ export default function VaultPage() {
   );
 
   const openNewTab = useCallback(() => {
-    // Open a blank note (or the first note we find as default).
-    const firstNote = vault.notes[0];
-    if (firstNote) openPath(firstNote.path);
-  }, [vault.notes, openPath]);
+    // The "+" must ALWAYS add a working tab. Create a fresh, collision-safe
+    // untitled note and open it - never a no-op, even when the vault is empty
+    // or the first note is already open. (Previously this opened the first
+    // existing note, which did nothing when that tab was already active or when
+    // there were no notes yet.)
+    try {
+      const path = nextUntitledName(vault.notes.map((n) => n.path));
+      const created = vault.createNote(path, '');
+      openPath(created.path as NotePath);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof VaultError ? err.message : 'Could not create note.');
+    }
+  }, [vault, openPath]);
 
   // ---- Wikilink navigation --------------------------------------------------
   const onNavigate = useCallback(
@@ -317,16 +430,26 @@ export default function VaultPage() {
     closeTab(activeTab.id);
   };
 
-  // ---- Keyboard shortcut (Cmd/Ctrl+E) ---------------------------------------
+  // ---- Toggle preview (Cmd/Ctrl+E and the command palette) -------------------
+  // Both the keyboard shortcut and the "Toggle preview" command-palette action
+  // (which broadcasts TOGGLE_PREVIEW_EVENT) flip the editor-preview split. The
+  // palette path previously had no listener, so the command was a silent no-op.
   useEffect(() => {
+    const togglePreview = () => {
+      actions.setSplitMode(layout.splitMode === 'editor-preview' ? 'none' : 'editor-preview');
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
         e.preventDefault();
-        actions.setSplitMode(layout.splitMode === 'editor-preview' ? 'none' : 'editor-preview');
+        togglePreview();
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener(TOGGLE_PREVIEW_EVENT, togglePreview);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener(TOGGLE_PREVIEW_EVENT, togglePreview);
+    };
   }, [layout.splitMode, actions]);
 
   // ---- Derived values -------------------------------------------------------
@@ -357,18 +480,63 @@ export default function VaultPage() {
 
   const noteListSlot = (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-3 py-2">
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
         <span className="text-xs text-neutral-500">
           {vault.notes.length} {vault.notes.length === 1 ? 'note' : 'notes'}
         </span>
-        <AddButton variant="inline" onNoteCreated={openPath} />
+        <div className="flex items-center gap-1">
+          {/* Folders vs. CherryTree-style note hierarchy (a `parent:`
+              frontmatter field, independent of the folder a note lives in). */}
+          <div
+            role="group"
+            aria-label="Note list view"
+            className="flex rounded-md border border-neutral-800 bg-neutral-900/60 p-0.5 text-xs"
+          >
+            <button
+              type="button"
+              onClick={() => setNoteListViewPersisted('folders')}
+              aria-pressed={noteListView === 'folders'}
+              className={[
+                'rounded px-2 py-0.5 transition-colors',
+                noteListView === 'folders'
+                  ? 'bg-neutral-700 text-neutral-100'
+                  : 'text-neutral-500 hover:text-neutral-300',
+              ].join(' ')}
+            >
+              Folders
+            </button>
+            <button
+              type="button"
+              onClick={() => setNoteListViewPersisted('hierarchy')}
+              aria-pressed={noteListView === 'hierarchy'}
+              title="Nest notes under a parent note via a `parent:` frontmatter field, independent of folders"
+              className={[
+                'rounded px-2 py-0.5 transition-colors',
+                noteListView === 'hierarchy'
+                  ? 'bg-neutral-700 text-neutral-100'
+                  : 'text-neutral-500 hover:text-neutral-300',
+              ].join(' ')}
+            >
+              Hierarchy
+            </button>
+          </div>
+          <AddButton variant="inline" onNoteCreated={openPath} />
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-1 pb-3">
-        <NoteTree
-          notes={vault.notes}
-          activePath={(activeTab?.notePath as NotePath) ?? null}
-          onSelect={openPath}
-        />
+        {noteListView === 'hierarchy' ? (
+          <NoteHierarchyTree
+            notes={vault.notes}
+            activePath={(activeTab?.notePath as NotePath) ?? null}
+            onSelect={openPath}
+          />
+        ) : (
+          <NoteTree
+            notes={vault.notes}
+            activePath={(activeTab?.notePath as NotePath) ?? null}
+            onSelect={openPath}
+          />
+        )}
       </div>
     </div>
   );
@@ -391,7 +559,7 @@ export default function VaultPage() {
         />
       )}
 
-      {/* Editor header — wraps on very narrow screens to avoid overflow */}
+      {/* Editor header - wraps on very narrow screens to avoid overflow */}
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-neutral-800 px-3 py-2">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-medium text-neutral-100">
@@ -452,8 +620,10 @@ export default function VaultPage() {
     <BacklinksPanel
       note={activeNote}
       backlinks={backlinks}
+      allNotes={vault.notes}
       resolveLink={vault.resolveLink}
       onOpen={openPath}
+      onSetParent={setNoteParent}
     />
   ) : (
     <div className="p-4 text-xs text-neutral-600">Open a note to see details.</div>
@@ -465,6 +635,8 @@ export default function VaultPage() {
       noteListSlot={noteListSlot}
       editorSlot={editorSlot}
       detailsSlot={detailsSlot}
+      mobilePane={mobilePane}
+      onMobilePaneChange={setMobilePane}
     />
   );
 }
@@ -504,11 +676,11 @@ function EditorBody({
   if (splitMode === 'editor-preview') {
     return (
       <div className="flex min-h-0 flex-1">
-        {/* Editor — takes full width on mobile (split collapses) */}
+        {/* Editor - takes full width on mobile (split collapses) */}
         <div className="min-w-0 flex-1 md:border-r md:border-neutral-800">
           <MarkdownEditor value={draft} notes={notes} tags={tags} onChange={onDraftChange} />
         </div>
-        {/* Preview — hidden on mobile in split mode */}
+        {/* Preview - hidden on mobile in split mode */}
         <div className="hidden min-w-0 flex-1 overflow-auto md:block">
           <MarkdownPreview markdown={draft} resolve={resolveLink} onNavigate={onNavigate} />
         </div>
@@ -519,11 +691,11 @@ function EditorBody({
   if (splitMode === 'two-notes' && secondaryNote) {
     return (
       <div className="flex min-h-0 flex-1">
-        {/* Primary editor — takes full width on mobile */}
+        {/* Primary editor - takes full width on mobile */}
         <div className="min-w-0 flex-1 md:border-r md:border-neutral-800">
           <MarkdownEditor value={draft} notes={notes} tags={tags} onChange={onDraftChange} />
         </div>
-        {/* Secondary note — hidden on mobile in split mode */}
+        {/* Secondary note - hidden on mobile in split mode */}
         <div className="hidden min-w-0 flex-1 overflow-auto md:block">
           <MarkdownPreview
             markdown={secondaryDraft || secondaryNote.content}

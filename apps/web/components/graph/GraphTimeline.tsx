@@ -175,7 +175,7 @@ export function GraphTimeline({ state, onChange }: GraphTimelineProps) {
           {/* Date window display */}
           <div className="flex items-center justify-between text-[11px] text-neutral-400">
             <span className="font-mono tabular-nums">{formatDateLabel(windowStart)}</span>
-            <span className="text-neutral-600">—</span>
+            <span className="text-neutral-600">-</span>
             <span className="font-mono tabular-nums">{formatDateLabel(windowEnd)}</span>
           </div>
 
@@ -191,7 +191,7 @@ export function GraphTimeline({ state, onChange }: GraphTimelineProps) {
               className="pointer-events-none absolute h-1 rounded-full bg-blue-500/60"
               style={{ left: `${startPct}%`, right: `${100 - endPct}%` }}
             />
-            {/* Start handle — lower z-index when start is beyond midpoint so end stays on top */}
+            {/* Start handle - lower z-index when start is beyond midpoint so end stays on top */}
             <input
               type="range"
               min={0}
@@ -241,7 +241,7 @@ export function GraphTimeline({ state, onChange }: GraphTimelineProps) {
               type="button"
               onClick={handlePlayPause}
               aria-label={playing ? 'Pause timeline animation' : 'Play timeline animation'}
-              title={playing ? 'Pause' : 'Play — animate through history'}
+              title={playing ? 'Pause' : 'Play - animate through history'}
               className={[
                 'flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium transition-colors',
                 playing

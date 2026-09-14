@@ -6,17 +6,17 @@
  * returned to the client.
  *
  * Config endpoints:
- *   POST   /v1/storage/s3/config      — set/update S3 config
- *   GET    /v1/storage/s3/config      — read non-secret info
- *   DELETE /v1/storage/s3/config      — remove S3 config
+ *   POST   /v1/storage/s3/config      - set/update S3 config
+ *   GET    /v1/storage/s3/config      - read non-secret info
+ *   DELETE /v1/storage/s3/config      - remove S3 config
  *
  * Object proxy endpoints (single well-known object):
- *   GET    /v1/storage/s3/object/graphvault-vault.json — download vault blob
- *   PUT    /v1/storage/s3/object/graphvault-vault.json — upload vault blob
- *   DELETE /v1/storage/s3/object/graphvault-vault.json — delete vault blob
+ *   GET    /v1/storage/s3/object/graphvault-vault.json - download vault blob
+ *   PUT    /v1/storage/s3/object/graphvault-vault.json - upload vault blob
+ *   DELETE /v1/storage/s3/object/graphvault-vault.json - delete vault blob
  *
  * Only the single well-known vault file is proxied. This keeps the proxy
- * surface minimal and auditable — one PUT per save, one GET per load.
+ * surface minimal and auditable - one PUT per save, one GET per load.
  */
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @graphvault/mcp — executable entry point.
+ * @graphvault/mcp - executable entry point.
  *
  * A standalone stdio Model Context Protocol server that exposes a user's
  * self-hosted GraphVault vault to external agents (e.g. Claude Desktop). The
@@ -26,7 +26,7 @@ import { bindWriteTools } from './writes.js';
 import { bindResources } from './resources.js';
 import { bindPrompts } from './prompts.js';
 
-/** Log a diagnostic line to stderr (never stdout — that carries the protocol). */
+/** Log a diagnostic line to stderr (never stdout - that carries the protocol). */
 function logErr(message: string): void {
   process.stderr.write(`[graphvault-mcp] ${message}\n`);
 }

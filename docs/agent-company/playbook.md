@@ -1,4 +1,4 @@
-# GraphVault Agent Company — Operating Playbook
+# GraphVault Agent Company - Operating Playbook
 
 The company's how-we-work manual. It is a **living document**: every milestone
 retrospective may tighten it. Read it before you start; improve it when you
@@ -35,7 +35,7 @@ important rule for conflict-free parallel delivery.
 **Shared/contended files** (`apps/web/components/Sidebar.tsx`, any
 `package.json`, root `tsconfig.json`, `pnpm-lock.yaml`): only ONE agent edits a
 given shared file per round, OR the orchestrator reconciles it centrally during
-integration. The lockfile is always regenerated centrally — see §4.
+integration. The lockfile is always regenerated centrally - see §4.
 
 ## 3. Dispatch protocol (orchestrator)
 
@@ -62,16 +62,22 @@ A change ships only when ALL pass, run from the repo root:
 
 ```bash
 pnpm install
-pnpm -r build
-pnpm -r typecheck
+pnpm typecheck
 pnpm lint
 pnpm format:check
-pnpm -r test
+pnpm test
+pnpm run build:web
 ```
+
+> The web static export (`build:web`) is the build that gates merges and mirrors
+> `ci.yml`. Do NOT use `pnpm -r build`: it invokes the Tauri desktop `tauri build`,
+> which needs the native Linux/macOS/Windows GUI toolchain and only runs in the
+> OS-matrixed `desktop-release.yml` workflow. A `pnpm -r build` failure in a plain
+> dev environment is environmental (missing native libs), not a product defect.
 
 Plus, when relevant, a **runtime smoke test** (e.g. boot the server and exercise
 register → vault → blob → push → changes). The QA/Reviewer signs off. New
-behavior must be covered by new tests — passing tests that don't exercise the
+behavior must be covered by new tests - passing tests that don't exercise the
 change do not count.
 
 ## 6. Conventions (from CLAUDE.md)
@@ -81,7 +87,7 @@ change do not count.
 - Validate all external input with zod from `@graphvault/shared`.
 - Config via environment variables only; no hardcoded secrets; no telemetry.
 - Conventional, descriptive commit messages. Composite-package `typecheck`
-  scripts use `tsc -b` (not `tsc -b --noEmit` — see lessons.md).
+  scripts use `tsc -b` (not `tsc -b --noEmit` - see lessons.md).
 - Run `pnpm exec prettier --write` on files you touch.
 
 ## 7. Continuous improvement loop
@@ -92,8 +98,8 @@ change do not count.
 - **During**: when you hit a non-obvious snag, note it.
 - **After**: append a concrete, actionable entry to `lessons.md` (symptom → root
   cause → fix/rule). If a lesson is process-level, also tighten this playbook.
-- **Per milestone**: the orchestrator runs a short retrospective — what slowed us
-  down, what to automate, which guardrail to add — and updates these docs.
+- **Per milestone**: the orchestrator runs a short retrospective - what slowed us
+  down, what to automate, which guardrail to add - and updates these docs.
 
 The goal is a company that is measurably faster and safer each milestone because
 its written memory keeps growing.

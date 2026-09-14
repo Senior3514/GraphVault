@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * useLayout — the single source of truth for workspace layout state.
+ * useLayout - the single source of truth for workspace layout state.
  *
  * Persists to localStorage on every mutation (debounced slightly to avoid
  * thrashing on drag). Exposes granular action functions so components never
@@ -83,6 +83,26 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+/**
+ * Pure state transition for setting focus mode. Entering focus mode also clears
+ * any maximized pane: focus mode hides the side panes, so a maximized
+ * 'noteList'/'details' would hide ALL three columns (blank workspace) - and that
+ * state would persist across reloads. Exported for unit testing.
+ */
+export function applyFocusMode(prev: WorkspaceLayout, on: boolean): WorkspaceLayout {
+  if (prev.focusMode === on) return prev;
+  return { ...prev, focusMode: on, maximized: on ? null : prev.maximized };
+}
+
+/**
+ * The effective maximized pane given focus mode. In focus mode maximize is
+ * inactive so the editor column always renders even if a stale `maximized`
+ * value was persisted. Exported for unit testing + reuse by WorkspaceLayout.
+ */
+export function effectiveMaximized(maximized: MaximizedPane, focusMode: boolean): MaximizedPane {
+  return focusMode ? null : maximized;
+}
+
 export function useLayout(): LayoutActions {
   // Start with defaults to avoid SSR mismatch; hydrate from localStorage in effect.
   const [layout, setLayout] = useState<WorkspaceLayout>(DEFAULT_LAYOUT);
@@ -103,7 +123,7 @@ export function useLayout(): LayoutActions {
   // Keep focus mode in sync across every mounted useLayout instance. A toggle
   // in one component (e.g. the command palette) broadcasts this event; all
   // other instances mirror the new value into their own state so the whole
-  // shell reacts together. We only mirror state here — the originating setter
+  // shell reacts together. We only mirror state here - the originating setter
   // already persisted, so listeners must NOT re-persist (avoids feedback).
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -286,7 +306,7 @@ export function useLayout(): LayoutActions {
 
   // --- Focus mode ---
   // Broadcast after persisting so sibling useLayout instances mirror the new
-  // value. Note: focus mode is purely presentational — it never touches
+  // value. Note: focus mode is purely presentational - it never touches
   // `widths`, `panels`, or `tabs`, so toggling it off restores the exact prior
   // layout (stored pane sizes are preserved).
   const broadcastFocusMode = useCallback((on: boolean) => {
@@ -296,9 +316,14 @@ export function useLayout(): LayoutActions {
     );
   }, []);
 
+  // Entering focus mode also clears any maximized pane. Otherwise focus mode +
+  // `maximized === 'noteList' | 'details'` hides ALL three columns (focus mode
+  // hides the side panes; the maximized side pane hides the editor) leaving a
+  // blank workspace that persists across reloads. Restoring maximize on exit
+  // would be surprising, so we simply drop it on enter.
   const setFocusMode = useCallback(
     (on: boolean) => {
-      update((prev) => (prev.focusMode === on ? prev : { ...prev, focusMode: on }));
+      update((prev) => applyFocusMode(prev, on));
       broadcastFocusMode(on);
     },
     [update, broadcastFocusMode],
@@ -308,7 +333,7 @@ export function useLayout(): LayoutActions {
     update((prev) => {
       const next = !prev.focusMode;
       broadcastFocusMode(next);
-      return { ...prev, focusMode: next };
+      return applyFocusMode(prev, next);
     });
   }, [update, broadcastFocusMode]);
 

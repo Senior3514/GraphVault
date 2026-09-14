@@ -15,7 +15,7 @@ export interface GraphZoomControlsProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
-  /** Whether any nodes are pinned — shows "Unpin all" if true. */
+  /** Whether any nodes are pinned - shows "Unpin all" if true. */
   hasPinnedNodes: boolean;
   onUnpinAll: () => void;
 }

@@ -6,16 +6,16 @@
  * returned to the client.
  *
  * Config endpoints:
- *   POST   /v1/storage/gcs/config      — set/update GCS config
- *   GET    /v1/storage/gcs/config      — read non-secret info
- *   DELETE /v1/storage/gcs/config      — remove GCS config
+ *   POST   /v1/storage/gcs/config      - set/update GCS config
+ *   GET    /v1/storage/gcs/config      - read non-secret info
+ *   DELETE /v1/storage/gcs/config      - remove GCS config
  *
  * Object proxy endpoints (single well-known object):
- *   GET    /v1/storage/gcs/object/graphvault-vault.json — download vault blob
- *   PUT    /v1/storage/gcs/object/graphvault-vault.json — upload vault blob
- *   DELETE /v1/storage/gcs/object/graphvault-vault.json — delete vault blob
+ *   GET    /v1/storage/gcs/object/graphvault-vault.json - download vault blob
+ *   PUT    /v1/storage/gcs/object/graphvault-vault.json - upload vault blob
+ *   DELETE /v1/storage/gcs/object/graphvault-vault.json - delete vault blob
  *
- * Only the single well-known vault file is proxied — same minimal, auditable
+ * Only the single well-known vault file is proxied - same minimal, auditable
  * surface as the S3 adapter (one PUT per save, one GET per load).
  */
 
@@ -38,7 +38,7 @@ const gcsConfigRequestSchema = z.object({
   bucket: z.string().min(1).max(222),
   /** HMAC interop access ID. */
   accessId: z.string().min(1).max(256),
-  /** HMAC interop secret. The secret — encrypted at rest, never returned. */
+  /** HMAC interop secret. The secret - encrypted at rest, never returned. */
   secret: z.string().min(1).max(1024),
   /** Optional object-key prefix; must be empty or end with "/". */
   prefix: z

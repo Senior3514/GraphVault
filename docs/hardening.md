@@ -12,7 +12,7 @@ non-negotiable parts of this in production (see the last section).
 ## 1. TLS reverse proxy (nginx)
 
 Terminate TLS at nginx and proxy to the server over loopback. The critical
-header is `X-Forwarded-Proto` — the server reads it (with `TRUST_PROXY=true`) to
+header is `X-Forwarded-Proto` - the server reads it (with `TRUST_PROXY=true`) to
 satisfy its HTTPS requirement and to detect the real scheme.
 
 ```nginx
@@ -24,7 +24,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/notes.example.com/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
-    # Upload cap — keep in step with GRAPHVAULT_MAX_BLOB_BYTES (64 MiB default).
+    # Upload cap - keep in step with GRAPHVAULT_MAX_BLOB_BYTES (64 MiB default).
     client_max_body_size 64m;
 
     location / {
@@ -61,7 +61,7 @@ nothing can reach it except the proxy.
 ## 2. Firewall (UFW)
 
 Allow only SSH and HTTP(S); deny everything else inbound. The server port stays
-closed to the world — nginx reaches it over loopback.
+closed to the world - nginx reaches it over loopback.
 
 ```bash
 sudo ufw default deny incoming
@@ -165,9 +165,9 @@ get picked up; back up first (next section).
 ## 6. Backups
 
 Back up **both** PostgreSQL and the blob directory, and the encryption key
-separately. See [`deployment.md` — Backups](./deployment.md#backups) for the exact
+separately. See [`deployment.md` - Backups](./deployment.md#backups) for the exact
 commands. Automate a daily dump (a cron job or systemd timer), keep several
-days off-host, and **test a restore** at least once — an untested backup is a
+days off-host, and **test a restore** at least once - an untested backup is a
 hope, not a backup. If `GRAPHVAULT_ENCRYPTION_KEY` is set, store it in a separate
 secret manager; the blob archive is unrecoverable without it.
 
@@ -177,7 +177,7 @@ secret manager; the blob archive is unrecoverable without it.
   the example default.
 - `GRAPHVAULT_ENCRYPTION_KEY`: `openssl rand -base64 32` (exactly 32 bytes
   decoded; a malformed key fails the server fast on boot).
-- Register the first user immediately after boot — registration is open by
+- Register the first user immediately after boot - registration is open by
   design; restrict it at the proxy if you do not want it reachable publicly.
 
 ## How the preflight enforces safe config
@@ -186,15 +186,15 @@ On startup in production (`NODE_ENV=production`), the server runs a
 [`preflight`](../apps/server/src/preflight.ts) audit and **refuses to boot** on
 any of these errors, printing an actionable message and exiting non-zero:
 
-- `GRAPHVAULT_CORS_ORIGIN` is `*` — set an explicit origin allowlist.
-- `GRAPHVAULT_REQUIRE_HTTPS` is false — plaintext would be accepted.
+- `GRAPHVAULT_CORS_ORIGIN` is `*` - set an explicit origin allowlist.
+- `GRAPHVAULT_REQUIRE_HTTPS` is false - plaintext would be accepted.
 - `GRAPHVAULT_STORAGE=postgres` with no `DATABASE_URL`.
 
 It additionally **warns** (boots, but logs) when:
 
 - the host binds all interfaces (`0.0.0.0`/`::`) but `GRAPHVAULT_TRUST_PROXY` is
-  off — rate limiting and HTTPS detection would key on the proxy, not the client;
-- `GRAPHVAULT_ENCRYPTION_KEY` is unset — blobs are stored as plaintext on disk.
+  off - rate limiting and HTTPS detection would key on the proxy, not the client;
+- `GRAPHVAULT_ENCRYPTION_KEY` is unset - blobs are stored as plaintext on disk.
 
 In development and test the preflight is a no-op, so local plain-HTTP work is
 unaffected. This makes a misconfigured production deployment fail loudly at boot

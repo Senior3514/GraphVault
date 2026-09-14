@@ -95,6 +95,77 @@ export function splitFrontmatter(content: string): {
   };
 }
 
+/**
+ * Quote a scalar YAML value if writing it bare would round-trip incorrectly
+ * through {@link parseFrontmatterBlock} - which splits a line on the FIRST
+ * `:` and treats a leading `[`/`- ` specially, so a value containing any of
+ * those (or leading/trailing whitespace, which would silently vanish) must be
+ * quoted to survive being read back.
+ *
+ * {@link unquote} - the reader half of this pair - only strips a matching
+ * outer quote CHARACTER; it does not un-escape anything inside the quotes.
+ * So backslash-escaping an internal `"` (the obvious-looking fix) would NOT
+ * round-trip: the literal backslash would survive into the read-back value.
+ * Caught by testing an actual round-trip, not just that quoting happens.
+ * Instead: wrap in whichever quote character (`"` or `'`) does not appear in
+ * the value, so nothing inside ever needs escaping at all. If the value
+ * contains BOTH quote characters, there is no quote-free wrapping available
+ * in this deliberately-small, non-general-YAML subset; falls back to double
+ * quotes as a best effort (an already rare case, containing both quote
+ * characters at once, is rarer still).
+ *
+ * A raw embedded newline is flattened to a space defensively: this writer is
+ * line-based, and nothing downstream un-escapes a newline either, so an
+ * embedded one would otherwise corrupt the frontmatter block's line
+ * structure. No current caller can produce one (the parent-picker UI is a
+ * single-line `<input>`), so this only guards against future misuse.
+ */
+function quoteIfNeeded(value: string): string {
+  const flattened = value.replace(/\r?\n/g, ' ');
+  const needsQuoting =
+    flattened === '' || /[:#[\]]/.test(flattened) || flattened.trim() !== flattened;
+  if (!needsQuoting) return flattened;
+  if (!flattened.includes('"')) return `"${flattened}"`;
+  if (!flattened.includes("'")) return `'${flattened}'`;
+  return `"${flattened}"`;
+}
+
+/**
+ * Set (or remove, when `value` is `null`) a single top-level scalar
+ * frontmatter field in raw note content, preserving every other line
+ * (frontmatter and body) exactly as written. Adds a frontmatter block if the
+ * note doesn't have one yet and `value` is non-null; a no-op if the note has
+ * no frontmatter and `value` is `null` (nothing to remove).
+ *
+ * Deliberately line-based, matching {@link parseFrontmatterBlock}'s own
+ * reading rules, rather than a full YAML AST round-trip - this project's
+ * frontmatter support is a documented small subset, not general YAML.
+ */
+export function setFrontmatterField(content: string, key: string, value: string | null): string {
+  const keyLineRe = new RegExp(`^${key}:\\s*.*$`);
+  const m = FRONTMATTER_RE.exec(content);
+
+  if (!m) {
+    if (value === null) return content; // nothing to remove
+    return `---\n${key}: ${quoteIfNeeded(value)}\n---\n\n${content}`;
+  }
+
+  const rawBlock = m[1];
+  const body = content.slice(m[0].length);
+  const lines = rawBlock.split(/\r?\n/);
+  const existingIndex = lines.findIndex((line) => keyLineRe.test(line));
+
+  if (value === null) {
+    if (existingIndex !== -1) lines.splice(existingIndex, 1);
+  } else {
+    const newLine = `${key}: ${quoteIfNeeded(value)}`;
+    if (existingIndex !== -1) lines[existingIndex] = newLine;
+    else lines.push(newLine);
+  }
+
+  return `---\n${lines.join('\n')}\n---\n${body}`;
+}
+
 /** Extract inline `#tags` from a markdown body, normalized to lower case. */
 export function extractInlineTags(body: string): string[] {
   const tags = new Set<string>();

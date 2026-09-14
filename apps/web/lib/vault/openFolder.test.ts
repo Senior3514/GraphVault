@@ -218,7 +218,7 @@ test('readFileEntry skips a file whose reported size exceeds the cap', async () 
   // Build a handle where size > MAX_IMPORT_FILE_BYTES (4 MiB = 4194304 bytes).
   const oversizedData: GVFileData = {
     name: 'big.md',
-    size: 5 * 1024 * 1024, // 5 MiB — over cap
+    size: 5 * 1024 * 1024, // 5 MiB - over cap
     lastModified: 1000,
     text: async () => 'x'.repeat(100), // content is small; size field triggers the guard
   };
@@ -310,7 +310,7 @@ test('isFolderPickerSupported returns true when API is shimmed', () => {
 });
 
 // ---------------------------------------------------------------------------
-// openFolder — integration with globalThis shim
+// openFolder - integration with globalThis shim
 // ---------------------------------------------------------------------------
 
 test('openFolder throws when showDirectoryPicker is unavailable', async () => {

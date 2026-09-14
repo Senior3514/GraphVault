@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ThemeProvider — owns the theme *mode* (`light | dark | system`), persists it,
+ * ThemeProvider - owns the theme *mode* (`light | dark | system`), persists it,
  * and keeps the document's `data-theme` in sync with the resolved theme.
  *
  * The no-flash inline boot script (see `lib/themeScript.ts`) has already set

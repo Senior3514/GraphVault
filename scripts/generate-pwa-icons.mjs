@@ -3,12 +3,12 @@
  * generate-pwa-icons.mjs
  *
  * Generates valid PNG files for the GraphVault PWA manifest without any
- * external dependencies — only Node.js built-ins (zlib, fs, path).
+ * external dependencies - only Node.js built-ins (zlib, fs, path).
  *
  * Outputs:
- *   apps/web/public/icons/icon-192.png      — standard 192 × 192
- *   apps/web/public/icons/icon-512.png      — standard 512 × 512
- *   apps/web/public/icons/icon-512-maskable.png — same art, 512 × 512,
+ *   apps/web/public/icons/icon-192.png      - standard 192 × 192
+ *   apps/web/public/icons/icon-512.png      - standard 512 × 512
+ *   apps/web/public/icons/icon-512-maskable.png - same art, 512 × 512,
  *       safe zone inset so the mark fits inside the maskable icon circle.
  *
  * Brand:
@@ -29,7 +29,7 @@ const ICONS_DIR = resolve(ROOT, 'apps/web/public/icons');
 mkdirSync(ICONS_DIR, { recursive: true });
 
 // ---------------------------------------------------------------------------
-// Minimal PNG encoder — RGB (3 bytes/px), no alpha channel needed.
+// Minimal PNG encoder - RGB (3 bytes/px), no alpha channel needed.
 // Using RGB (colour type 2) keeps the encoder trivial.
 // ---------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ function encodePNG(width, height, pixels /* Uint8Array, RGB rows */) {
   ihdr[11] = 0; // filter
   ihdr[12] = 0; // interlace
 
-  // Apply PNG filter (None = 0) — prepend 0x00 to each row
+  // Apply PNG filter (None = 0) - prepend 0x00 to each row
   const filtered = Buffer.alloc(height * (1 + width * 3));
   for (let y = 0; y < height; y++) {
     filtered[y * (1 + width * 3)] = 0; // filter type None
@@ -93,13 +93,13 @@ function crc32(buf) {
 }
 
 // ---------------------------------------------------------------------------
-// Rasteriser — draw the GraphVault mark onto an RGB pixel buffer
+// Rasteriser - draw the GraphVault mark onto an RGB pixel buffer
 // ---------------------------------------------------------------------------
 
 /**
  * Draw an anti-aliased filled circle.
- * cx, cy, r — centre and radius in pixel units.
- * r, g, b   — fill colour 0–255.
+ * cx, cy, r - centre and radius in pixel units.
+ * r, g, b   - fill colour 0-255.
  */
 function drawCircle(pixels, width, height, cx, cy, r, col) {
   const [cr, cg, cb] = col;
@@ -114,7 +114,7 @@ function drawCircle(pixels, width, height, cx, cy, r, col) {
       const dy = py - cy;
       const dist2 = dx * dx + dy * dy;
       if (dist2 <= rSq) {
-        // simple fill — no AA for small circles, good enough at 192px+
+        // simple fill - no AA for small circles, good enough at 192px+
         const idx = (py * width + px) * 3;
         pixels[idx] = cr;
         pixels[idx + 1] = cg;
@@ -175,7 +175,7 @@ function drawLine(pixels, width, height, x0, y0, x1, y1, col, thickness) {
  * Edges between all three in a dark blue.
  *
  * @param {number} size      - canvas side (square)
- * @param {number} safePad   - extra padding factor for maskable safe zone (0–0.5)
+ * @param {number} safePad   - extra padding factor for maskable safe zone (0-0.5)
  */
 function renderMark(size, safePad = 0) {
   const pixels = Buffer.alloc(size * size * 3);
@@ -189,9 +189,9 @@ function renderMark(size, safePad = 0) {
   // Node positions (fractional of inner, then shifted by pad)
   // Mimics the SVG GraphMark: cx=5,cy=6 | cx=19,cy=8 | cx=12,cy=18
   // Normalised to 0-1 range over 24x24:
-  //   A: (5/24, 6/24)  bottom-left — sky-400  (#38bdf8)
-  //   B: (19/24, 8/24) top-right   — sky-400  (#38bdf8)
-  //   C: (12/24, 18/24) bottom     — indigo-400 (#818cf8)
+  //   A: (5/24, 6/24)  bottom-left - sky-400  (#38bdf8)
+  //   B: (19/24, 8/24) top-right   - sky-400  (#38bdf8)
+  //   C: (12/24, 18/24) bottom     - indigo-400 (#818cf8)
   const nodePos = [
     [5 / 24, 6 / 24], // A
     [19 / 24, 8 / 24], // B

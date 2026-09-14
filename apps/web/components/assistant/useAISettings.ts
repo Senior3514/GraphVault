@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * React hook for AI settings — loads from sessionStorage on mount, exposes a
+ * React hook for AI settings - loads from sessionStorage on mount, exposes a
  * stable `update` callback, and subscribes to cross-component changes via a
  * custom storage event.
  *
- * We use sessionStorage (not localStorage) for the raw key — it is cleared
+ * We use sessionStorage (not localStorage) for the raw key - it is cleared
  * automatically when the tab closes, giving a sensible default privacy posture.
  */
 

@@ -1,5 +1,5 @@
 /**
- * S3-compatible storage {@link StorageAdapter} — M18.
+ * S3-compatible storage {@link StorageAdapter} - M18.
  *
  * Privacy model: the browser NEVER talks directly to an S3 server.
  * All operations are proxied through the user's self-hosted GraphVault server
@@ -14,13 +14,14 @@
  *
  * Storage format: all notes are serialised as a single JSON document stored
  * as a single S3 object at a well-known key (`graphvault-vault.json`). This
- * keeps the proxy surface minimal and auditable — one PUT per save, one GET
+ * keeps the proxy surface minimal and auditable - one PUT per save, one GET
  * per load.
  *
  * Migration: switching to this adapter uses the same copy-verify-switch
  * pattern as other adapter migrations (see `migrationHelper.ts`).
  */
 
+import { AUTH_TOKEN_STORAGE_KEY, SERVER_URL_STORAGE_KEY } from '../../api/storageKeys';
 import type { Note } from '../types';
 import type { StorageAdapter } from './index';
 
@@ -31,12 +32,6 @@ import type { StorageAdapter } from './index';
 /** The object key for the vault JSON in S3. */
 export const S3_VAULT_OBJECT_KEY = 'graphvault-vault.json';
 
-/** sessionStorage key where the bearer token is stored by useAuth. */
-const SESSION_TOKEN_KEY = 'gv:auth:token';
-
-/** sessionStorage key where the server URL is stored by useServerSettings. */
-const SESSION_SERVER_URL_KEY = 'gv:serverUrl';
-
 /** Fallback server URL (matches the client default). */
 const DEFAULT_SERVER_URL = 'http://127.0.0.1:4000';
 
@@ -44,19 +39,21 @@ const DEFAULT_SERVER_URL = 'http://127.0.0.1:4000';
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Read the bearer token from sessionStorage (the key `useAuth` writes). */
 function getToken(): string | null {
   try {
     if (typeof sessionStorage === 'undefined') return null;
-    return sessionStorage.getItem(SESSION_TOKEN_KEY);
+    return sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
+/** Read the server URL from localStorage (the key `useServerSettings` writes). */
 function getServerUrl(): string {
   try {
-    if (typeof sessionStorage === 'undefined') return DEFAULT_SERVER_URL;
-    return sessionStorage.getItem(SESSION_SERVER_URL_KEY) ?? DEFAULT_SERVER_URL;
+    if (typeof localStorage === 'undefined') return DEFAULT_SERVER_URL;
+    return localStorage.getItem(SERVER_URL_STORAGE_KEY) ?? DEFAULT_SERVER_URL;
   } catch {
     return DEFAULT_SERVER_URL;
   }
@@ -125,7 +122,7 @@ export class S3StorageAdapter implements StorageAdapter {
    *   1. We are in a browser (not SSR/Node).
    *   2. A bearer token is present in sessionStorage (user is signed in).
    *
-   * The server-side S3 config is checked lazily — `isAvailable()` must be
+   * The server-side S3 config is checked lazily - `isAvailable()` must be
    * synchronous and cannot make a network request.
    */
   isAvailable(): boolean {
@@ -152,11 +149,11 @@ export class S3StorageAdapter implements StorageAdapter {
       });
     } catch (err) {
       throw new Error(
-        `S3 adapter: network error loading vault — ${err instanceof Error ? err.message : String(err)}`,
+        `S3 adapter: network error loading vault - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
-    // 404 means the vault object does not exist yet in S3 — treat as empty.
+    // 404 means the vault object does not exist yet in S3 - treat as empty.
     if (res.status === 404) {
       return [];
     }
@@ -171,7 +168,7 @@ export class S3StorageAdapter implements StorageAdapter {
       return deserialise(text);
     } catch (err) {
       throw new Error(
-        `S3 adapter: vault document is corrupt — ${err instanceof Error ? err.message : String(err)}`,
+        `S3 adapter: vault document is corrupt - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
@@ -198,7 +195,7 @@ export class S3StorageAdapter implements StorageAdapter {
       });
     } catch (err) {
       throw new Error(
-        `S3 adapter: network error saving vault — ${err instanceof Error ? err.message : String(err)}`,
+        `S3 adapter: network error saving vault - ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
@@ -224,7 +221,7 @@ export class S3StorageAdapter implements StorageAdapter {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Ignore the response — DELETE is best-effort in clear().
+      // Ignore the response - DELETE is best-effort in clear().
     } catch {
       // Network errors in clear() are silently ignored.
     }

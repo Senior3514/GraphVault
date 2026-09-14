@@ -2,7 +2,7 @@
 name: gv-web-engineer
 description: >-
   GraphVault web/frontend engineer. Use for the Next.js App Router client in
-  apps/web — UI shell, navigation, the markdown editor, vault pages, settings,
+  apps/web - UI shell, navigation, the markdown editor, vault pages, settings,
   and the typed API client. Owns the apps/web UI (excluding the graph view and
   the sync internals, which have dedicated specialists).
 tools: Read, Grep, Glob, Edit, Write, Bash
@@ -28,7 +28,7 @@ Read `CLAUDE.md`, `DESIGN.md`, `docs/agent-company/playbook.md`, and
 
 - Edit only `apps/web/` files you own. **Do not** edit the graph view
   (`apps/web/app/graph`, `apps/web/components/graph`) or sync internals
-  (`apps/web/lib/sync`, `apps/web/app/sync-status`) — those are the graph and
+  (`apps/web/lib/sync`, `apps/web/app/sync-status`) - those are the graph and
   sync engineers' territory. Coordinate shared files (Sidebar, package.json)
   through the orchestrator to avoid collisions.
 - Never stage `pnpm-lock.yaml`.

@@ -204,7 +204,7 @@ test('DELETE unknown id → 404', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// TTL expiry (injected clock) — dedicated app so eviction tests don't interfere
+// TTL expiry (injected clock) - dedicated app so eviction tests don't interfere
 // ---------------------------------------------------------------------------
 
 test('TTL: a snapshot past its TTL is swept on read → 404', async () => {

@@ -38,7 +38,7 @@ export function notesToInputs(notes: readonly VaultNoteLike[]): NoteInput[] {
 
 /**
  * A restrained, dark-first categorical palette. Used to encode a node's tag
- * (in "colour by tag" mode) or an edge's link type — meaning, not decoration
+ * (in "colour by tag" mode) or an edge's link type - meaning, not decoration
  * (see DESIGN.md).
  */
 export const GRAPH_PALETTE = [
@@ -76,28 +76,32 @@ export function distinctSorted(values: Iterable<string>): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Node categories — the primary, default colour encoding.
+// Node categories - the primary, default colour encoding.
 // ---------------------------------------------------------------------------
 
 /**
  * The kind of a rendered node, derived from the engine index:
- * - `note`        — a real `.md` note in the vault.
- * - `attachment`  — a non-`.md` file (image, pdf, …) referenced by a note but
+ * - `note`        - a real `.md` note in the vault.
+ * - `attachment`  - a non-`.md` file (image, pdf, …) referenced by a note but
  *   not itself a note in the index.
- * - `unresolved`  — a link whose target does not resolve to any known note
+ * - `unresolved`  - a link whose target does not resolve to any known note
  *   (a "missing note" placeholder).
  */
 export type NodeCategory = 'note' | 'attachment' | 'unresolved';
 
 /** The way nodes are coloured on the canvas. */
-export type ColorMode = 'type' | 'tag' | 'cluster';
+export type ColorMode = 'type' | 'tag' | 'cluster' | 'folder';
 
 /**
  * Colour + label for each node category. The legend renders straight from this
  * table so it can never drift from what the canvas draws.
  */
 export const CATEGORY_STYLE: Record<NodeCategory, { color: string; label: string }> = {
-  note: { color: '#7aa2f7', label: 'Note' },
+  // Brand CYAN (matches `--accent-400`) so the primary "note" node reads as
+  // GraphVault rather than a generic blue dot. The canvas re-resolves this from
+  // the live `--accent-400` token at runtime so notes stay on-brand in the
+  // light theme too; this hex is the dark-theme fallback + legend swatch.
+  note: { color: '#1fafc6', label: 'Note' },
   attachment: { color: '#e0af68', label: 'Attachment' },
   unresolved: { color: '#6b7280', label: 'Missing note' },
 };
@@ -192,7 +196,7 @@ const CATEGORY_ORDER: NodeCategory[] = ['note', 'attachment', 'unresolved'];
  * the canvas can draw "missing note" affordances. Degree counts every incident
  * edge so hubs read clearly.
  *
- * Pure and deterministic — unit tested in `model.test.ts`.
+ * Pure and deterministic - unit tested in `model.test.ts`.
  */
 export function buildRenderModel(
   nodes: readonly GraphNode[],
@@ -245,6 +249,12 @@ export function buildRenderModel(
       color = colorForKey(tagKey);
     } else if (colorMode === 'cluster') {
       color = clusterNodeColor?.get(n.id) ?? GRAPH_NEUTRAL;
+    } else if (colorMode === 'folder') {
+      // `n.folder` is `''` for vault-root notes - colorForKey treats an empty
+      // key as "no key" and returns the neutral swatch, matching how tag mode
+      // treats untagged notes. Every other distinct folder path gets its own
+      // stable hash colour, same mechanism as tag colouring.
+      color = colorForKey(n.folder);
     } else {
       color = colorForCategory('note');
     }

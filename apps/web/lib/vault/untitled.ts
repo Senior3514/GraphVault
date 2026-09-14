@@ -8,7 +8,7 @@
  *  - `Untitled 3.md`  …
  *
  * Optionally scoped to a folder prefix (e.g. `notes/` → `notes/Untitled.md`).
- * Pure function — no I/O, no React.
+ * Pure function - no I/O, no React.
  */
 
 /**

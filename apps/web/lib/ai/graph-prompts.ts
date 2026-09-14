@@ -2,7 +2,7 @@
  * Pure prompt-builders for AI graph intelligence (M21).
  *
  * Privacy contract (same rules as prompts.ts):
- *  - ONLY titles and structural data (topology) are sent — note bodies NEVER
+ *  - ONLY titles and structural data (topology) are sent - note bodies NEVER
  *    leave the client through these builders.
  *  - Builders return `ChatMessage[]` ready to pass straight to `chat()`.
  *  - Every function here is pure and side-effect-free: no network, no React,
@@ -10,25 +10,25 @@
  *
  * Three graph-specific AI actions:
  *
- *  1. `buildClusterNamePrompt`  — given a list of cluster node-title sets,
+ *  1. `buildClusterNamePrompt`  - given a list of cluster node-title sets,
  *     ask the model to label each cluster with a short, descriptive name.
  *
- *  2. `buildRelatedNotesPrompt` — given a selected note's title, its direct
+ *  2. `buildRelatedNotesPrompt` - given a selected note's title, its direct
  *     neighbours (by title), and the full vault title list, ask the model
  *     which other notes are likely related.
  *
- *  3. `buildGapFindingPrompt`   — given a selected note's title and its
+ *  3. `buildGapFindingPrompt`   - given a selected note's title and its
  *     neighbourhood titles, ask the model what useful notes are *missing*
  *     from this cluster of thought.
  *
  * Response parsing:
- *  `parseClusterNames`      — parse the model's numbered/bulleted cluster-name
+ *  `parseClusterNames`      - parse the model's numbered/bulleted cluster-name
  *                             list back into an array of strings.
- *  `parseRelatedNotes`      — parse the model's "related notes" answer into
+ *  `parseRelatedNotes`      - parse the model's "related notes" answer into
  *                             a list of `{ title, reason }` items, mapping
  *                             each title back to a node ID using the provided
  *                             lookup map.
- *  `parseGapSuggestions`    — parse the model's "gap" suggestions into a
+ *  `parseGapSuggestions`    - parse the model's "gap" suggestions into a
  *                             simple string array (suggested note titles).
  *
  * All parsers validate their input and never throw; they return an empty /
@@ -43,7 +43,7 @@ import type { ChatMessage } from './types';
 
 const GRAPH_SYSTEM_PROMPT =
   'You are a knowledge-graph assistant for a private Markdown notes app called GraphVault. ' +
-  'You reason over note TITLES and graph structure only — you never see or repeat note body content. ' +
+  'You reason over note TITLES and graph structure only - you never see or repeat note body content. ' +
   'Be concise and specific. Return well-structured plain text or short Markdown lists. ' +
   'Do not fabricate note titles, URLs, or references that were not given to you.';
 
@@ -241,8 +241,8 @@ export function parseRelatedNotes(
     if (!stripped) continue;
 
     // Try "**Title**: Reason" or "Title: Reason"
-    const boldMatch = stripped.match(/^\*\*(.+?)\*\*\s*[:\-–]\s*(.+)$/);
-    const plainMatch = stripped.match(/^(.+?)\s*[:\-–]\s*(.+)$/);
+    const boldMatch = stripped.match(/^\*\*(.+?)\*\*\s*[:\--]\s*(.+)$/);
+    const plainMatch = stripped.match(/^(.+?)\s*[:\--]\s*(.+)$/);
 
     const match = boldMatch ?? plainMatch;
     if (!match) continue;
@@ -291,7 +291,7 @@ export function buildGapFindingPrompt(
       neighbourSection +
       `\n\nBased on the cluster of notes above, what useful notes are MISSING from this area ` +
       `of the knowledge graph? Suggest 3-6 note titles that would fill gaps or strengthen ` +
-      `the connections. These are notes that don't exist yet — possible future notes to create.\n` +
+      `the connections. These are notes that don't exist yet - possible future notes to create.\n` +
       `Return a plain numbered list of suggested note titles only (no explanations, just titles):`,
   };
 
@@ -353,7 +353,7 @@ export function buildGraphSendContext(
       return {
         description: `${params.clusterCount ?? 0} cluster title lists`,
         detail:
-          'Sends only note titles grouped by cluster — no note content. ' +
+          'Sends only note titles grouped by cluster - no note content. ' +
           'The AI will label each cluster with a short descriptive name.',
       };
     case 'related-notes':
@@ -363,7 +363,7 @@ export function buildGraphSendContext(
           `${params.neighbourCount ?? 0} neighbours + ` +
           `${params.totalTitles ?? 0} vault titles`,
         detail:
-          'Sends only note titles and link topology — no note content. ' +
+          'Sends only note titles and link topology - no note content. ' +
           'The AI will suggest related notes not yet linked.',
       };
     case 'find-gaps':
@@ -372,7 +372,7 @@ export function buildGraphSendContext(
           `"${params.selectedTitle ?? ''}" + ` +
           `${params.neighbourCount ?? 0} neighbourhood titles`,
         detail:
-          'Sends only note titles and link topology — no note content. ' +
+          'Sends only note titles and link topology - no note content. ' +
           'The AI will suggest missing notes to fill knowledge gaps.',
       };
   }

@@ -8,7 +8,7 @@
  * safe-area-inset-bottom so it does not overlap the home indicator.
  *
  * The button is intentionally unobtrusive: it uses a subtle icon and is
- * invisible when the assistant is disabled (kind === 'off') — users who never
+ * invisible when the assistant is disabled (kind === 'off') - users who never
  * configure AI will not see the button at all.
  *
  * Keyboard: Cmd/Ctrl+Shift+A toggles the panel.
@@ -34,7 +34,7 @@ export function AssistantButton() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Hide the button entirely when AI is off — do not hint at a feature the user
+  // Hide the button entirely when AI is off - do not hint at a feature the user
   // has not opted into. They can still access it via Settings if they know it exists.
   if (settings.kind === 'off') return null;
 
@@ -47,8 +47,8 @@ export function AssistantButton() {
       className={[
         'fixed bottom-6 right-6 z-20',
         'flex h-10 w-10 items-center justify-center rounded-full',
-        'bg-sky-600 text-white shadow-lg',
-        'hover:bg-sky-500 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950',
+        'bg-accent-600 text-white shadow-lg',
+        'hover:bg-accent-500 focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950',
         'transition-colors',
       ].join(' ')}
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}

@@ -56,7 +56,7 @@ export function noteUriForPath(path: string): string {
  * Decode a `graphvault://note/<path>` URI back to a normalized, vault-relative
  * note path. Rejects anything that is not a note URI or that, once decoded,
  * would escape the vault (absolute paths, traversal, or empty segments). The
- * returned path is NOT guaranteed to exist — call {@link readNoteResource} to
+ * returned path is NOT guaranteed to exist - call {@link readNoteResource} to
  * resolve it against a snapshot.
  *
  * @throws {Error} with a clear message for a malformed or unsafe URI.

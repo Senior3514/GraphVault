@@ -3,7 +3,7 @@
  *
  * Note search uses MiniSearch (see `search.ts`); this is for the small, fixed
  * set of *commands* ("Create new note", "Go to Graph", …) where a forgiving
- * subsequence match — "gg" -> "Go to Graph" — feels right and a full-text index
+ * subsequence match - "gg" -> "Go to Graph" - feels right and a full-text index
  * would be overkill. It is pure and side-effect-free so it unit-tests trivially.
  *
  * Scoring rewards (in order): contiguous runs, matches at word boundaries, and

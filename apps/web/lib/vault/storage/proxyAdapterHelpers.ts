@@ -1,5 +1,5 @@
 /**
- * Shared helpers for server-proxy {@link StorageAdapter}s — M18.
+ * Shared helpers for server-proxy {@link StorageAdapter}s - M18.
  *
  * The WebDAV, S3, Azure Blob, and GCS adapters all share the exact same
  * mechanics: read the GraphVault bearer token + server URL from sessionStorage,
@@ -13,35 +13,34 @@
  * dependency) and SSR-safe (every sessionStorage access is guarded).
  */
 
+import { AUTH_TOKEN_STORAGE_KEY, SERVER_URL_STORAGE_KEY } from '../../api/storageKeys';
 import type { Note } from '../types';
-
-/** sessionStorage key where the bearer token is stored by useAuth. */
-const SESSION_TOKEN_KEY = 'gv:auth:token';
-
-/** sessionStorage key where the server URL is stored by useServerSettings. */
-const SESSION_SERVER_URL_KEY = 'gv:serverUrl';
 
 /** Fallback server URL (matches the client default). */
 const DEFAULT_SERVER_URL = 'http://127.0.0.1:4000';
 
 /**
- * Read the GraphVault bearer token from sessionStorage. Returns `null` during
- * SSR (no `sessionStorage`) or when the user is not signed in.
+ * Read the GraphVault bearer token from sessionStorage (the SAME tier + key
+ * `useAuth` writes). Returns `null` during SSR (no `sessionStorage`) or when the
+ * user is not signed in.
  */
 export function getToken(): string | null {
   try {
     if (typeof sessionStorage === 'undefined') return null;
-    return sessionStorage.getItem(SESSION_TOKEN_KEY);
+    return sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
-/** Read the configured server URL, falling back to the client default. */
+/**
+ * Read the configured server URL from localStorage (the SAME tier + key
+ * `useServerSettings` writes), falling back to the client default.
+ */
 export function getServerUrl(): string {
   try {
-    if (typeof sessionStorage === 'undefined') return DEFAULT_SERVER_URL;
-    return sessionStorage.getItem(SESSION_SERVER_URL_KEY) ?? DEFAULT_SERVER_URL;
+    if (typeof localStorage === 'undefined') return DEFAULT_SERVER_URL;
+    return localStorage.getItem(SERVER_URL_STORAGE_KEY) ?? DEFAULT_SERVER_URL;
   } catch {
     return DEFAULT_SERVER_URL;
   }
@@ -116,7 +115,7 @@ export function deserialise(json: string): Note[] {
  * @param objectPath     Absolute proxy path, e.g.
  *                       `/v1/storage/azure/object/graphvault-vault.json`.
  *
- * A 404 means the vault object does not exist yet — treated as an empty vault.
+ * A 404 means the vault object does not exist yet - treated as an empty vault.
  */
 export async function proxyLoad(providerLabel: string, objectPath: string): Promise<Note[]> {
   const token = getToken();
@@ -135,11 +134,11 @@ export async function proxyLoad(providerLabel: string, objectPath: string): Prom
     });
   } catch (err) {
     throw new Error(
-      `${providerLabel} adapter: network error loading vault — ${err instanceof Error ? err.message : String(err)}`,
+      `${providerLabel} adapter: network error loading vault - ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
-  // 404 means the vault object does not exist yet — treat as empty.
+  // 404 means the vault object does not exist yet - treat as empty.
   if (res.status === 404) {
     return [];
   }
@@ -154,7 +153,7 @@ export async function proxyLoad(providerLabel: string, objectPath: string): Prom
     return deserialise(text);
   } catch (err) {
     throw new Error(
-      `${providerLabel} adapter: vault document is corrupt — ${err instanceof Error ? err.message : String(err)}`,
+      `${providerLabel} adapter: vault document is corrupt - ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }
@@ -184,7 +183,7 @@ export async function proxySave(
     });
   } catch (err) {
     throw new Error(
-      `${providerLabel} adapter: network error saving vault — ${err instanceof Error ? err.message : String(err)}`,
+      `${providerLabel} adapter: network error saving vault - ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
@@ -210,7 +209,7 @@ export async function proxyClear(objectPath: string): Promise<void> {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
-    // Ignore the response — DELETE is best-effort in clear().
+    // Ignore the response - DELETE is best-effort in clear().
   } catch {
     // Network errors in clear() are silently ignored.
   }

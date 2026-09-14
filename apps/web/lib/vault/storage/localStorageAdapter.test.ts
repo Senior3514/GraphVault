@@ -232,7 +232,7 @@ test('all adapter methods are no-ops (no throw) when localStorage is absent', as
   const notes = await localStorageAdapter.load();
   assert.ok(notes.length > 0, 'should return seed notes when localStorage unavailable');
 
-  // save() and clear() are no-ops — must not throw.
+  // save() and clear() are no-ops - must not throw.
   await assert.doesNotReject(() => localStorageAdapter.save([makeNote('a.md')]));
   await assert.doesNotReject(() => localStorageAdapter.clear());
 });

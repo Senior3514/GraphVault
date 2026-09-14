@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * PassphraseGate — shown when the vault is encrypted and the user has not yet
+ * PassphraseGate - shown when the vault is encrypted and the user has not yet
  * provided the passphrase for this session.
  *
  * Design:
@@ -9,7 +9,7 @@
  *    accessed until unlocked.
  *  - Never stores, logs, or transmits the passphrase.
  *  - Wrong passphrase: shows an error and clears the input. The encrypted blob
- *    is NEVER mutated on a failed attempt — data-loss is impossible from this
+ *    is NEVER mutated on a failed attempt - data-loss is impossible from this
  *    component.
  *  - The `onUnlock` callback receives the validated passphrase; the parent is
  *    responsible for decryption.
@@ -50,10 +50,10 @@ export function PassphraseGate({ onUnlock, loading = false }: PassphraseGateProp
 
     try {
       await onUnlock(passphrase);
-      // On success the parent unmounts this component — no state cleanup needed.
+      // On success the parent unmounts this component - no state cleanup needed.
     } catch {
       // Do NOT reveal whether it was a wrong passphrase or tampered data.
-      setError('Incorrect passphrase — please try again.');
+      setError('Incorrect passphrase - please try again.');
       setPassphrase('');
       // Re-focus for retry convenience.
       setTimeout(() => inputRef.current?.focus(), 0);
@@ -69,7 +69,7 @@ export function PassphraseGate({ onUnlock, loading = false }: PassphraseGateProp
       <div className="w-full max-w-sm rounded-xl border border-neutral-800 bg-neutral-900 p-8 shadow-2xl">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-700 bg-neutral-800">
-            {/* Lock icon (inline SVG — zero deps) */}
+            {/* Lock icon (inline SVG - zero deps) */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-6 w-6 text-neutral-400"

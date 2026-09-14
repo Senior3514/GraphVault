@@ -34,6 +34,9 @@ import { useVaultContext } from '../../lib/vault/VaultProvider';
 import {
   FileSystemAdapter,
   fileSystemAdapter,
+  TauriStorageAdapter,
+  tauriStorageAdapter,
+  isTauriRuntime,
   getActiveAdapter,
   listAdapters,
   s3Adapter,
@@ -45,6 +48,8 @@ import { migrateAdapter } from '../../lib/vault/encryption/migrationHelper';
 import { exportToDirectory, isDirectoryExportSupported } from '../../lib/vault/exportToDirectory';
 import { useAISettings } from '../../components/assistant/useAISettings';
 import type { AISettings } from '../../lib/ai/types';
+import { buildBudgetMeter } from '../../lib/ai/budget';
+import type { AiConfigInfo } from '@graphvault/shared';
 import { LOCAL_IMPORT_CONNECTORS } from '../../lib/connectors/registry';
 import { emailConnector } from '../../lib/connectors/email';
 import { rssOpmlConnector } from '../../lib/connectors/rssOpml';
@@ -55,6 +60,8 @@ import {
 } from '../../lib/connectors/types';
 import type { LocalImportConnector } from '../../lib/connectors/types';
 import { ALL_IMPORTERS, ImporterError, type Importer } from '../../lib/importers';
+import { isValid, validateFields, type FieldErrors } from '../../lib/settings/validation';
+import { ThemeToggle } from '../../components/ThemeToggle';
 
 /** Trigger a browser download of `data` under `filename`. */
 function downloadBlob(data: BlobPart, filename: string, type: string) {
@@ -75,6 +82,20 @@ function stamp(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
 }
 
+/**
+ * Inline validation error rendered beneath a form field. Announced to screen
+ * readers (role="alert") and referenced from the input via `aria-describedby`
+ * / `aria-invalid` by the caller.
+ */
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} role="alert" className="mt-1 text-xs text-red-400">
+      {message}
+    </p>
+  );
+}
+
 export default function SettingsPage() {
   const { serverUrl, setServerUrl, loaded } = useServerSettings();
   const vault = useVaultContext();
@@ -82,12 +103,23 @@ export default function SettingsPage() {
   const [draftUrl, setDraftUrl] = useState('');
   const [saved, setSaved] = useState(false);
   const [test, setTest] = useState<string | null>(null);
+  const [urlError, setUrlError] = useState('');
 
   useEffect(() => {
     if (loaded) setDraftUrl(serverUrl);
   }, [loaded, serverUrl]);
 
   const save = () => {
+    // A blank URL clears the override back to the env default; only a non-empty
+    // value must be a well-formed http(s) URL.
+    const errors = validateFields({
+      serverUrl: { value: draftUrl, url: true, label: 'Server URL' },
+    });
+    if (!isValid(errors)) {
+      setUrlError(errors.serverUrl);
+      return;
+    }
+    setUrlError('');
     setServerUrl(draftUrl);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
@@ -97,9 +129,9 @@ export default function SettingsPage() {
     setTest('Testing…');
     try {
       const info = await new GraphVaultClient(draftUrl.trim()).health();
-      setTest(`OK — API ${info.apiVersion}, protocol v${info.syncProtocolVersion}`);
+      setTest(`OK - API ${info.apiVersion}, protocol v${info.syncProtocolVersion}`);
     } catch (err) {
-      setTest(`Failed — ${err instanceof Error ? err.message : 'unreachable'}`);
+      setTest(`Failed - ${err instanceof Error ? err.message : 'unreachable'}`);
     }
   };
 
@@ -109,6 +141,13 @@ export default function SettingsPage() {
   const [ioMsg, setIoMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [exportingDir, setExportingDir] = useState(false);
+  // SSR-stable: isDirectoryExportSupported() probes the browser-only File System
+  // Access API (false on the server, true on the client), so gating JSX on it
+  // directly is a React #418 hydration mismatch. Resolve after mount.
+  const [dirExportSupported, setDirExportSupported] = useState(false);
+  useEffect(() => {
+    setDirExportSupported(isDirectoryExportSupported());
+  }, []);
 
   const exportZip = () => {
     const zip = buildVaultZip(vault.notes);
@@ -212,7 +251,7 @@ export default function SettingsPage() {
       setIoMsg({ kind: 'ok', text: `Exported to folder: ${parts.join(', ')}.` });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        // User cancelled the picker — not an error.
+        // User cancelled the picker - not an error.
         return;
       }
       setIoMsg({ kind: 'err', text: err instanceof Error ? err.message : 'Export failed.' });
@@ -234,73 +273,38 @@ export default function SettingsPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl overflow-auto px-8 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">Settings</h1>
+      <h1 className="font-display text-2xl font-semibold tracking-tight text-neutral-100">
+        Settings
+      </h1>
+      <p className="mt-1 text-sm text-neutral-500">
+        GraphVault works fully offline with no account. Everything below the essentials is optional.
+      </p>
 
-      <section className="mt-8 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
-        <h2 className="text-sm font-semibold text-neutral-200">Sync server</h2>
+      {/* ================================================================== */}
+      {/* ESSENTIALS - the everyday controls a normal user needs.            */}
+      {/* ================================================================== */}
+      <GroupHeading
+        title="Essentials"
+        subtitle="Everything you need for day-to-day note-taking. No account required."
+      />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Appearance / theme                                                  */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="mt-4 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+        <h2 className="text-sm font-semibold text-neutral-200">Appearance</h2>
         <p className="mt-1 text-xs text-neutral-500">
-          Base URL of your self-hosted GraphVault server. Defaults to
-          <code className="mx-1 text-neutral-400">NEXT_PUBLIC_GRAPHVAULT_SERVER_URL</code>.
+          Choose a light or dark theme, or follow your system preference.
         </p>
-        <div className="mt-3 flex gap-2">
-          <input
-            type="url"
-            value={draftUrl}
-            onChange={(e) => setDraftUrl(e.target.value)}
-            placeholder="http://127.0.0.1:4000"
-            className="flex-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 outline-none focus:border-neutral-600"
-          />
-          <button
-            type="button"
-            onClick={save}
-            className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={() => void testConnection()}
-            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
-          >
-            Test
-          </button>
-        </div>
-        <div className="mt-2 h-4 text-xs">
-          {saved && <span className="text-emerald-400">Saved.</span>}
-          {test && <span className="text-neutral-400">{test}</span>}
+        <div className="mt-3 max-w-xs">
+          <ThemeToggle />
         </div>
       </section>
-
-      {/* Account / authentication */}
-      <AuthSection auth={auth} serverUrl={serverUrl} />
-
-      {/* Vault registration (only once signed in) */}
-      {auth.isSignedIn && <VaultRegistrationSection auth={auth} serverUrl={serverUrl} />}
 
       {/* ------------------------------------------------------------------ */}
       {/* Storage location                                                    */}
       {/* ------------------------------------------------------------------ */}
       <StorageSection />
-
-      {/* ------------------------------------------------------------------ */}
-      {/* WebDAV storage (M18)                                                */}
-      {/* ------------------------------------------------------------------ */}
-      <WebDavSection auth={auth} serverUrl={serverUrl} />
-
-      {/* ------------------------------------------------------------------ */}
-      {/* S3-compatible storage (M18)                                         */}
-      {/* ------------------------------------------------------------------ */}
-      <S3Section auth={auth} serverUrl={serverUrl} />
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Azure Blob Storage (M18)                                            */}
-      {/* ------------------------------------------------------------------ */}
-      <AzureSection auth={auth} serverUrl={serverUrl} />
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Google Cloud Storage (M18)                                          */}
-      {/* ------------------------------------------------------------------ */}
-      <GcsSection auth={auth} serverUrl={serverUrl} />
 
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Vault</h2>
@@ -310,10 +314,10 @@ export default function SettingsPage() {
             {vault.encryptionEnabled ? 'On (AES-256-GCM)' : 'Off'}
           </dd>
           <dt>Notes</dt>
-          <dd className="text-neutral-200">{vault.ready ? vault.notes.length : '—'}</dd>
+          <dd className="text-neutral-200">{vault.ready ? vault.notes.length : '-'}</dd>
           <dt>Total content</dt>
           <dd className="text-neutral-200">
-            {vault.ready ? `${totalChars.toLocaleString()} chars` : '—'}
+            {vault.ready ? `${totalChars.toLocaleString()} chars` : '-'}
           </dd>
         </dl>
         <p className="mt-4 text-xs text-neutral-500">
@@ -329,16 +333,11 @@ export default function SettingsPage() {
         </button>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Vault encryption                                                    */}
-      {/* ------------------------------------------------------------------ */}
-      <EncryptionSection />
-
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
         <h2 className="text-sm font-semibold text-neutral-200">Import &amp; export</h2>
         <p className="mt-1 text-xs text-neutral-500">
           Your data, any storage. Export the whole vault as plain Markdown (zipped) or a single JSON
-          backup, and import it anywhere. Nothing leaves your device — this runs entirely in your
+          backup, and import it anywhere. Nothing leaves your device - this runs entirely in your
           browser.
         </p>
 
@@ -360,8 +359,8 @@ export default function SettingsPage() {
           >
             Export JSON
           </button>
-          {/* Export to folder — only shown when the File System Access API is available */}
-          {isDirectoryExportSupported() && (
+          {/* Export to folder - only shown when the File System Access API is available */}
+          {dirExportSupported && (
             <button
               type="button"
               onClick={() => void exportToFolder()}
@@ -427,7 +426,7 @@ export default function SettingsPage() {
           Import never overwrites: if a note already exists with different content, your copy is
           kept alongside the imported one.
         </p>
-        <div className="mt-2 min-h-4 text-xs">
+        <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
           {ioMsg && (
             <span className={ioMsg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
               {ioMsg.text}
@@ -436,26 +435,125 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* AI assistant                                                        */}
-      {/* ------------------------------------------------------------------ */}
-      <AIAssistantSection />
+      {/* ================================================================== */}
+      {/* ADVANCED - optional power features, tucked away in collapsibles.   */}
+      {/* Every control below works exactly as before; it is only grouped    */}
+      {/* and made collapsible so a normal user is never overwhelmed.        */}
+      {/* ================================================================== */}
+      <GroupHeading
+        title="Advanced (optional)"
+        subtitle="Self-hosted sync, cloud backups, encryption, AI, and connectors. You do not need any of this to use GraphVault."
+      />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Connectors (M22)                                                    */}
-      {/* ------------------------------------------------------------------ */}
-      <ConnectorsSection vault={vault} auth={auth} serverUrl={serverUrl} />
+      {/* ---- Self-hosted sync & account ---------------------------------- */}
+      <CollapsibleSection
+        title="Self-hosted sync & account"
+        summary="Optional - sync across your own devices via your own server"
+      >
+        <p className="rounded-md border border-accent-500/30 bg-accent-500/5 px-3 py-2 text-xs leading-relaxed text-neutral-400">
+          <span className="font-medium text-accent-300">
+            You do not need this to use GraphVault.
+          </span>{' '}
+          Sign in only if you want to sync your notes across your own devices through a server you
+          host yourself. This is not a GraphVault product account - there is no GraphVault cloud,
+          and nothing is created unless you set up your own server.
+        </p>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* App importers (M20)                                                 */}
-      {/* ------------------------------------------------------------------ */}
-      <AppImporterSection vault={vault} />
+        {/* Sync server */}
+        <section className="mt-4 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
+          <h3 className="text-sm font-semibold text-neutral-200">Sync server</h3>
+          <p className="mt-1 text-xs text-neutral-500">
+            Base URL of your self-hosted GraphVault server. Defaults to
+            <code className="mx-1 text-neutral-400">NEXT_PUBLIC_GRAPHVAULT_SERVER_URL</code>.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input
+              type="url"
+              value={draftUrl}
+              onChange={(e) => setDraftUrl(e.target.value)}
+              placeholder="http://127.0.0.1:4000"
+              aria-invalid={Boolean(urlError)}
+              aria-describedby={urlError ? 'sync-url-error' : undefined}
+              className="flex-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 outline-none focus:border-neutral-600"
+            />
+            <button
+              type="button"
+              onClick={save}
+              className="rounded-md bg-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => void testConnection()}
+              className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
+            >
+              Test
+            </button>
+          </div>
+          <FieldError id="sync-url-error" message={urlError} />
+          <div className="mt-2 h-4 text-xs" role="status" aria-live="polite">
+            {saved && <span className="text-emerald-400">Saved.</span>}
+            {test && <span className="text-neutral-400">{test}</span>}
+          </div>
+        </section>
+
+        {/* Account / authentication */}
+        <AuthSection auth={auth} serverUrl={serverUrl} />
+
+        {/* Vault registration (only once signed in) */}
+        {auth.isSignedIn && <VaultRegistrationSection auth={auth} serverUrl={serverUrl} />}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* WebDAV storage (M18)                                             */}
+        {/* ---------------------------------------------------------------- */}
+        <WebDavSection auth={auth} serverUrl={serverUrl} />
+
+        {/* ---------------------------------------------------------------- */}
+        {/* S3-compatible storage (M18)                                      */}
+        {/* ---------------------------------------------------------------- */}
+        <S3Section auth={auth} serverUrl={serverUrl} />
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Azure Blob Storage (M18)                                         */}
+        {/* ---------------------------------------------------------------- */}
+        <AzureSection auth={auth} serverUrl={serverUrl} />
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Google Cloud Storage (M18)                                       */}
+        {/* ---------------------------------------------------------------- */}
+        <GcsSection auth={auth} serverUrl={serverUrl} />
+      </CollapsibleSection>
+
+      {/* ---- Encryption -------------------------------------------------- */}
+      <CollapsibleSection
+        title="Vault encryption"
+        summary="Optional - encrypt notes at rest with a passphrase"
+      >
+        <EncryptionSection />
+      </CollapsibleSection>
+
+      {/* ---- AI assistant ------------------------------------------------ */}
+      <CollapsibleSection title="AI assistant" summary="Optional - off by default, privacy-first">
+        <AIAssistantSection />
+      </CollapsibleSection>
+
+      {/* ---- Connectors & importers -------------------------------------- */}
+      <CollapsibleSection
+        title="Connectors & app importers"
+        summary="Optional - bring notes in from other apps and sources"
+      >
+        {/* Connectors (M22) */}
+        <ConnectorsSection vault={vault} auth={auth} serverUrl={serverUrl} />
+        {/* App importers (M20) */}
+        <AppImporterSection vault={vault} />
+      </CollapsibleSection>
 
       <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5 text-xs text-neutral-500">
         <h2 className="text-sm font-semibold text-neutral-200">Privacy</h2>
         <p className="mt-2">
           No telemetry. The app only contacts the sync server URL you configure above, the AI
-          provider you explicitly enable (if any), and no third-party URLs in the browser —
+          provider you explicitly enable (if any), and no third-party URLs in the browser -
           connectors in phase 1 are 100% client-side (user-provided content only).
         </p>
       </section>
@@ -464,29 +562,174 @@ export default function SettingsPage() {
 }
 
 // ---------------------------------------------------------------------------
+// Presentational grouping helpers (visual only - no behaviour change)
+// ---------------------------------------------------------------------------
+
+/** A bold divider that introduces a top-level group of settings. */
+function GroupHeading({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="mt-10 border-t border-neutral-800 pt-6">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-accent-400">{title}</h2>
+      <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
+    </div>
+  );
+}
+
+/**
+ * A collapsible wrapper around one or more optional settings sections. Uses a
+ * native <details>/<summary> so it works without JS, is keyboard-accessible,
+ * and never hides the controls inside (they remain in the DOM and fully wired).
+ */
+function CollapsibleSection({
+  title,
+  summary,
+  children,
+}: {
+  title: string;
+  summary: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group mt-4 rounded-lg border border-neutral-800 bg-neutral-950/30">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-5 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-neutral-200">{title}</span>
+          <span className="mt-0.5 block text-xs text-neutral-500">{summary}</span>
+        </span>
+        <ChevronIcon className="h-4 w-4 shrink-0 text-neutral-500 transition-transform duration-150 ease-out group-open:rotate-180 motion-reduce:transition-none" />
+      </summary>
+      <div className="border-t border-neutral-800/70 px-5 pb-5 pt-1">{children}</div>
+    </details>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Storage section (choose location)
 // ---------------------------------------------------------------------------
 
 function StorageSection() {
-  const [activeId, setActiveId] = useState<string>(() => {
+  // Initialize to an SSR-stable constant so the server-rendered HTML and the
+  // client's first render agree. getActiveAdapter() probes browser-only
+  // `isAvailable()` APIs, so calling it in the useState initializer yields a
+  // different adapter on the server (no window) vs the client - a React #418
+  // hydration mismatch. Resolve the real active adapter after mount instead.
+  const [activeId, setActiveId] = useState<string>('localStorage');
+  useEffect(() => {
     try {
-      return getActiveAdapter().id;
+      setActiveId(getActiveAdapter().id);
     } catch {
-      return 'localStorage';
+      // keep the localStorage default
     }
-  });
+  }, []);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err' | 'warn'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // True when a folder was selected in a previous session (persisted handle in
+  // IndexedDB) but it is not currently reconnected - so we surface a banner
+  // prompting the user to re-grant access rather than silently writing edits to
+  // localStorage and looking like data loss.
+  const [folderDisconnected, setFolderDisconnected] = useState(false);
 
-  const fsApiAvailable = FileSystemAdapter.isApiAvailable();
+  // Compute the File System Access API availability AFTER mount. Calling it
+  // during render produces different markup on the server (no `window`, so
+  // false) vs the client (true on supporting browsers), which is a React
+  // hydration mismatch (#418) and crashes /settings with a client-side
+  // exception. Starting false (matching the server) and updating in an effect
+  // keeps the first client render identical to the server-rendered HTML.
+  const [fsApiAvailable, setFsApiAvailable] = useState(false);
+  useEffect(() => {
+    setFsApiAvailable(FileSystemAdapter.isApiAvailable());
+  }, []);
+
+  // Same SSR-stable-then-resolve-after-mount pattern as `fsApiAvailable`
+  // above: `isTauriRuntime()` reads `window`, which differs between server
+  // and client render.
+  const [isTauri, setIsTauri] = useState(false);
+  useEffect(() => {
+    setIsTauri(isTauriRuntime());
+  }, []);
+
   const adapters = listAdapters();
   const vault = useVaultContext();
+
+  // On mount, try to silently reconnect a previously-selected folder (only
+  // succeeds when permission is still granted). If a handle is persisted but we
+  // can't reconnect silently, flag it so the banner appears.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!FileSystemAdapter.isApiAvailable()) return;
+      try {
+        const restored = await FileSystemAdapter.restore(false);
+        if (cancelled) return;
+        if (restored && restored.directory) {
+          fileSystemAdapter.setDirectory(
+            restored.directory as Parameters<typeof fileSystemAdapter.setDirectory>[0],
+          );
+          setActiveId('fileSystem');
+          setFolderDisconnected(false);
+        } else if (await FileSystemAdapter.hasPersistedHandle()) {
+          if (!cancelled) setFolderDisconnected(true);
+        }
+      } catch {
+        /* best-effort reconnect - ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Re-grant access to the persisted folder. Must run from a click (user
+  // gesture) so requestPermission can prompt.
+  const reconnectFolder = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      const restored = await FileSystemAdapter.restore(true);
+      if (restored && restored.directory) {
+        fileSystemAdapter.setDirectory(
+          restored.directory as Parameters<typeof fileSystemAdapter.setDirectory>[0],
+        );
+        setActiveId('fileSystem');
+        setFolderDisconnected(false);
+        setMsg({ kind: 'ok', text: 'Reconnected to your folder.' });
+        await vault.resetVault();
+      } else {
+        setMsg({
+          kind: 'err',
+          text: 'Could not reconnect. Pick the folder again to restore access.',
+        });
+      }
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to reconnect to the folder.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const switchToFileSystem = async () => {
     setMsg(null);
     setBusy(true);
     try {
-      // FileSystemAdapter.create() requires a user gesture — this click handler
+      // FileSystemAdapter.create() requires a user gesture - this click handler
       // qualifies. It shows the directory picker.
       const newAdapter = await FileSystemAdapter.create();
 
@@ -506,13 +749,15 @@ function StorageSection() {
       );
 
       setActiveId('fileSystem');
+      setFolderDisconnected(false);
       setMsg({
         kind: 'ok',
-        text: `Moved ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to "${result.to}". Source (${result.from}) preserved as backup — clear it manually when satisfied.`,
+        text: `Moved ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to "${result.to}". Source (${result.from}) preserved as backup - clear it manually when satisfied.`,
       });
 
-      // Reload vault notes from the new adapter.
-      await vault.resetVault();
+      // Reload vault notes from the new adapter (non-destructive - the source
+      // adapter's notes are preserved as promised by the migration).
+      await vault.reload();
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setMsg({ kind: 'warn', text: 'Folder selection cancelled.' });
@@ -532,9 +777,52 @@ function StorageSection() {
     fileSystemAdapter.setDirectory(
       null as unknown as Parameters<typeof fileSystemAdapter.setDirectory>[0],
     );
+    // Forget the persisted handle so we don't show the reconnect banner after
+    // the user has deliberately chosen browser storage.
+    void FileSystemAdapter.forgetPersistedHandle();
+    // Deactivate the Tauri native adapter too, if it was active.
+    tauriStorageAdapter.setVaultPath(null);
+    setFolderDisconnected(false);
     // Also deactivate WebDAV if it was active.
     setActiveId('localStorage');
     setMsg({ kind: 'ok', text: 'Switched back to browser storage (localStorage).' });
+    // Non-destructively surface the localStorage adapter's notes (previously
+    // this skipped reload entirely, leaving stale notes from the old backend).
+    void vault.reload();
+  };
+
+  // Desktop-only: open a real folder on disk via the native picker
+  // (`pick_vault_folder`, Tauri IPC). Not available in a plain browser.
+  const switchToTauriFolder = async () => {
+    setMsg(null);
+    setBusy(true);
+    try {
+      const newAdapter = await TauriStorageAdapter.pickFolder();
+      if (!newAdapter) {
+        setMsg({ kind: 'warn', text: 'Folder selection cancelled.' });
+        return;
+      }
+
+      // Migrate notes: copy → verify → activate (copy-verify-switch pattern).
+      const source = getActiveAdapter();
+      const result = await migrateAdapter(source, newAdapter);
+
+      tauriStorageAdapter.setVaultPath(newAdapter.path);
+      setActiveId('tauriFs');
+      setMsg({
+        kind: 'ok',
+        text: `Moved ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to "${result.to}". Source (${result.from}) preserved as backup - clear it manually when satisfied. This folder is not yet remembered across app restarts - you'll need to reopen it next time.`,
+      });
+
+      await vault.reload();
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Failed to open the vault folder.',
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const switchToWebDav = async () => {
@@ -555,9 +843,9 @@ function StorageSection() {
       setActiveId('webdav');
       setMsg({
         kind: 'ok',
-        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to WebDAV. Source (${result.from}) preserved — clear it manually when satisfied.`,
+        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to WebDAV. Source (${result.from}) preserved - clear it manually when satisfied.`,
       });
-      await vault.resetVault();
+      await vault.reload();
     } catch (err) {
       setMsg({
         kind: 'err',
@@ -585,9 +873,9 @@ function StorageSection() {
       setActiveId('s3');
       setMsg({
         kind: 'ok',
-        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to S3. Source (${result.from}) preserved — clear it manually when satisfied.`,
+        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to S3. Source (${result.from}) preserved - clear it manually when satisfied.`,
       });
-      await vault.resetVault();
+      await vault.reload();
     } catch (err) {
       setMsg({
         kind: 'err',
@@ -615,9 +903,9 @@ function StorageSection() {
       setActiveId('azure');
       setMsg({
         kind: 'ok',
-        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to Azure Blob Storage. Source (${result.from}) preserved — clear it manually when satisfied.`,
+        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to Azure Blob Storage. Source (${result.from}) preserved - clear it manually when satisfied.`,
       });
-      await vault.resetVault();
+      await vault.reload();
     } catch (err) {
       setMsg({
         kind: 'err',
@@ -645,9 +933,9 @@ function StorageSection() {
       setActiveId('gcs');
       setMsg({
         kind: 'ok',
-        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to Google Cloud Storage. Source (${result.from}) preserved — clear it manually when satisfied.`,
+        text: `Migrated ${result.noteCount} note${result.noteCount !== 1 ? 's' : ''} to Google Cloud Storage. Source (${result.from}) preserved - clear it manually when satisfied.`,
       });
-      await vault.resetVault();
+      await vault.reload();
     } catch (err) {
       setMsg({
         kind: 'err',
@@ -666,8 +954,32 @@ function StorageSection() {
       <h2 className="text-sm font-semibold text-neutral-200">Storage location</h2>
       <p className="mt-1 text-xs text-neutral-500">
         Choose where your notes are stored. Switching migrates all notes safely (copy, verify,
-        activate) — no data is deleted automatically.
+        activate) - no data is deleted automatically.
       </p>
+
+      {/* Folder-disconnected banner: a folder was selected previously but the
+          browser hasn't re-granted access this session. Without this the app
+          would silently fall back to localStorage and look like data loss. */}
+      {folderDisconnected && (
+        <div
+          role="alert"
+          className="mt-3 rounded-md border border-amber-700/60 bg-amber-950/30 p-3 text-xs text-amber-200"
+        >
+          <strong>Your local folder is disconnected.</strong> You previously chose a folder on disk,
+          but this browser session hasn&apos;t re-granted access. Until you reconnect, edits are
+          written to browser storage - not your folder.
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => void reconnectFolder()}
+              disabled={busy}
+              className="rounded-md border border-amber-600/70 bg-amber-900/40 px-3 py-1.5 text-xs font-medium text-amber-100 hover:bg-amber-800/50 disabled:opacity-40"
+            >
+              {busy ? 'Reconnecting…' : 'Reconnect folder'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
         <dt>Active backend</dt>
@@ -675,7 +987,7 @@ function StorageSection() {
       </dl>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {/* WebDAV option — requires sign-in + server WebDAV config */}
+        {/* WebDAV option - requires sign-in + server WebDAV config */}
         <button
           type="button"
           disabled={activeId === 'webdav' || busy}
@@ -686,7 +998,7 @@ function StorageSection() {
           {busy && activeId !== 'webdav' ? 'Migrating…' : 'Use WebDAV (server)'}
         </button>
 
-        {/* S3 option — requires sign-in + server S3 config */}
+        {/* S3 option - requires sign-in + server S3 config */}
         <button
           type="button"
           disabled={activeId === 's3' || busy}
@@ -697,7 +1009,7 @@ function StorageSection() {
           {busy && activeId !== 's3' ? 'Migrating…' : 'Use S3 storage (server)'}
         </button>
 
-        {/* Azure option — requires sign-in + server Azure config */}
+        {/* Azure option - requires sign-in + server Azure config */}
         <button
           type="button"
           disabled={activeId === 'azure' || busy}
@@ -708,7 +1020,7 @@ function StorageSection() {
           {busy && activeId !== 'azure' ? 'Migrating…' : 'Use Azure Blob (server)'}
         </button>
 
-        {/* GCS option — requires sign-in + server GCS config */}
+        {/* GCS option - requires sign-in + server GCS config */}
         <button
           type="button"
           disabled={activeId === 'gcs' || busy}
@@ -718,6 +1030,18 @@ function StorageSection() {
         >
           {busy && activeId !== 'gcs' ? 'Migrating…' : 'Use Google Cloud Storage (server)'}
         </button>
+
+        {isTauri ? (
+          <button
+            type="button"
+            disabled={activeId === 'tauriFs' || busy}
+            onClick={() => void switchToTauriFolder()}
+            className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40"
+            title="Store notes as real .md files on disk via the native folder picker. Not yet remembered across app restarts."
+          >
+            {busy && activeId !== 'tauriFs' ? 'Migrating…' : 'Open a vault folder (native)'}
+          </button>
+        ) : null}
 
         {fsApiAvailable ? (
           <>
@@ -748,7 +1072,7 @@ function StorageSection() {
         )}
       </div>
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span
             className={
@@ -802,6 +1126,7 @@ function WebDavSection({
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const didLoad = useRef(false);
 
   const fetchConfig = useCallback(async () => {
@@ -829,6 +1154,16 @@ function WebDavSection({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.token) return;
+    const fieldErrors = validateFields({
+      url: { value: url, required: true, url: true, label: 'WebDAV URL' },
+      username: { value: username, required: true, label: 'Username' },
+      password: { value: password, required: true, label: 'Password' },
+    });
+    setErrors(fieldErrors);
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -890,12 +1225,12 @@ function WebDavSection({
 
       <p className="mt-1 text-xs text-neutral-500">
         Store your vault on a WebDAV server (Nextcloud, ownCloud, or any WebDAV-compatible host).
-        The browser talks only to your GraphVault server, which proxies to WebDAV — no CORS issues,
+        The browser talks only to your GraphVault server, which proxies to WebDAV - no CORS issues,
         and your WebDAV credentials never leave the server.
       </p>
 
       {/* Security notice */}
-      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-3 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Credentials stay on the server.</strong> Your WebDAV URL and password are encrypted
         at rest on your GraphVault server and are never sent to the browser. The client uses only
         its normal GraphVault bearer token to proxy through.
@@ -975,9 +1310,12 @@ function WebDavSection({
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.url)}
+                  aria-describedby={errors.url ? 'dav-url-error' : undefined}
                   placeholder="https://cloud.example.com/remote.php/dav/files/alice/"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="dav-url-error" message={errors.url} />
                 <p className="mt-1 text-xs text-neutral-600">
                   Nextcloud:{' '}
                   <code className="text-neutral-500">
@@ -1026,7 +1364,7 @@ function WebDavSection({
                 />
                 <p className="mt-1 text-xs text-neutral-600">
                   Tip: use an app password (Nextcloud: Settings → Security → App passwords). The
-                  password is sent to your server over TLS and stored encrypted — it is never
+                  password is sent to your server over TLS and stored encrypted - it is never
                   returned to the browser.
                 </p>
               </div>
@@ -1056,7 +1394,7 @@ function WebDavSection({
         </>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -1075,7 +1413,7 @@ function WebDavSection({
  * S3-compatible storage configuration section.
  *
  * Shows:
- *   1. Current config status (endpoint, region, bucket, accessKeyId — never the secret key).
+ *   1. Current config status (endpoint, region, bucket, accessKeyId - never the secret key).
  *   2. A form to set/update credentials (only shown when signed in).
  *   3. A delete button to remove the config.
  *   4. A clear note that credentials live on the server, not in the browser.
@@ -1102,6 +1440,7 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
   const [prefix, setPrefix] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const didLoad = useRef(false);
 
   const fetchConfig = useCallback(async () => {
@@ -1129,6 +1468,19 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.token) return;
+    const fieldErrors = validateFields({
+      endpoint: { value: endpoint, url: true, label: 'Endpoint URL' },
+      region: { value: region, required: true, label: 'Region' },
+      bucket: { value: bucket, required: true, label: 'Bucket name' },
+      accessKeyId: { value: accessKeyId, required: true, label: 'Access key ID' },
+      secretAccessKey: { value: secretAccessKey, required: true, label: 'Secret access key' },
+      prefix: { value: prefix, endsWithSlash: true, label: 'Key prefix' },
+    });
+    setErrors(fieldErrors);
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -1197,14 +1549,14 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
       <p className="mt-1 text-xs text-neutral-500">
         Store your vault in an S3-compatible bucket (AWS S3, MinIO, Cloudflare R2, Backblaze B2, …).
         The browser talks only to your GraphVault server, which proxies to S3 and signs requests
-        using AWS SigV4 — your credentials and secret key never leave the server.
+        using AWS SigV4 - your credentials and secret key never leave the server.
       </p>
 
       {/* Security notice */}
-      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-3 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Credentials stay on the server.</strong> Your S3 access key and secret are encrypted
         at rest on your GraphVault server using AES-256-GCM. AWS SigV4 request signing happens
-        server-side — the browser handles only its normal GraphVault bearer token.
+        server-side - the browser handles only its normal GraphVault bearer token.
       </div>
 
       {!auth.isSignedIn ? (
@@ -1298,9 +1650,12 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
                   value={endpoint}
                   onChange={(e) => setEndpoint(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.endpoint)}
+                  aria-describedby={errors.endpoint ? 's3-endpoint-error' : undefined}
                   placeholder="https://account-id.r2.cloudflarestorage.com"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="s3-endpoint-error" message={errors.endpoint} />
                 <p className="mt-1 text-xs text-neutral-600">
                   MinIO: <code className="text-neutral-500">http://minio.local:9000</code>
                   {' · '}Cloudflare R2:{' '}
@@ -1386,7 +1741,7 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
                 <p className="mt-1 text-xs text-neutral-600">
-                  Sent to your server over TLS and stored encrypted — never returned to the browser.
+                  Sent to your server over TLS and stored encrypted - never returned to the browser.
                 </p>
               </div>
               <div>
@@ -1402,9 +1757,12 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
                   value={prefix}
                   onChange={(e) => setPrefix(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.prefix)}
+                  aria-describedby={errors.prefix ? 's3-prefix-error' : undefined}
                   placeholder="graphvault/"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="s3-prefix-error" message={errors.prefix} />
               </div>
               <div className="flex gap-2">
                 <button
@@ -1432,7 +1790,7 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
         </>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -1449,7 +1807,7 @@ function S3Section({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; serv
 // These two providers were added server-side in Wave 16 with locally-defined
 // schemas (not in @graphvault/shared), so the typed GraphVaultClient has no
 // generated methods for them. We POST/GET/DELETE their config directly with a
-// bearer-token fetch — mirroring the storage adapters, which proxy the same way.
+// bearer-token fetch - mirroring the storage adapters, which proxy the same way.
 // Secrets live only in the in-flight request body; nothing is stored in the
 // browser.
 // ---------------------------------------------------------------------------
@@ -1528,7 +1886,7 @@ interface AzureConfigInfo {
 /**
  * Azure Blob Storage configuration section.
  *
- * Shows the current config status (account, container, endpoint — never the
+ * Shows the current config status (account, container, endpoint - never the
  * account key), a form to set/update credentials, and a remove button. The
  * account key is sent to the server over TLS and stored encrypted at rest; it
  * is never returned to or stored by the browser.
@@ -1549,6 +1907,7 @@ function AzureSection({
   const [endpoint, setEndpoint] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const didLoad = useRef(false);
 
   const fetchConfig = useCallback(async () => {
@@ -1575,6 +1934,17 @@ function AzureSection({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.token) return;
+    const fieldErrors = validateFields({
+      account: { value: account, required: true, label: 'Storage account name' },
+      container: { value: container, required: true, label: 'Container name' },
+      accountKey: { value: accountKey, required: true, label: 'Account key' },
+      endpoint: { value: endpoint, url: true, label: 'Endpoint URL' },
+    });
+    setErrors(fieldErrors);
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -1639,14 +2009,14 @@ function AzureSection({
 
       <p className="mt-1 text-xs text-neutral-500">
         Store your vault in an Azure Blob Storage container. The browser talks only to your
-        GraphVault server, which proxies to Azure and signs requests server-side — your account key
+        GraphVault server, which proxies to Azure and signs requests server-side - your account key
         never leaves the server.
       </p>
 
       {/* Security notice */}
-      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-3 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Credentials stay on the server.</strong> Your Azure account key is encrypted at rest
-        on your GraphVault server using AES-256-GCM. Request signing happens server-side — the
+        on your GraphVault server using AES-256-GCM. Request signing happens server-side - the
         browser handles only its normal GraphVault bearer token.
       </div>
 
@@ -1775,7 +2145,7 @@ function AzureSection({
                 />
                 <p className="mt-1 text-xs text-neutral-600">
                   Found under Storage account → Access keys (key1 or key2). Sent to your server over
-                  TLS and stored encrypted — never returned to the browser.
+                  TLS and stored encrypted - never returned to the browser.
                 </p>
               </div>
               <div>
@@ -1792,9 +2162,12 @@ function AzureSection({
                   value={endpoint}
                   onChange={(e) => setEndpoint(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.endpoint)}
+                  aria-describedby={errors.endpoint ? 'azure-endpoint-error' : undefined}
                   placeholder="http://127.0.0.1:10000/devstoreaccount1"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="azure-endpoint-error" message={errors.endpoint} />
                 <p className="mt-1 text-xs text-neutral-600">
                   Leave blank for Azure (uses{' '}
                   <code className="text-neutral-500">
@@ -1829,7 +2202,7 @@ function AzureSection({
         </>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -1855,7 +2228,7 @@ interface GcsConfigInfo {
 /**
  * Google Cloud Storage configuration section.
  *
- * Shows the current config status (bucket, HMAC access ID, prefix — never the
+ * Shows the current config status (bucket, HMAC access ID, prefix - never the
  * secret), a form to set/update credentials, and a remove button. The HMAC
  * interop secret is sent to the server over TLS and stored encrypted at rest;
  * it is never returned to or stored by the browser.
@@ -1870,6 +2243,7 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
   const [prefix, setPrefix] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const didLoad = useRef(false);
 
   const fetchConfig = useCallback(async () => {
@@ -1896,6 +2270,17 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.token) return;
+    const fieldErrors = validateFields({
+      bucket: { value: bucket, required: true, label: 'Bucket name' },
+      accessId: { value: accessId, required: true, label: 'HMAC access ID' },
+      secret: { value: secret, required: true, label: 'HMAC secret' },
+      prefix: { value: prefix, endsWithSlash: true, label: 'Key prefix' },
+    });
+    setErrors(fieldErrors);
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -1960,14 +2345,14 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
 
       <p className="mt-1 text-xs text-neutral-500">
         Store your vault in a Google Cloud Storage bucket via HMAC interop credentials. The browser
-        talks only to your GraphVault server, which proxies to GCS and signs requests server-side —
+        talks only to your GraphVault server, which proxies to GCS and signs requests server-side -
         your HMAC secret never leaves the server.
       </p>
 
       {/* Security notice */}
-      <div className="mt-3 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-3 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Credentials stay on the server.</strong> Your GCS HMAC secret is encrypted at rest
-        on your GraphVault server using AES-256-GCM. Request signing happens server-side — the
+        on your GraphVault server using AES-256-GCM. Request signing happens server-side - the
         browser handles only its normal GraphVault bearer token.
       </div>
 
@@ -2096,7 +2481,7 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
                 <p className="mt-1 text-xs text-neutral-600">
-                  Sent to your server over TLS and stored encrypted — never returned to the browser.
+                  Sent to your server over TLS and stored encrypted - never returned to the browser.
                 </p>
               </div>
               <div>
@@ -2112,9 +2497,12 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
                   value={prefix}
                   onChange={(e) => setPrefix(e.target.value)}
                   disabled={busy}
+                  aria-invalid={Boolean(errors.prefix)}
+                  aria-describedby={errors.prefix ? 'gcs-prefix-error' : undefined}
                   placeholder="graphvault/"
                   className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                 />
+                <FieldError id="gcs-prefix-error" message={errors.prefix} />
               </div>
               <div className="flex gap-2">
                 <button
@@ -2142,7 +2530,7 @@ function GcsSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; ser
         </>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -2167,6 +2555,23 @@ function EncryptionSection() {
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const isEnabled = vault.encryptionEnabled;
+
+  // Encryption is only safe over the localStorage backend: EncryptedVaultStore
+  // operates on a single serialised blob in localStorage, NOT through the active
+  // storage adapter. Enabling it while a cloud/FS backend is active would write
+  // ciphertext to localStorage while the cloud copy stays stale plaintext - a
+  // split vault. So we offer "enable encryption" only when localStorage is the
+  // active backend (matches the documented scope in EncryptedVaultStore.ts).
+  // Disabling stays available regardless so an already-encrypted vault can
+  // always be turned off.
+  const activeAdapterId = (() => {
+    try {
+      return getActiveAdapter().id;
+    } catch {
+      return 'localStorage';
+    }
+  })();
+  const encryptionSupported = activeAdapterId === 'localStorage';
 
   const handleEnable = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2239,7 +2644,7 @@ function EncryptionSection() {
       <h2 className="text-sm font-semibold text-neutral-200">Vault encryption</h2>
       <p className="mt-1 text-xs text-neutral-500">
         Encrypt your notes at rest in the browser using AES-256-GCM. The passphrase is never stored
-        — you will need it on every session.
+        - you will need it on every session.
       </p>
 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-400">
@@ -2262,7 +2667,7 @@ function EncryptionSection() {
             >
               Disable encryption
             </button>
-          ) : (
+          ) : encryptionSupported ? (
             <button
               type="button"
               onClick={() => {
@@ -2273,6 +2678,14 @@ function EncryptionSection() {
             >
               Enable encryption
             </button>
+          ) : (
+            <div className="rounded-md border border-neutral-800 bg-neutral-900/60 p-3 text-xs text-neutral-500">
+              At-rest encryption is available only on the{' '}
+              <strong className="text-neutral-400">browser storage (localStorage)</strong> backend.
+              Your active backend is <strong className="text-neutral-400">{activeAdapterId}</strong>
+              . Switch back to browser storage (Storage location, above) to enable encryption - this
+              prevents writing encrypted data to one backend while another holds stale plaintext.
+            </div>
           )}
         </div>
       )}
@@ -2378,7 +2791,7 @@ function EncryptionSection() {
         </form>
       )}
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -2454,7 +2867,11 @@ function AuthSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; se
 
   return (
     <section className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-5">
-      <h2 className="text-sm font-semibold text-neutral-200">Account</h2>
+      <h2 className="text-sm font-semibold text-neutral-200">Sync account (self-hosted)</h2>
+      <p className="mt-1 text-xs text-neutral-500">
+        Optional. This signs in to <em>your own</em> sync server - it is not a GraphVault product
+        account, and you do not need it to use the app.
+      </p>
 
       {auth.isSignedIn ? (
         <div className="mt-3 space-y-2">
@@ -2481,9 +2898,11 @@ function AuthSection({ auth, serverUrl }: { auth: ReturnType<typeof useAuth>; se
       ) : (
         <div className="mt-3 space-y-3">
           <p className="text-xs text-neutral-500">
-            Sign in or create an account on your server to enable sync. Your password is only sent
-            to the server URL configured above over a secure connection. The token is stored in
-            sessionStorage (cleared on tab close) — never in a cookie or logged anywhere.
+            Sign in to the server you host yourself to turn on cross-device sync. The &quot;Create
+            account&quot; button just sets up your login on that server - there is no GraphVault
+            cloud. Your password is only sent to the server URL configured above over a secure
+            connection. The token is stored in sessionStorage (cleared on tab close) - never in a
+            cookie or logged anywhere.
           </p>
 
           {form === 'none' && (
@@ -2772,16 +3191,86 @@ function VaultRegistrationSection({
  *  - Off (default): no AI, no network.
  *  - Local (Ollama): notes never leave the machine.
  *  - Server (BYO-key via server proxy): API key stored on YOUR server encrypted
- *    at rest. The browser sends only the prompt — never the key.
+ *    at rest. The browser sends only the prompt - never the key.
  *
  * The key entry + save form for server mode mirrors the WebDAV / S3 pattern:
  *  - User enters the key in a form field (masked by default).
  *  - On submit the key is sent to POST /v1/ai/config over TLS.
  *  - The server encrypts it at rest with AES-256-GCM + per-user HKDF.
- *  - GET /v1/ai/config returns only a `keySet: boolean` — never the key value.
+ *  - GET /v1/ai/config returns only a `keySet: boolean` - never the key value.
  *  - The key is cleared from the form on submit; it never lives in state longer
  *    than needed, and is never written to sessionStorage or localStorage.
  */
+/**
+ * Budget / spend meter for the AI server proxy. Renders the live spend window
+ * (accrued $ + request count for the current UTC day) as a coloured progress
+ * bar. Driven entirely by `spendCapState` from GET /v1/ai/config - the client
+ * never computes spend itself.
+ */
+function BudgetMeter({
+  state,
+  spendCapUsd,
+}: {
+  state: NonNullable<AiConfigInfo['spendCapState']>;
+  spendCapUsd: number | undefined;
+}) {
+  const meter = buildBudgetMeter(state, spendCapUsd);
+  const barColor =
+    meter.state === 'exceeded'
+      ? 'bg-red-500'
+      : meter.state === 'warning'
+        ? 'bg-amber-500'
+        : 'bg-emerald-500';
+  const resetsAt = (() => {
+    const d = new Date(state.windowResetsAt);
+    return Number.isNaN(d.getTime()) ? state.windowResetsAt : d.toLocaleString();
+  })();
+  return (
+    <div className="mt-3 rounded-md border border-neutral-800 bg-neutral-900/40 p-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium text-neutral-300">Today&apos;s usage</span>
+        <span
+          className={[
+            'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+            meter.state === 'exceeded'
+              ? 'bg-red-950 text-red-300'
+              : meter.state === 'warning'
+                ? 'bg-amber-950 text-amber-300'
+                : 'bg-emerald-950 text-emerald-300',
+          ].join(' ')}
+        >
+          {meter.state}
+        </span>
+      </div>
+      <div
+        className="mt-2 h-2 w-full overflow-hidden rounded-full bg-neutral-800"
+        role="progressbar"
+        aria-valuenow={Math.round(meter.percent)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="AI daily spend budget used"
+      >
+        <div
+          className={['h-full rounded-full transition-all', barColor].join(' ')}
+          style={{ width: `${meter.percent}%` }}
+        />
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-neutral-400">
+        <dt>Spend</dt>
+        <dd className="text-right text-neutral-200">{meter.spendLabel}</dd>
+        <dt>Requests</dt>
+        <dd className="text-right text-neutral-200">{meter.requestLabel}</dd>
+      </dl>
+      {meter.exhausted && (
+        <p className="mt-2 text-xs text-red-300">
+          Daily cap reached - further requests are refused until the window resets ({resetsAt}).
+          Raise the cap above or wait for the reset.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AIAssistantSection() {
   const { settings, update } = useAISettings();
   const auth = useAuth();
@@ -2793,16 +3282,14 @@ function AIAssistantSection() {
   const [gateway, setGateway] = useState<'openrouter' | 'custom'>('openrouter');
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [serverAiModel, setServerAiModel] = useState('');
+  const [spendCapInput, setSpendCapInput] = useState('');
+  const [dailyCapInput, setDailyCapInput] = useState('');
   const [showKeyForm, setShowKeyForm] = useState(false);
-  const [keyConfigInfo, setKeyConfigInfo] = useState<{
-    keySet: boolean;
-    gateway: string;
-    model?: string;
-    updatedAt: string;
-  } | null>(null);
+  const [keyConfigInfo, setKeyConfigInfo] = useState<AiConfigInfo | null>(null);
   const [loadingKeyConfig, setLoadingKeyConfig] = useState(false);
   const [keyMsg, setKeyMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [keyBusy, setKeyBusy] = useState(false);
+  const [keyErrors, setKeyErrors] = useState<FieldErrors>({});
   const keyConfigLoaded = useRef(false);
 
   const fetchKeyConfig = useCallback(async () => {
@@ -2835,9 +3322,38 @@ function AIAssistantSection() {
       setKeyMsg({ kind: 'err', text: 'Please enter an API key.' });
       return;
     }
-    if (gateway === 'custom' && !customBaseUrl.trim()) {
-      setKeyMsg({ kind: 'err', text: 'A base URL is required for the custom gateway.' });
-      return;
+    // For the custom gateway the base URL is required and must be a valid
+    // http(s) URL; OpenRouter uses a built-in endpoint, so no URL to check.
+    if (gateway === 'custom') {
+      const fieldErrors = validateFields({
+        customBaseUrl: { value: customBaseUrl, required: true, url: true, label: 'Base URL' },
+      });
+      setKeyErrors(fieldErrors);
+      if (!isValid(fieldErrors)) {
+        setKeyMsg({ kind: 'err', text: 'Please fix the highlighted fields.' });
+        return;
+      }
+    } else {
+      setKeyErrors({});
+    }
+    // Parse the optional caps. Empty = leave unset (no cap of that kind).
+    let spendCapUsd: number | undefined;
+    if (spendCapInput.trim()) {
+      const n = Number(spendCapInput.trim());
+      if (!Number.isFinite(n) || n < 0) {
+        setKeyMsg({ kind: 'err', text: 'Spend cap must be a non-negative number.' });
+        return;
+      }
+      spendCapUsd = n;
+    }
+    let dailyRequestCap: number | undefined;
+    if (dailyCapInput.trim()) {
+      const n = Number(dailyCapInput.trim());
+      if (!Number.isInteger(n) || n < 0) {
+        setKeyMsg({ kind: 'err', text: 'Daily request cap must be a non-negative whole number.' });
+        return;
+      }
+      dailyRequestCap = n;
     }
     setKeyBusy(true);
     setKeyMsg(null);
@@ -2849,6 +3365,8 @@ function AIAssistantSection() {
         gateway,
         baseUrl: gateway === 'custom' ? customBaseUrl.trim() : undefined,
         model: serverAiModel.trim() || undefined,
+        spendCapUsd,
+        dailyRequestCap,
       });
       setKeyMsg({
         kind: 'ok',
@@ -2905,7 +3423,7 @@ function AIAssistantSection() {
       <div className="mt-2 rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-300">
         <strong>Privacy notice:</strong> your notes leave your device only if you enable a cloud
         provider. <strong>Local</strong> and <strong>Off</strong> modes keep everything on-device.
-        The <strong>Server</strong> mode proxies your prompt through your self-hosted server — your
+        The <strong>Server</strong> mode proxies your prompt through your self-hosted server - your
         API key is stored on <em>your server</em>, encrypted at rest, and is never sent to this
         browser at any point.
       </div>
@@ -2929,7 +3447,7 @@ function AIAssistantSection() {
               {
                 kind: 'server' as const,
                 label: 'Server (BYO-key, OpenRouter default)',
-                desc: 'Your key lives on your server — the browser only sends the prompt, never a key.',
+                desc: 'Your key lives on your server - the browser only sends the prompt, never a key.',
               },
             ] satisfies { kind: AISettings['kind']; label: string; desc: string }[]
           ).map(({ kind, label, desc }) => (
@@ -2948,11 +3466,11 @@ function AIAssistantSection() {
                 value={kind}
                 checked={settings.kind === kind}
                 onChange={() => handleKindChange(kind)}
-                className="mt-0.5 accent-sky-500"
+                className="mt-0.5 accent-accent-500"
               />
               <span>
                 <span className="font-medium">{label}</span>
-                <span className="ml-1 text-xs text-neutral-500"> — {desc}</span>
+                <span className="ml-1 text-xs text-neutral-500"> - {desc}</span>
               </span>
             </label>
           ))}
@@ -3003,12 +3521,15 @@ function AIAssistantSection() {
       {/* Server (BYO-key proxy) config */}
       {settings.kind === 'server' && (
         <div className="mt-4 space-y-3">
-          {/* Security notice — unmissable */}
-          <div className="rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+          {/* Security notice - unmissable */}
+          <div className="rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
             <strong>Your key stays on your server.</strong> The API key you enter below is sent once
             over TLS to your GraphVault server and stored encrypted with AES-256-GCM. It is never
-            returned to this browser, never stored in the browser, and never logged. The browser
-            sends only chat prompts — your server adds the key for outbound calls.
+            returned to this browser, never stored in the browser, and never logged. When you run
+            the assistant, your prompt (which includes note content) goes to{' '}
+            <em>your server → your chosen gateway</em>; your server adds the key for the outbound
+            call. The server records only request counts and cost for the spend cap - never your
+            prompts or the responses.
           </div>
 
           {/* Optional model override for local panel */}
@@ -3019,7 +3540,7 @@ function AIAssistantSection() {
             >
               Model override{' '}
               <span className="text-neutral-600">
-                (optional — leave blank to use server default)
+                (optional - leave blank to use server default)
               </span>
             </label>
             <input
@@ -3036,7 +3557,7 @@ function AIAssistantSection() {
             </p>
           </div>
 
-          {/* Key management — sign-in guard */}
+          {/* Key management - sign-in guard */}
           {!auth.isSignedIn ? (
             <p className="text-xs text-neutral-500">
               Sign in to your GraphVault server (Account section above) to configure the AI key.
@@ -3078,6 +3599,20 @@ function AIAssistantSection() {
                   </dd>
                 </dl>
               ) : (
+                <></>
+              )}
+
+              {/* Budget / spend meter - driven by the live spendCapState from
+                  GET /v1/ai/config. Shows accrued spend + request count for the
+                  current UTC day and a coloured progress bar. */}
+              {keyConfigInfo?.spendCapState && (
+                <BudgetMeter
+                  state={keyConfigInfo.spendCapState}
+                  spendCapUsd={keyConfigInfo.spendCapUsd}
+                />
+              )}
+
+              {!keyConfigInfo && (
                 <p className="text-xs text-neutral-500">
                   No AI key configured on the server yet. Add one below.
                 </p>
@@ -3088,7 +3623,23 @@ function AIAssistantSection() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowKeyForm((s) => !s);
+                    setShowKeyForm((s) => {
+                      const next = !s;
+                      if (next && keyConfigInfo) {
+                        // Pre-fill non-secret fields from the stored config so an
+                        // "Update" preserves them. The key itself is NEVER
+                        // pre-filled - it is write-only and never returned.
+                        setGateway(keyConfigInfo.gateway);
+                        setCustomBaseUrl(keyConfigInfo.baseUrl ?? '');
+                        setServerAiModel(keyConfigInfo.model ?? '');
+                        setSpendCapInput(
+                          keyConfigInfo.spendCapUsd != null
+                            ? String(keyConfigInfo.spendCapUsd)
+                            : '',
+                        );
+                      }
+                      return next;
+                    });
                     setKeyMsg(null);
                     setKeyInput('');
                   }}
@@ -3134,7 +3685,7 @@ function AIAssistantSection() {
                             value={value}
                             checked={gateway === value}
                             onChange={() => setGateway(value)}
-                            className="accent-sky-500"
+                            className="accent-accent-500"
                           />
                           {label}
                         </label>
@@ -3156,9 +3707,14 @@ function AIAssistantSection() {
                         value={customBaseUrl}
                         onChange={(e) => setCustomBaseUrl(e.target.value)}
                         disabled={keyBusy}
+                        aria-invalid={Boolean(keyErrors.customBaseUrl)}
+                        aria-describedby={
+                          keyErrors.customBaseUrl ? 'ai-custom-url-error' : undefined
+                        }
                         placeholder="https://api.openai.com/v1"
                         className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                       />
+                      <FieldError id="ai-custom-url-error" message={keyErrors.customBaseUrl} />
                       <p className="mt-1 text-xs text-neutral-600">
                         Any OpenAI-compatible endpoint (Anthropic, OpenAI, Together, etc.)
                       </p>
@@ -3181,6 +3737,53 @@ function AIAssistantSection() {
                       placeholder={gateway === 'openrouter' ? 'openai/gpt-4o-mini' : 'gpt-4o-mini'}
                       className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
                     />
+                  </div>
+
+                  {/* Spend / request caps - durable, per-user/day, reset at UTC
+                      midnight. Empty = no cap of that kind. See docs/ai-bff.md §4. */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        className="mb-1 block text-xs font-medium text-neutral-400"
+                        htmlFor="ai-spend-cap"
+                      >
+                        Daily spend cap (USD)
+                      </label>
+                      <input
+                        id="ai-spend-cap"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={spendCapInput}
+                        onChange={(e) => setSpendCapInput(e.target.value)}
+                        disabled={keyBusy}
+                        placeholder="e.g. 5.00"
+                        className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                      />
+                      <p className="mt-1 text-xs text-neutral-600">Blank = no $ cap.</p>
+                    </div>
+                    <div>
+                      <label
+                        className="mb-1 block text-xs font-medium text-neutral-400"
+                        htmlFor="ai-daily-cap"
+                      >
+                        Daily request cap
+                      </label>
+                      <input
+                        id="ai-daily-cap"
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        value={dailyCapInput}
+                        onChange={(e) => setDailyCapInput(e.target.value)}
+                        disabled={keyBusy}
+                        placeholder="server default"
+                        className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
+                      />
+                      <p className="mt-1 text-xs text-neutral-600">Blank = server default.</p>
+                    </div>
                   </div>
 
                   <div>
@@ -3212,7 +3815,7 @@ function AIAssistantSection() {
                       </button>
                     </div>
                     <p className="mt-1 text-xs text-neutral-600">
-                      Sent to your server over TLS and stored encrypted — never returned to this
+                      Sent to your server over TLS and stored encrypted - never returned to this
                       browser. Your key is stored on <em>your</em> server, not GraphVault&apos;s
                       infrastructure.
                     </p>
@@ -3242,7 +3845,7 @@ function AIAssistantSection() {
                 </form>
               )}
 
-              <div className="mt-1 min-h-4 text-xs">
+              <div className="mt-1 min-h-4 text-xs" role="status" aria-live="polite">
                 {keyMsg && (
                   <span className={keyMsg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
                     {keyMsg.text}
@@ -3263,14 +3866,14 @@ function AIAssistantSection() {
               ? 'bg-neutral-800 text-neutral-500'
               : settings.kind === 'local'
                 ? 'bg-emerald-950 text-emerald-300'
-                : 'bg-sky-950 text-sky-300',
+                : 'bg-accent-950 text-accent-300',
           ].join(' ')}
         >
           {settings.kind === 'off'
-            ? 'AI is off — no network calls will be made'
+            ? 'AI is off - no network calls will be made'
             : settings.kind === 'local'
-              ? 'Local inference — notes stay on-device'
-              : 'Server proxy — key on your server, never in this browser'}
+              ? 'Local inference - notes stay on-device'
+              : 'Server proxy - key on your server, never in this browser'}
         </span>
       </div>
     </section>
@@ -3278,7 +3881,7 @@ function AIAssistantSection() {
 }
 
 // ---------------------------------------------------------------------------
-// Connectors section (M22 — phase 1: local-only)
+// Connectors section (M22 - phase 1: local-only)
 // ---------------------------------------------------------------------------
 
 /** Privacy posture badge shown before a connector runs. */
@@ -3377,7 +3980,7 @@ function RssImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext> }
         Paste RSS 2.0, Atom, or OPML XML below, or upload a{' '}
         <code className="text-neutral-400">.xml</code> /{' '}
         <code className="text-neutral-400">.opml</code> file. Each feed item becomes one note under{' '}
-        <code className="text-neutral-400">connectors/rss/</code>. Import is collision-safe —
+        <code className="text-neutral-400">connectors/rss/</code>. Import is collision-safe -
         existing notes are never overwritten.
       </p>
 
@@ -3447,7 +4050,7 @@ function RssImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext> }
       </div>
 
       {/* Result message */}
-      <div className="min-h-4 text-xs">
+      <div className="min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -3459,7 +4062,7 @@ function RssImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext> }
 }
 
 /**
- * Email import panel — file upload for .eml and .mbox files.
+ * Email import panel - file upload for .eml and .mbox files.
  *
  * Processes files entirely in the browser; no network calls. Uses the
  * emailConnector's parse() method and vault.importNotes() for collision-safe
@@ -3541,7 +4144,7 @@ function EmailImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext>
         Upload <code className="text-neutral-400">.eml</code> files (one message each) or{' '}
         <code className="text-neutral-400">.mbox</code> archives (multiple messages). Each message
         becomes one note under <code className="text-neutral-400">connectors/email/</code>. Import
-        is collision-safe — existing notes are never overwritten.
+        is collision-safe - existing notes are never overwritten.
       </p>
 
       <div className="rounded-md border border-emerald-900/40 bg-emerald-950/20 p-3 text-xs text-emerald-300">
@@ -3599,7 +4202,7 @@ function EmailImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext>
       </p>
 
       {/* Result message */}
-      <div className="min-h-4 text-xs">
+      <div className="min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -3611,9 +4214,9 @@ function EmailImportPanel({ vault }: { vault: ReturnType<typeof useVaultContext>
 }
 
 /**
- * Web-clipper panel — paste a URL, the server fetches it and converts to Markdown.
+ * Web-clipper panel - paste a URL, the server fetches it and converts to Markdown.
  *
- * Privacy posture: `server` — the server makes the outbound HTTP request,
+ * Privacy posture: `server` - the server makes the outbound HTTP request,
  * sidestepping browser CORS. An SSRF guard on the server blocks private/loopback
  * addresses. Requires a signed-in GraphVault server session.
  */
@@ -3629,12 +4232,17 @@ function WebClipPanel({
   const [urlInput, setUrlInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [urlError, setUrlError] = useState('');
 
   const handleClip = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = urlInput.trim();
-    if (!url) {
-      setMsg({ kind: 'err', text: 'Please enter a URL to clip.' });
+    const fieldErrors = validateFields({
+      url: { value: urlInput, required: true, url: true, label: 'URL' },
+    });
+    setUrlError(fieldErrors.url ?? '');
+    if (!isValid(fieldErrors)) {
+      setMsg({ kind: 'err', text: 'Please enter a valid http(s) URL.' });
       return;
     }
     if (!auth.token) {
@@ -3693,7 +4301,7 @@ function WebClipPanel({
 
       setMsg({
         kind: 'ok',
-        text: `Clipped "${result.title}" — ${parts.join(', ')}.`,
+        text: `Clipped "${result.title}" - ${parts.join(', ')}.`,
       });
       setUrlInput('');
     } catch (err) {
@@ -3715,7 +4323,7 @@ function WebClipPanel({
       </p>
 
       {/* Security notice */}
-      <div className="rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Via your server.</strong> The HTTP request goes through your self-hosted GraphVault
         server, not the browser. Private and loopback addresses (10.x, 192.168.x, 127.x,
         169.254.169.254) are blocked server-side. The URL is fetched once and is not stored
@@ -3738,9 +4346,12 @@ function WebClipPanel({
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               disabled={busy}
+              aria-invalid={Boolean(urlError)}
+              aria-describedby={urlError ? 'clip-url-error' : undefined}
               placeholder="https://example.com/article"
               className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none focus:border-neutral-500 disabled:opacity-50"
             />
+            <FieldError id="clip-url-error" message={urlError} />
           </div>
           <button
             type="submit"
@@ -3752,7 +4363,7 @@ function WebClipPanel({
         </form>
       )}
 
-      <div className="min-h-4 text-xs">
+      <div className="min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}
@@ -3768,7 +4379,7 @@ function WebClipPanel({
  * their privacy posture, description, and an expand/collapse panel per connector.
  *
  * Phase 1: local-only connectors (RSS/OPML, email).
- * Phase 2: server-posture connectors (web clipper — fetches via the self-hosted
+ * Phase 2: server-posture connectors (web clipper - fetches via the self-hosted
  *   GraphVault server, no credentials needed beyond a session token).
  */
 function ConnectorsSection({
@@ -3789,11 +4400,11 @@ function ConnectorsSection({
       <h2 className="text-sm font-semibold text-neutral-200">Connectors</h2>
 
       {/* Privacy preamble */}
-      <div className="mt-2 rounded-md border border-sky-900/40 bg-sky-950/20 p-3 text-xs text-sky-300">
+      <div className="mt-2 rounded-md border border-accent-900/40 bg-accent-950/20 p-3 text-xs text-accent-300">
         <strong>Privacy model:</strong> connectors are opt-in and off by default. Each connector
         shows its privacy posture before it runs. Phase 1 connectors are{' '}
-        <strong>on-device only</strong> — no network calls, no credentials. Phase 2 connectors route
-        through your self-hosted GraphVault server — credentials never reach the browser.
+        <strong>on-device only</strong> - no network calls, no credentials. Phase 2 connectors route
+        through your self-hosted GraphVault server - credentials never reach the browser.
       </div>
 
       {/* Connector list */}
@@ -3836,7 +4447,7 @@ function ConnectorsSection({
           </li>
         ))}
 
-        {/* ---- Phase 2: server-posture connector — web clipper ---- */}
+        {/* ---- Phase 2: server-posture connector - web clipper ---- */}
         <li className="rounded-lg border border-neutral-800 bg-neutral-950/30 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
@@ -3846,7 +4457,7 @@ function ConnectorsSection({
               </div>
               <p className="mt-1 text-xs text-neutral-500">
                 Paste a URL and your GraphVault server fetches it, extracts the main content, and
-                creates a Markdown note. No browser CORS — the request goes through your server.
+                creates a Markdown note. No browser CORS - the request goes through your server.
                 Requires a signed-in server session.
               </p>
               <p className="mt-1 text-xs text-neutral-600">{PRIVACY_POSTURE_LABELS['server']}</p>
@@ -3874,14 +4485,14 @@ function ConnectorsSection({
 
       <p className="mt-4 text-xs text-neutral-600">
         Phase 2 will add live email connectors (IMAP, Gmail, Outlook) that route through your
-        self-hosted GraphVault server — credentials never touch the browser.
+        self-hosted GraphVault server - credentials never touch the browser.
       </p>
     </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// App importer section (M20 — one-click importers)
+// App importer section (M20 - one-click importers)
 // ---------------------------------------------------------------------------
 
 /**
@@ -3957,7 +4568,7 @@ function AppImporterSection({ vault }: { vault: ReturnType<typeof useVaultContex
       <h2 className="text-sm font-semibold text-neutral-200">Import from another app</h2>
       <p className="mt-1 text-xs text-neutral-500">
         Switch to GraphVault in seconds. Pick your source app, then drop or upload your export.
-        Everything runs in your browser — no data leaves your device.
+        Everything runs in your browser - no data leaves your device.
       </p>
 
       {/* Source app picker */}
@@ -3983,11 +4594,11 @@ function AppImporterSection({ vault }: { vault: ReturnType<typeof useVaultContex
                   setSelectedId(imp.id);
                   setMsg(null);
                 }}
-                className="mt-0.5 accent-sky-500"
+                className="mt-0.5 accent-accent-500"
               />
               <span>
                 <span className="font-medium">{imp.name}</span>
-                <span className="ml-1 text-xs text-neutral-500"> — {imp.description}</span>
+                <span className="ml-1 text-xs text-neutral-500"> - {imp.description}</span>
               </span>
             </label>
           ))}
@@ -4055,7 +4666,7 @@ function AppImporterSection({ vault }: { vault: ReturnType<typeof useVaultContex
         alongside the imported one.
       </p>
 
-      <div className="mt-2 min-h-4 text-xs">
+      <div className="mt-2 min-h-4 text-xs" role="status" aria-live="polite">
         {msg && (
           <span className={msg.kind === 'ok' ? 'text-emerald-400' : 'text-red-400'}>
             {msg.text}

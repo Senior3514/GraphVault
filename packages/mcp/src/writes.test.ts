@@ -242,7 +242,7 @@ test('update_note rejects a mismatched expectedHash (optimistic concurrency)', a
       }),
     /expectedHash .* does not match/,
   );
-  // Unchanged — no clobber.
+  // Unchanged - no clobber.
   assert.equal(server.states.get('note.md')?.hash, hashOf('current'));
 });
 
@@ -331,7 +331,7 @@ test('a conflict response is surfaced as a WriteConflictError, not a silent clob
       return true;
     },
   );
-  // The concurrent edit survived — our write did not overwrite it.
+  // The concurrent edit survived - our write did not overwrite it.
   assert.equal(server.states.get('hot.md')?.hash, hashOf('someone elses edit'));
 });
 

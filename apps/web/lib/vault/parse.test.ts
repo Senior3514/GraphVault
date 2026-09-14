@@ -6,6 +6,7 @@ import {
   extractInlineTags,
   extractWikiLinks,
   parseNote,
+  setFrontmatterField,
   splitFrontmatter,
 } from './parse';
 
@@ -54,4 +55,87 @@ test('parseNote merges frontmatter tags with inline tags', () => {
   );
   assert.equal(parsed.title, 'T');
   assert.deepEqual([...parsed.tags].sort(), ['alpha', 'beta']);
+});
+
+// ---------------------------------------------------------------------------
+// setFrontmatterField
+// ---------------------------------------------------------------------------
+
+test('setFrontmatterField adds a frontmatter block to a note that has none', () => {
+  const result = setFrontmatterField('# Just a note\n', 'parent', 'Project.md');
+  assert.equal(result, '---\nparent: Project.md\n---\n\n# Just a note\n');
+  // Round-trips through the real reader.
+  assert.equal(splitFrontmatter(result).frontmatter.parent, 'Project.md');
+});
+
+test('setFrontmatterField adds a new key to existing frontmatter, preserving the rest', () => {
+  const result = setFrontmatterField('---\ntitle: T\n---\nbody\n', 'parent', 'Project.md');
+  const { frontmatter, body } = splitFrontmatter(result);
+  assert.equal(frontmatter.title, 'T');
+  assert.equal(frontmatter.parent, 'Project.md');
+  assert.equal(body, 'body\n');
+});
+
+test('setFrontmatterField replaces an existing key in place, preserving other fields', () => {
+  const result = setFrontmatterField(
+    '---\ntitle: T\nparent: Old.md\ntags: [a]\n---\nbody\n',
+    'parent',
+    'New.md',
+  );
+  const { frontmatter } = splitFrontmatter(result);
+  assert.equal(frontmatter.title, 'T');
+  assert.equal(frontmatter.parent, 'New.md');
+  assert.deepEqual(frontmatter.tags, ['a']);
+});
+
+test('setFrontmatterField(null) removes an existing key, preserving other fields', () => {
+  const result = setFrontmatterField('---\ntitle: T\nparent: Old.md\n---\nbody\n', 'parent', null);
+  const { frontmatter } = splitFrontmatter(result);
+  assert.equal(frontmatter.title, 'T');
+  assert.equal(frontmatter.parent, undefined);
+});
+
+test('setFrontmatterField(null) on a note with no frontmatter is a no-op', () => {
+  const result = setFrontmatterField('# Just a note\n', 'parent', null);
+  assert.equal(result, '# Just a note\n');
+});
+
+test('setFrontmatterField(null) on a note whose frontmatter never had the key is a no-op change', () => {
+  const result = setFrontmatterField('---\ntitle: T\n---\nbody\n', 'parent', null);
+  assert.equal(splitFrontmatter(result).frontmatter.title, 'T');
+  assert.equal(splitFrontmatter(result).frontmatter.parent, undefined);
+});
+
+test('setFrontmatterField quotes a value containing a colon so it round-trips', () => {
+  const result = setFrontmatterField('# n\n', 'parent', 'Chapter 1: Intro');
+  assert.equal(splitFrontmatter(result).frontmatter.parent, 'Chapter 1: Intro');
+});
+
+test('setFrontmatterField quotes a value with leading/trailing whitespace', () => {
+  const result = setFrontmatterField('# n\n', 'parent', '  padded  ');
+  assert.equal(splitFrontmatter(result).frontmatter.parent, '  padded  ');
+});
+
+test('setFrontmatterField round-trips a value containing a double quote (needs quoting for another reason)', () => {
+  // Regression test: the first version of quoteIfNeeded escaped internal `"`
+  // as `\"` when writing, but the reader (unquote()) never un-escapes
+  // anything - so the literal backslash survived into the read-back value.
+  // Caught by asserting the actual round-trip, not just that quoting happens.
+  const original = 'Chapter 1: "The Big Plan"';
+  const result = setFrontmatterField('# n\n', 'parent', original);
+  assert.equal(splitFrontmatter(result).frontmatter.parent, original);
+});
+
+test('setFrontmatterField round-trips a value containing a single quote', () => {
+  const original = "O'Brien's Notes: Draft";
+  const result = setFrontmatterField('# n\n', 'parent', original);
+  assert.equal(splitFrontmatter(result).frontmatter.parent, original);
+});
+
+test('setFrontmatterField flattens an embedded newline rather than corrupting the frontmatter block', () => {
+  const result = setFrontmatterField('# n\n', 'parent', 'line one\nline two');
+  // Never a raw embedded newline in the written frontmatter block.
+  const [, frontmatterBlock] = /^---\n([\s\S]*?)\n---/.exec(result) ?? [];
+  assert.equal(frontmatterBlock?.split('\n').length, 1);
+  assert.equal(splitFrontmatter(result).frontmatter.parent, 'line one line two');
 });

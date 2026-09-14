@@ -6,16 +6,16 @@
  * returned to the client.
  *
  * Config endpoints:
- *   POST   /v1/storage/azure/config      — set/update Azure config
- *   GET    /v1/storage/azure/config      — read non-secret info
- *   DELETE /v1/storage/azure/config      — remove Azure config
+ *   POST   /v1/storage/azure/config      - set/update Azure config
+ *   GET    /v1/storage/azure/config      - read non-secret info
+ *   DELETE /v1/storage/azure/config      - remove Azure config
  *
  * Object proxy endpoints (single well-known object):
- *   GET    /v1/storage/azure/object/graphvault-vault.json — download vault blob
- *   PUT    /v1/storage/azure/object/graphvault-vault.json — upload vault blob
- *   DELETE /v1/storage/azure/object/graphvault-vault.json — delete vault blob
+ *   GET    /v1/storage/azure/object/graphvault-vault.json - download vault blob
+ *   PUT    /v1/storage/azure/object/graphvault-vault.json - upload vault blob
+ *   DELETE /v1/storage/azure/object/graphvault-vault.json - delete vault blob
  *
- * Only the single well-known vault file is proxied — same minimal, auditable
+ * Only the single well-known vault file is proxied - same minimal, auditable
  * surface as the S3 adapter (one PUT per save, one GET per load).
  */
 
@@ -42,7 +42,7 @@ const azureConfigRequestSchema = z.object({
     .refine((a) => /^[a-z0-9][a-z0-9-]*$/i.test(a), 'account must be a valid storage account name'),
   /** Blob container name. */
   container: z.string().min(1).max(63),
-  /** Account key (base64). The secret — encrypted at rest, never returned. */
+  /** Account key (base64). The secret - encrypted at rest, never returned. */
   accountKey: z
     .string()
     .min(1)
